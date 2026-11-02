@@ -1,0 +1,15 @@
+{
+  "name": "chinchon",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser Chinchón: you against three CPU players. Plain HTML, CSS and JavaScript.",
+  "scripts": {
+    "test": "node tools/stress.js 20",
+    "test:browser": "node tests/browser/ui.js && node tests/browser/results_panel.js",
+    "bench": "node tools/bench.js 1600 smart greedy",
+    "build:single": "python3 build_single.py"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}

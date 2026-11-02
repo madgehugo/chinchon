@@ -454,18 +454,37 @@ document.getElementById("cpu-speed").addEventListener("change", (e) => {
   state.cpuSpeed = e.target.value;
 });
 
-// Changing the deck starts a new game (asking first if a game is under way)
+// Changing the deck starts a new game. If a game is under way, ask first with a
+// bar inside the page (the browser's pop-up dialogs are blocked in some places).
+let pendingDeck = null;
+
+function switchDeck(size) {
+  setDeckSize(size);
+  newGame();
+}
+
+function closeDeckConfirm(keepPlaying) {
+  document.getElementById("deck-confirm").hidden = true;
+  if (keepPlaying) document.getElementById("deck-size").value = String(DECK_SIZE);   // put the dropdown back
+  pendingDeck = null;
+}
+
 document.getElementById("deck-size").addEventListener("change", (e) => {
   const size = Number(e.target.value);
   const inProgress = state.round > 1 || state.totals.some(t => t !== 0) ||
                      state.hands[0].length > CARDS_PER_HAND;
-  if (inProgress && !confirm(`Switch to the ${size}-card deck? This starts a new game.`)) {
-    e.target.value = String(DECK_SIZE);    // user said no: put the dropdown back
-    return;
-  }
-  setDeckSize(size);
-  newGame();
+  if (!inProgress) { switchDeck(size); return; }
+  pendingDeck = size;
+  document.getElementById("deck-confirm-text").textContent =
+    `Switch to the ${size}-card deck? This starts a new game.`;
+  document.getElementById("deck-confirm").hidden = false;
 });
+document.getElementById("deck-yes").addEventListener("click", () => {
+  const size = pendingDeck;
+  closeDeckConfirm(false);
+  if (size !== null) switchDeck(size);
+});
+document.getElementById("deck-no").addEventListener("click", () => closeDeckConfirm(true));
 document.getElementById("reenter-yes").addEventListener("click", () => humanReenter(true));
 document.getElementById("reenter-no").addEventListener("click", () => humanReenter(false));
 

@@ -24,7 +24,9 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
+  /* side gutter of at least 16px, and more where a phone has a notch */
+  padding-left:  max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
   font-family: system-ui, sans-serif;
   background: #0d2b18;
   color: #fff;
@@ -48,7 +50,7 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
     "left  center right"
     "bottom bottom bottom";
   gap: 12px;
-  width: min(960px, 96vw);
+  width: min(960px, 100%);
   height: min(680px, 80vh);
   padding: 16px;
   border-radius: 24px;
@@ -196,7 +198,7 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 }
 
 #analysis {
-  width: min(960px, 96vw);
+  width: min(960px, 100%);
   margin-bottom: 20px;
   padding: 10px 14px;
   background: rgba(255,255,255,.08);
@@ -207,23 +209,23 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 
 #controls { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; align-items: center; }
 .opt { font-size: .85rem; display: flex; align-items: center; gap: 6px; }
-.opt select { padding: 6px 8px; border-radius: 6px; border: 0; font: inherit; }
+.opt select { padding: 6px 8px; border-radius: 6px; border: 0; font: inherit; background: #fffaf0; color: #222; }
 
 /* Closing mode: legal closing cards glow green, the rest fade out */
 .card.close-option { outline: 3px solid #66e08a; }
 .card.dimmed       { opacity: .4; }
 
-#reentry {
+#reentry, #deck-confirm {
   display: flex; align-items: center; gap: 10px;
   margin-bottom: 10px; padding: 8px 14px;
   background: rgba(255, 213, 74, .18);
   border-radius: 8px;
 }
-#reentry[hidden] { display: none; }          /* keep the hidden attribute working */
-#reentry button { margin: 0; }
+#reentry[hidden], #deck-confirm[hidden] { display: none; }          /* keep the hidden attribute working */
+#reentry button, #deck-confirm button { margin: 0; }
 
 #scoreboard {
-  width: min(960px, 96vw);
+  width: min(960px, 100%);
   margin-bottom: 10px;
   padding: 10px 14px;
   background: rgba(255,255,255,.08);

@@ -94,6 +94,14 @@
   </label>
 </div>
 
+<!-- Asks before a deck change throws away a game in progress (browser pop-up
+     dialogs are blocked in some places, so this is built into the page) -->
+<div id="deck-confirm" hidden>
+  <span id="deck-confirm-text"></span>
+  <button id="deck-yes">Start new game</button>
+  <button id="deck-no" class="secondary">Keep playing</button>
+</div>
+
 <!-- Only visible while you are eliminated and must choose (see renderControls) -->
 <div id="reentry" hidden>
   <span id="reentry-text"></span>
