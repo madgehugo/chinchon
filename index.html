@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chinchón</title>
+
+<!-- Files in this project (all in one folder; just open index.html):
+       style.css  how it looks
+       rules.js   the rules of Chinchón: deck, melds, scoring
+       ai.js      the CPU players
+       game.js    game state, turns, rounds and scoring
+       tests.js   self-tests for the rules (results appear in the console)
+       ui.js      drawing the table, clicks, dragging, startup
+     The scripts share one global scope, so the ORDER below matters:
+     each file may use what the files above it define. -->
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<h1>Chinchón</h1>
+
+<!-- =========================================================
+     HTML: the skeleton. It contains EMPTY containers; JavaScript
+     fills them with cards. Each id is how JS finds its element.
+     ========================================================= -->
+<div id="table">
+  <div class="seat" id="seat-2">
+    <div class="seat-name">CPU 2</div>
+    <div class="hand" id="hand-2"></div>
+  </div>
+
+  <div class="seat" id="seat-1">
+    <div class="seat-name">CPU 1</div>
+    <div class="hand" id="hand-1"></div>
+  </div>
+
+  <div id="centre">
+    <div id="piles">
+      <div class="pile" id="draw-pile">
+        <div id="draw-slot"></div>
+        <div class="pile-label" id="draw-label">Draw pile</div>
+      </div>
+      <div class="pile" id="discard-pile">
+        <div id="discard-slot"></div>
+        <div class="pile-label" id="discard-label">Discard pile</div>
+      </div>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div class="seat" id="seat-3">
+    <div class="seat-name">CPU 3</div>
+    <div class="hand" id="hand-3"></div>
+  </div>
+
+  <div class="seat" id="seat-0">
+    <div class="seat-name">You (Player 1)</div>
+    <div class="hand" id="hand-0"></div>
+  </div>
+</div>
+
+<div id="controls">
+  <label class="opt">Sort by
+    <select id="sort-mode">
+      <option value="number">Number</option>
+      <option value="suit">Suit</option>
+    </select>
+  </label>
+  <button id="sort-btn">Sort hand</button>
+  <button id="close-btn" disabled>Close round</button>
+  <button id="next-btn" disabled>Next round</button>
+  <button id="results-btn" disabled>Round results</button>
+  <button id="new-game">New game</button>
+  <label class="opt">CPU level
+    <select id="cpu-mode">
+      <option value="smart">Smart</option>
+      <option value="simple">Simple</option>
+      <option value="mixed">Mixed</option>
+    </select>
+  </label>
+  <label class="opt">CPU speed
+    <select id="cpu-speed">
+      <option value="slow">Slow</option>
+      <option value="normal" selected>Normal</option>
+      <option value="fast">Fast</option>
+    </select>
+  </label>
+  <label class="opt">Deck
+    <select id="deck-size">
+      <option value="40">40 cards</option>
+      <option value="48">48 cards (with 8s and 9s)</option>
+    </select>
+  </label>
+</div>
+
+<!-- Only visible while you are eliminated and must choose (see renderControls) -->
+<div id="reentry" hidden>
+  <span id="reentry-text"></span>
+  <button id="reenter-yes">Re-enter</button>
+  <button id="reenter-no">Stay out</button>
+</div>
+
+<div id="scoreboard"></div>
+<div id="analysis"></div>
+
+<!-- Round results: opens automatically when a round ends (see renderResults in ui.js) -->
+<div id="results" class="overlay" hidden>
+  <div class="panel">
+    <h2 id="results-title"></h2>
+    <div id="results-body"></div>
+    <p id="results-notice"></p>
+    <div class="panel-buttons">
+      <button id="res-next">Next round</button>
+      <button id="res-reenter">Re-enter</button>
+      <button id="res-stayout">Stay out</button>
+      <button id="res-newgame">New game</button>
+      <button id="res-hide" class="secondary">Hide</button>
+    </div>
+  </div>
+</div>
+
+<script src="rules.js"></script>
+<script src="ai.js"></script>
+<script src="game.js"></script>
+<script src="tests.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
