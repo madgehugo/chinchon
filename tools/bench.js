@@ -12,6 +12,12 @@
      side gets every position equally (use a multiple of 16 rounds). Without
      that rotation the side that always starts has an advantage; an earlier
      benchmark was fooled by exactly that.
+     DUPLICATE DEALING: every deal is played twice, with A and B in swapped
+     seats, from the same seeded shuffle. Both sides therefore get identical
+     cards, and luck of the deal cancels out of the A - B difference. <rounds>
+     counts plays, so 3200 means 1600 deals. The seed is fixed, so a run is
+     repeatable (as long as neither strategy uses Math.random, as easy and
+     medium do for their mistakes).
    Lower average points per round is better. "se" is the standard error of
    each average; a difference smaller than about 2 x se is just noise. Run
    `smart smart` as a control to see how big the noise is.
@@ -71,40 +77,58 @@ function playRound(levels, start) {
 }
 
 const CHINCHON_SCORE = -25;   // how a Chinchón counts in the averages
+const SEED = 12345;           // base seed: deal d is shuffled with SEED + d
 const stats = {};
 for (const label of labels) stats[label] = { n: 0, sum: 0, sumSq: 0, wins: 0, closes: 0 };
 let stalemates = 0;
 
-const started = Date.now();
-for (let r = 0; r < Number(rounds); r++) {
-  const rotation = r % 4;                                   // who sits where
-  const start = Math.floor(r / 4) % 4;                      // who starts (independent of seating)
+// Play one deal (same shuffle every time for a given `deal`) with the given seating and
+// starter. Adds to `stats` and returns A's average minus B's average points in this play.
+function playDeal(deal, rotation, start) {
+  g.setRandom(g.makeSeededRandom(SEED + deal));             // same shuffles (and reshuffles) for both plays
   const seat = [0, 1, 2, 3].map(s => labels[(s + rotation) % 2]);   // A B A B, shifted
   const result = playRound(seat, start);
-  if (!result) continue;
+  if (!result) return null;
   if (result.closer === null) stalemates++;
 
   const scores = result.points.map((pts, p) =>
     (result.chinchon && p === result.closer) ? CHINCHON_SCORE : pts);
   const best = Math.min(...scores);
+  const sumOf = [0, 0];                                     // points of A's two seats, of B's two seats
   scores.forEach((score, p) => {
     const st = stats[seat[p]];
     st.n++; st.sum += score; st.sumSq += score * score;
     if (score === best) st.wins++;
     if (result.closer === p) st.closes++;
+    sumOf[(p + rotation) % 2] += score;      // side 0 = A, 1 = B (by seat, since A and B may be the same spec)
   });
+  return (sumOf[0] - sumOf[1]) / 2;
 }
 
-console.log(`${rounds} rounds, ${deck}-card deck, ${((Date.now() - started) / 1000).toFixed(0)}s, ${stalemates} stalemates`);
+const deals = Math.floor(Number(rounds) / 2);
+const dealDiffs = [];                                       // A - B for each deal, averaged over its two plays
+const started = Date.now();
+for (let d = 0; d < deals; d++) {
+  const rotation = d % 4;                                   // who sits where (swapped for the second play)
+  const start = Math.floor(d / 4) % 4;                      // who starts (independent of seating)
+  const first = playDeal(d, rotation, start);
+  const second = playDeal(d, rotation + 1, start);          // A and B swap seats; identical cards
+  if (first !== null && second !== null) dealDiffs.push((first + second) / 2);
+}
+g.setRandom(Math.random);
+
+console.log(`${deals * 2} rounds (${deals} deals, each played twice), ${deck}-card deck, ${((Date.now() - started) / 1000).toFixed(0)}s, ${stalemates} stalemates`);
 const summary = labels.map(label => {
   const st = stats[label];
   const mean = st.sum / st.n;
   const se = Math.sqrt((st.sumSq / st.n - mean * mean) / st.n);
-  console.log(`  ${label.padEnd(36)} avg points ${mean.toFixed(2)} (se ${se.toFixed(2)})` +
-              `   rounds won ${(100 * st.wins / st.n).toFixed(1)}%   closed ${(100 * st.closes / st.n).toFixed(1)}%`);
+  console.log(`  ${label.padEnd(36)} avg points ${mean.toFixed(2)}   rounds won ${(100 * st.wins / st.n).toFixed(1)}%   closed ${(100 * st.closes / st.n).toFixed(1)}%`);
   return { mean, se };
 });
-const diff = summary[0].mean - summary[1].mean;
-const diffSe = Math.sqrt(summary[0].se ** 2 + summary[1].se ** 2);
+// The deals are independent of each other; the two plays of one deal are not, so
+// the standard error comes from the per-deal differences rather than from the two averages.
+const diff = dealDiffs.reduce((a, b) => a + b, 0) / dealDiffs.length;
+const variance = dealDiffs.reduce((a, x) => a + (x - diff) ** 2, 0) / (dealDiffs.length - 1);
+const diffSe = Math.sqrt(variance / dealDiffs.length);
 console.log(`  difference (A - B): ${diff.toFixed(2)} points, se ${diffSe.toFixed(2)}` +
             `  -> ${Math.abs(diff) > 2 * diffSe ? (diff < 0 ? "A is better" : "B is better") : "no clear difference"}`);

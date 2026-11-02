@@ -72,7 +72,7 @@ the game also works from `file://`, where browsers block modules.
 | Mixed | One CPU of each level: CPU 1 easy, CPU 2 medium, CPU 3 hard (with fewer CPUs, the first ones). |
 
 A mistake is drawing from the other pile or discarding a random card; CPUs never miss a legal close.
-Benchmark (`node tools/bench.js 3200 <A> <B>`, 2 CPUs of each level, seats and starter rotated, se about 0.2):
+Benchmark (`node tools/bench.js 3200 <A> <B>`, 2 CPUs of each level, seats and starter rotated; the standard errors below were measured before duplicate dealing was added and were about 0.2, now roughly a third smaller):
 
 | A vs B | A avg points | B avg points | A - B |
 | --- | --- | --- | --- |
@@ -103,8 +103,14 @@ npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts,
 
 * Unit tests in `tests.js` run every time the page loads; open the console (F12) and look for
   "All ... tests passed" or "TEST FAILED: ...".
-* `bench.js` rotates seats and the starting player, and prints a standard error. Differences under about two standard
-  errors are noise. Use at least 1,600 rounds, and run `smart smart` as a control to see the noise level.
+* `bench.js` rotates seats and the starting player, and plays every deal twice from the same seeded shuffle with the two
+  sides in swapped seats ("duplicate dealing"), so both sides get identical cards. `<rounds>` counts plays (3200 = 1600
+  deals). It prints a standard error computed from the per-deal differences; differences under about two standard
+  errors are noise. Use at least 1,600 rounds.
+* The shuffle uses `random` in `rules.js`, which is `Math.random` in the browser; the benchmark swaps in a seeded
+  generator (`makeSeededRandom`) so runs are repeatable. To see how much a result moves with the luck of the deals, change
+  `SEED` in `bench.js` and run again. `smart smart` no longer works as a noise control: identical strategies on identical
+  deals cancel to exactly 0. (The easy and medium mistake rolls in `ai.js` still use `Math.random`.)
 * After changing `ui.js` or `style.css`, run the browser tests and check the page at phone width (about 390px).
 
 ## Building a single file

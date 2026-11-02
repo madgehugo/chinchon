@@ -61,11 +61,31 @@ function createDeck() {
   return deck;
 }
 
+// The random number source used by shuffle(). The game uses Math.random; the
+// benchmark swaps in a seeded generator with setRandom() so that the same deal
+// can be replayed. (A function can be stored in a variable and replaced, like
+// assigning a callable to a name in Python.)
+let random = Math.random;
+function setRandom(fn) { random = fn; }
+
+// A small seeded random number generator (mulberry32): the same seed always gives
+// the same sequence of numbers between 0 and 1. Only used by the Node benchmarks.
+function makeSeededRandom(seed) {
+  let a = seed >>> 0;                  // keep it a 32-bit unsigned integer
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 // Fisher-Yates shuffle: walk backwards, swapping each card with a
 // randomly chosen card at or before it. Unbiased, unlike sort(random).
 function shuffle(deck) {
   for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));   // random int 0..i
+    const j = Math.floor(random() * (i + 1));   // random int 0..i
     [deck[i], deck[j]] = [deck[j], deck[i]];         // swap
   }
   return deck;

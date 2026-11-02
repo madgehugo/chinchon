@@ -35,7 +35,10 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 perfect bonus, denial of known cards, take margins, waiting to close) were benchmarked and none beat plain `smart`;
 results are in the comments above `SMART`. Do not re-run those without a new idea. A real improvement probably needs
 deeper search or opponent modelling. Benchmark with `tools/bench.js`; the harness rotates seats and the starting
-player because an earlier version without that rotation gave a false advantage to whoever started.
+player because an earlier version without that rotation gave a false advantage to whoever started. It also deals
+each hand twice with the two sides in swapped seats (seeded shuffle via `setRandom`; the browser keeps `Math.random`),
+which cuts the standard error by about a third. `smart smart` now always prints exactly 0, so it is no longer a noise
+control; change `SEED` in `bench.js` to gauge noise instead.
 
 ## How to check your work
 
