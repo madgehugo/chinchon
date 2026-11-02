@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Chinchón
 
 A browser game of Chinchón: you against 3 CPU players. Plain HTML, CSS and
@@ -63,3 +64,7 @@ All the rule numbers are named constants near the top of `rules.js`
 
 Open the page and the console (F12). `tests.js` runs on load and prints
 "All ... tests passed" for each group, or "TEST FAILED: ..." for any failure.
+=======
+# chinchon
+Playing around with Claude to make a Chinchon app.
+>>>>>>> 6e4cb4d217ef26eac56271f1a09dff07d96bfe9a
