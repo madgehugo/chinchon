@@ -29,7 +29,7 @@
 
    Example:  node tools/bench.js 3200 smart "smart:takeMargin=-1"
    ========================================================= */
-const { loadGame } = require("./harness");
+const { loadGame, registerSpec } = require("./harness");
 
 const CONTROL = process.argv.includes("--control");         // see NOISE CONTROL above
 const [rounds = "1600", specA = "smart", specB = "greedy", deck = "40"] =
@@ -37,29 +37,8 @@ const [rounds = "1600", specA = "smart", specB = "greedy", deck = "40"] =
 const g = loadGame();
 g.setDeckSize(Number(deck));
 
-// Turn "smart:closeBonus=5" into a registered strategy that applies those
-// SMART settings while it decides, then puts the defaults back.
-function register(spec) {
-  const [base, settings] = spec.split(":");
-  if (!settings) return base;                               // plain level name
-  const targets = [g.SMART, g.AWARE];                       // settings objects an override may name
-  const overrides = [];                                     // [object, key, value]
-  for (const pair of settings.split(",")) {
-    const [key, value] = pair.split("=");
-    const target = targets.find(t => key in t);
-    if (!target) { console.error(`Unknown setting "${key}". Known: ${targets.flatMap(Object.keys).join(", ")}`); process.exit(1); }
-    overrides.push([target, key, Number(value)]);
-  }
-  const inner = g.STRATEGIES[base];
-  const wrap = (method) => (...args) => {
-    const saved = overrides.map(([t, k]) => t[k]);
-    overrides.forEach(([t, k, v]) => { t[k] = v; });
-    try { return inner[method](...args); } finally { overrides.forEach(([t, k], i) => { t[k] = saved[i]; }); }
-  };
-  g.STRATEGIES[spec] = { chooseSource: wrap("chooseSource"), chooseClose: wrap("chooseClose"), chooseDiscard: wrap("chooseDiscard") };
-  return spec;
-}
-const labels = [register(specA), register(specB)];
+// "smart:closeBonus=5" style specs become registered strategies (see registerSpec in harness.js)
+const labels = [registerSpec(g, specA), registerSpec(g, specB)];
 
 // Play one round with every seat run by its strategy (including seat 0).
 function playRound(levels, start) {

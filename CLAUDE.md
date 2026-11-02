@@ -42,12 +42,17 @@ which cuts the standard error by about a third. `smart smart` now always prints 
 mistake rolls come from seeded streams in benchmarks, so runs are repeatable.
 A ninth idea, round-length awareness (`aware` in `ai.js`, uses `state.turns`), also did not beat `smart`; results are
 in the comment above `STRATEGIES.aware`. Hard is still plain `smart`.
+Also tried and not kept: deeper search (two-step lookahead for take-vs-draw and for the discard; results in the `SMART`
+comments) and game-risk awareness (`risk` in `ai.js`: bust avoidance near 100, close bonuses when someone is near it,
+re-entry aware; results above `STRATEGIES.risk`). Game-level ideas need `tools/gamebench.js` (whole games, one A
+against a field of B's), since `bench.js` plays single rounds with all totals at 0.
 
 ## How to check your work
 
 ```bash
 node tools/stress.js 20                      # engine: random games on both decks, card audit (must print "stress test passed")
 node tools/bench.js 1600 smart greedy        # CPU strength
+node tools/gamebench.js 4000 risk hard 40 4 --jobs 8   # CPU strength over whole games (~5 min)
 npm run test:browser                         # needs: npm install && npx playwright install chromium
 ```
 

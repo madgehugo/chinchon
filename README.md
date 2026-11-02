@@ -42,7 +42,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 | `game.js` | The game state (`state`), turns, rounds, scoring, elimination and re-entry. |
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the results panel, startup. |
-| `tools/` | Node scripts: `harness.js` (runs the engine without a browser), `bench.js` (CPU benchmark), `stress.js` (random-game bug hunt). |
+| `tools/` | Node scripts: `harness.js` (runs the engine without a browser), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt). |
 | `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout). |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file. |
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
@@ -88,6 +88,8 @@ Benchmark (`node tools/bench.js 3200 <A> <B>`, 2 CPUs of each level, seats and s
 All the rule numbers are named constants near the top of `rules.js` (`SCORE_LIMIT`, `MAX_UNMATCHED_TO_CLOSE`,
 `CLOSE_BONUS`, ...). CPU tuning lives in the `SMART` object in `ai.js`; its comments record which ideas were benchmarked
 and how they scored. Nine tuning ideas were tried (the ninth, round-length awareness, is the `aware` strategy) and none beat plain `smart`, so they are left off.
+Two later ideas did not beat it either: deeper search (results in the `SMART` comments) and game-risk awareness, the
+`risk` strategy (playing safe near the score limit and ending rounds on opponents near it; results above `STRATEGIES.risk`).
 
 ## Testing
 
@@ -97,6 +99,7 @@ You need [Node.js](https://nodejs.org) for the tools. Run these from the repo ro
 node tools/stress.js 20           # play random games on both decks, check no card is lost; ~seconds
 node tools/bench.js 1600 smart greedy             # compare two CPU settings
 node tools/bench.js 3200 smart "smart:takeMargin=-1"   # try a SMART override against the default
+node tools/gamebench.js 4000 risk hard 40 4 --jobs 8   # whole games: one A against three B, on 8 CPU cores
 npm install && npx playwright install chromium    # once, for the browser tests
 npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout
 ```
@@ -114,6 +117,12 @@ npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts,
   instead. It plays the two halves of each deal on independent deals (no pairing) and shows the noise a plain comparison
   would have (about 0.21 at 3200 plays). Its difference should be within about two standard errors of 0. Changing `SEED`
   in `bench.js` also shows how much a result moves.
+* `bench.js` scores single rounds with every total at 0, so it cannot see anything that depends on the game score
+  (elimination, re-entry, playing safe near 100). `gamebench.js` plays whole games with the real scoring and counts
+  wins. It seats ONE player A against a field of B's, because two A's at one table act as a team (one A going out can
+  still knock a B out for the other). Each deal is played with A in every seat, so a fair share is exactly 1/players
+  (25% with 4 players); `--control` gives the noise level (about 0.7 percentage points at 4,000 games, 0.3-0.4 paired).
+  4,000 games take about 5 minutes with `--jobs 8`.
 * After changing `ui.js` or `style.css`, run the browser tests and check the page at phone width (about 390px).
 
 ## Building a single file

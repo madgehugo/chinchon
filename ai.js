@@ -69,6 +69,10 @@ const SMART = {
   //   takeMargin +1.5                16.69 vs 16.54   no gain
   // (Lower is better.) A real step up probably needs deeper search or simulating
   // opponents, which costs much more computing time per move.
+  // Deeper search was tried later (duplicate dealing, A - B, negative = better), and was
+  // not kept: valuing take-vs-draw by the hand one draw later, -0.03 se 0.03 (6,400
+  // rounds; 48-card deck -0.04 se 0.04), about 4x slower; a two-draw lookahead for the
+  // discard (best 3 candidates only), -0.05 se 0.08, about 20x slower. Both no gain.
   closeBonus:   0,     // reward a hand that could close right now (a meld and <= 7 points)
   perfectBonus: 0,     // 1 = value a hand with no unmatched cards at the real -10, not 0
   denyWeight:   0,     // penalty for discarding a card an opponent is known to need
@@ -123,11 +127,13 @@ function denialRisk(p, card) {
 }
 
 // Given 8 cards, the discard that leaves the best 7-card hand right now.
-function bestAfterDiscard(hand) {
+// `costOf` scores a 7-card hand; it defaults to handCost (the "risk" strategy
+// passes its own). `costOf = handCost` is a default argument, like Python's.
+function bestAfterDiscard(hand, costOf = handCost) {
   let best = null;
   for (let i = 0; i < hand.length; i++) {
     const rest = hand.filter((card, j) => j !== i);
-    const cost = handCost(rest);
+    const cost = costOf(rest);
     const better = best === null || cost < best.cost ||
                    (cost === best.cost && cardPoints(hand[i]) > cardPoints(hand[best.index]));
     if (better) best = { cost, index: i };
@@ -149,10 +155,11 @@ function unseenCards(p, hand) {
 // One-step lookahead: if I hold this 7-card hand and draw a random unseen
 // card, then make the best discard, what is the AVERAGE cost of my hand?
 // This rewards hands that are close to completing melds ("outs").
-function expectedCostAfterDraw(hand7, unseen) {
-  if (unseen.length === 0) return handCost(hand7);
+// (`costOf` as in bestAfterDiscard.)
+function expectedCostAfterDraw(hand7, unseen, costOf = handCost) {
+  if (unseen.length === 0) return costOf(hand7);
   let sum = 0;
-  for (const card of unseen) sum += bestAfterDiscard([...hand7, card]).cost;
+  for (const card of unseen) sum += bestAfterDiscard([...hand7, card], costOf).cost;
   return sum / unseen.length;
 }
 
@@ -192,6 +199,68 @@ function awareAdjustment(hand7) {
   const late = lateness();
   const ev = evaluateHand(hand7);
   return late * AWARE.lateWeight * ev.points - (1 - late) * AWARE.earlyBonus * partialMelds(ev.unmatched);
+}
+
+// ---- Game-risk awareness (used by the "risk" strategy) ----
+// smart only tries to score few points this round. Near the end of a GAME what matters
+// is who goes over SCORE_LIMIT: a hand worth 12 points is a disaster at 92 but harmless
+// at 30, and an opponent near the limit is worth ending the round on. These settings
+// change the hand cost only when someone is near the limit, so early in a game risk
+// plays exactly like smart.
+// Going out is only a disaster when it is FINAL. While re-entry is open (the entry
+// score would be <= CPU_REENTRY_MAX), going out puts a player back in at the entry
+// score, which is LOWER than the total that knocked them out. So all the terms below
+// apply only when going out would be final, for me and for the opponent I push.
+const RISK = {
+  entryGuess:  5,    // how much the entry score may still rise this round (others score too)
+  nearLimit:   25,   // a player within this many points of SCORE_LIMIT counts as near it
+  bustPenalty: 15,   // extra cost of a hand that would put me over the limit if someone closed now
+  overWeight:  1,    // ...plus this much per point it would go over by
+  closeSelf:   3,    // when I am near the limit: cost taken off a hand that could close right now
+  closePush:   3,    // when an opponent is near it: the same (ending the round may knock them out)
+  noBustClose: 0,    // 1 = never close if the closing score itself would put me out for good
+                     // (off: it LOSES games, see the results above STRATEGIES.risk)
+};
+
+// Points player p can still take without going out (going over the limit is out)
+function roomLeft(p) {
+  return SCORE_LIMIT - state.totals[p];
+}
+
+// If player q went out this round, would it be for good? The entry score would be the
+// highest total among the others still in (plus whatever they score this round), and
+// it must be <= CPU_REENTRY_MAX for a re-entry.
+function outIsFinal(q) {
+  let entry = 0;
+  for (let r = 0; r < state.numPlayers; r++) {
+    if (r !== q && state.inGame[r]) entry = Math.max(entry, state.totals[r]);
+  }
+  return entry + RISK.entryGuess > CPU_REENTRY_MAX;
+}
+
+// Is any other player still in the game near the limit, with no way back if they go out?
+function opponentNearLimit(p) {
+  for (let q = 0; q < state.numPlayers; q++) {
+    if (q !== p && state.inGame[q] && roomLeft(q) <= RISK.nearLimit && outIsFinal(q)) return true;
+  }
+  return false;
+}
+
+// handCost plus the game-risk terms above, for player p's 7-card hand (lower = better)
+function riskCost(hand, p) {
+  if (isSingleSuitRun(hand)) return -SMART.chinchonValue;
+  const s = evalSummary(hand);
+  const room = roomLeft(p);
+  const final = outIsFinal(p);
+  let cost = s.points;
+  if (final && s.points > room) cost += RISK.bustPenalty + RISK.overWeight * (s.points - room);
+
+  const canClose = s.melds >= 1 && s.points <= MAX_UNMATCHED_TO_CLOSE;
+  if (canClose) {
+    if (final && room <= RISK.nearLimit) cost -= RISK.closeSelf;
+    if (opponentNearLimit(p))            cost -= RISK.closePush;
+  }
+  return cost;
 }
 
 // ---- The base strategies (greedy, smart) and the three levels built from them ----
@@ -263,15 +332,16 @@ const STRATEGIES = {
   },
 };
 
-// The discard choice shared by smart and aware. `adjust(rest)` adds to the cost of
+// The discard choice shared by smart, aware and risk. `adjust(rest)` adds to the cost of
 // keeping the 7 cards `rest` (smart adds nothing; aware adds its round-length terms).
-function smartDiscard(p, adjust) {
+// `costOf` scores the hands in the lookahead (risk passes its own; see bestAfterDiscard).
+function smartDiscard(p, adjust, costOf = handCost) {
   const hand = state.hands[p];
   const unseen = unseenCards(p, hand);
   let best = null;
   for (let i = 0; i < hand.length; i++) {
     const rest = hand.filter((card, j) => j !== i);
-    let score = expectedCostAfterDraw(rest, unseen) + adjust(rest);
+    let score = expectedCostAfterDraw(rest, unseen, costOf) + adjust(rest);
     if (SMART.denyWeight) score += SMART.denyWeight * denialRisk(p, hand[i]);
     const better = best === null || score < best.score - 1e-9 ||
                    (Math.abs(score - best.score) <= 1e-9 &&
@@ -299,6 +369,47 @@ function smartDiscard(p, adjust) {
 STRATEGIES.aware = {
   ...STRATEGIES.smart,                                   // same source and close decisions
   chooseDiscard(p) { return smartDiscard(p, awareAdjustment); },
+};
+
+// RISK: smart, with every hand scored by riskCost (game-risk awareness, see RISK above)
+// instead of handCost, and one optional closing rule.
+// NOT used by any level. Single rounds cannot show it (all totals are 0 there, so it plays
+// exactly like smart), so it was benchmarked over whole games with tools/gamebench.js:
+// one risk CPU against hard CPUs, 4,000 games each, 40-card deck. A's share of games won
+// (fair share 25% with 4 players, 50% with 2; se about 0.3-0.4):
+//   setting                                          4 players   2 players
+//   first version (no re-entry check, noBustClose 1)  ~47.6%*     48.5%*   WORSE
+//   noBustClose 1 (refuse a close that is final)       23.4%      48.6%    WORSE
+//   defaults (noBustClose 0)                           24.9%      50.5%    no gain
+//   bustPenalty 40, overWeight 2, close bonuses 8      24.9%      50.5%    no gain
+//   push only (closePush 8, the rest 0)                24.9%       -       no gain
+//   (* measured with an older A B A B seating, fair share 50%)
+// Why: hard already closes at every legal chance and already keeps its points low, so
+// the "close earlier, keep low cards, end the round on a weak opponent" levers are mostly
+// used already. Refusing a final-bust close is wrong because going out for good only
+// happens when the others are high as well: closing makes them pay their (usually larger)
+// points, they often go over too, and then the lowest total wins.
+// An early version ignored re-entry and did worse: while re-entry is open, going out
+// puts a player back in LOWER, so avoiding it (or pushing an opponent into it) is no gain.
+STRATEGIES.risk = {
+  chooseSource(p) {
+    if (state.discardPile.length === 0) return "deck";
+    const hand = state.hands[p];
+    const top = state.discardPile[state.discardPile.length - 1];
+    const costOf = h => riskCost(h, p);                  // a function "bound" to this player
+    const takeCost = bestAfterDiscard([...hand, top], costOf).cost;
+    const drawCost = expectedCostAfterDraw(hand, unseenCards(p, hand), costOf);
+    return takeCost < drawCost - SMART.takeMargin ? "discard" : "deck";
+  },
+  // Like smart, except that closing with a score that would put me out for good is
+  // refused: it is certain elimination, while playing on leaves a chance to improve.
+  chooseClose(p) {
+    const option = findBestClose(state.hands[p]);
+    if (RISK.noBustClose && option && !option.info.chinchon &&
+        option.info.closerScore > roomLeft(p) && outIsFinal(p)) return null;
+    return STRATEGIES.smart.chooseClose(p);
+  },
+  chooseDiscard(p) { return smartDiscard(p, () => 0, h => riskCost(h, p)); },
 };
 
 // Wrap a strategy so that, with probability `chance`, it makes a mistake when

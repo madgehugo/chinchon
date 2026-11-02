@@ -31,7 +31,7 @@ function loadGame() {
 function render() {}
 function setStatus() {}
 globalThis.__game = {
-  state, STRATEGIES, AWARE, MAX_PLAYERS, SMART, CPU_MODES, SCORE_LIMIT,
+  state, STRATEGIES, AWARE, RISK, MAX_PLAYERS, SMART, CPU_MODES, SCORE_LIMIT, CPU_REENTRY_MAX,
   setRandom, setDecisionRandom, makeSeededRandom,
   setDeckSize, getDeckSize: () => DECK_SIZE,
   newGame, startRound, nextRound, humanDraw, humanDiscard, humanClose, humanReenter,
@@ -52,4 +52,29 @@ globalThis.__game = {
   return g;
 }
 
-module.exports = { loadGame };
+// Turn a strategy spec such as "smart:closeBonus=5" into a registered strategy that
+// applies those settings (from SMART, AWARE or RISK in ai.js) while it decides, then
+// puts the defaults back. A plain name ("hard") is returned as it is. Returns the name
+// to look up in g.STRATEGIES. Used by bench.js and gamebench.js.
+function registerSpec(g, spec) {
+  const [base, settings] = spec.split(":");
+  if (!settings) return base;                               // plain level name
+  const targets = [g.SMART, g.AWARE, g.RISK];               // settings objects an override may name
+  const overrides = [];                                     // [object, key, value]
+  for (const pair of settings.split(",")) {
+    const [key, value] = pair.split("=");
+    const target = targets.find(t => key in t);
+    if (!target) { console.error(`Unknown setting "${key}". Known: ${targets.flatMap(Object.keys).join(", ")}`); process.exit(1); }
+    overrides.push([target, key, Number(value)]);
+  }
+  const inner = g.STRATEGIES[base];
+  const wrap = (method) => (...args) => {
+    const saved = overrides.map(([t, k]) => t[k]);
+    overrides.forEach(([t, k, v]) => { t[k] = v; });
+    try { return inner[method](...args); } finally { overrides.forEach(([t, k], i) => { t[k] = saved[i]; }); }
+  };
+  g.STRATEGIES[spec] = { chooseSource: wrap("chooseSource"), chooseClose: wrap("chooseClose"), chooseDiscard: wrap("chooseDiscard") };
+  return spec;
+}
+
+module.exports = { loadGame, registerSpec };
