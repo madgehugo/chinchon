@@ -38,6 +38,7 @@ const state = {
   roundResult: null, // { closer, chinchon, points[] } once the round ends
   timer: null,       // id of the pending CPU setTimeout (so we can cancel it)
   reshuffles: 0,     // how many times the draw pile has been refilled this round
+  turns: 0,          // turns completed so far this round (all players); the hard CPU uses it as a clock
   closing: false,    // true while you are choosing which card to close with
   sortMode: "number",// how the Sort button orders your hand: "number" or "suit"
   cpuMode: "hard",   // "easy" | "medium" | "hard" | "mixed" (see CPU_MODES)
@@ -113,6 +114,7 @@ function startRound() {
   clearTimeout(state.timer);        // cancel any CPU move left from a previous round
   state.round++;
   state.reshuffles = 0;
+  state.turns = 0;
   state.known = Array.from({ length: state.numPlayers }, () => []);
   state.currentPlayer = state.inGame[state.startPlayer]
     ? state.startPlayer
@@ -230,6 +232,7 @@ function sortHand() {
 // With fewer CPUs the order is the same, just shorter (see SEAT_AREAS in ui.js).
 // (Eliminated players are skipped.)
 function endTurn() {
+  state.turns++;
   state.currentPlayer = nextActivePlayer(state.currentPlayer);
   state.phase = "draw";
   beginTurn();

@@ -87,7 +87,7 @@ Benchmark (`node tools/bench.js 3200 <A> <B>`, 2 CPUs of each level, seats and s
 
 All the rule numbers are named constants near the top of `rules.js` (`SCORE_LIMIT`, `MAX_UNMATCHED_TO_CLOSE`,
 `CLOSE_BONUS`, ...). CPU tuning lives in the `SMART` object in `ai.js`; its comments record which ideas were benchmarked
-and how they scored. Eight tuning ideas were tried and none beat plain `smart`, so they are left off.
+and how they scored. Nine tuning ideas were tried (the ninth, round-length awareness, is the `aware` strategy) and none beat plain `smart`, so they are left off.
 
 ## Testing
 
@@ -107,10 +107,13 @@ npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts,
   sides in swapped seats ("duplicate dealing"), so both sides get identical cards. `<rounds>` counts plays (3200 = 1600
   deals). It prints a standard error computed from the per-deal differences; differences under about two standard
   errors are noise. Use at least 1,600 rounds.
-* The shuffle uses `random` in `rules.js`, which is `Math.random` in the browser; the benchmark swaps in a seeded
-  generator (`makeSeededRandom`) so runs are repeatable. To see how much a result moves with the luck of the deals, change
-  `SEED` in `bench.js` and run again. `smart smart` no longer works as a noise control: identical strategies on identical
-  deals cancel to exactly 0. (The easy and medium mistake rolls in `ai.js` still use `Math.random`.)
+* The shuffle uses `random` in `rules.js` and the easy/medium mistake rolls use a separate `decisionRandom`; both are
+  `Math.random` in the browser. The benchmark swaps in two seeded generators (`makeSeededRandom`), so runs are exactly
+  repeatable and a different decision can never change a later shuffle.
+* **Noise control:** `smart smart` with duplicate dealing is always exactly 0, so use `node tools/bench.js 3200 smart smart --control`
+  instead. It plays the two halves of each deal on independent deals (no pairing) and shows the noise a plain comparison
+  would have (about 0.21 at 3200 plays). Its difference should be within about two standard errors of 0. Changing `SEED`
+  in `bench.js` also shows how much a result moves.
 * After changing `ui.js` or `style.css`, run the browser tests and check the page at phone width (about 390px).
 
 ## Building a single file

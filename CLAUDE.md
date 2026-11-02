@@ -37,8 +37,11 @@ results are in the comments above `SMART`. Do not re-run those without a new ide
 deeper search or opponent modelling. Benchmark with `tools/bench.js`; the harness rotates seats and the starting
 player because an earlier version without that rotation gave a false advantage to whoever started. It also deals
 each hand twice with the two sides in swapped seats (seeded shuffle via `setRandom`; the browser keeps `Math.random`),
-which cuts the standard error by about a third. `smart smart` now always prints exactly 0, so it is no longer a noise
-control; change `SEED` in `bench.js` to gauge noise instead.
+which cuts the standard error by about a third. `smart smart` now always prints exactly 0; for a noise control use
+`node tools/bench.js 3200 smart smart --control` (independent deals, no pairing; se about 0.21). Both shuffles and CPU
+mistake rolls come from seeded streams in benchmarks, so runs are repeatable.
+A ninth idea, round-length awareness (`aware` in `ai.js`, uses `state.turns`), also did not beat `smart`; results are
+in the comment above `STRATEGIES.aware`. Hard is still plain `smart`.
 
 ## How to check your work
 

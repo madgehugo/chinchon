@@ -68,6 +68,12 @@ function createDeck() {
 let random = Math.random;
 function setRandom(fn) { random = fn; }
 
+// A second, separate source for the CPUs' deliberate mistakes (easy and medium levels,
+// see ai.js). Keeping it apart from the shuffle means a different decision in one play
+// can never change which cards a later shuffle produces.
+let decisionRandom = Math.random;
+function setDecisionRandom(fn) { decisionRandom = fn; }
+
 // A small seeded random number generator (mulberry32): the same seed always gives
 // the same sequence of numbers between 0 and 1. Only used by the Node benchmarks.
 function makeSeededRandom(seed) {

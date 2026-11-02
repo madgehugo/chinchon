@@ -31,8 +31,8 @@ function loadGame() {
 function render() {}
 function setStatus() {}
 globalThis.__game = {
-  state, STRATEGIES, MAX_PLAYERS, SMART, CPU_MODES, SCORE_LIMIT,
-  setRandom, makeSeededRandom,
+  state, STRATEGIES, AWARE, MAX_PLAYERS, SMART, CPU_MODES, SCORE_LIMIT,
+  setRandom, setDecisionRandom, makeSeededRandom,
   setDeckSize, getDeckSize: () => DECK_SIZE,
   newGame, startRound, nextRound, humanDraw, humanDiscard, humanClose, humanReenter,
   drawCard, discardCard, endTurn, closeRound, closeOptions, findBestClose, moveCard, sortHand,

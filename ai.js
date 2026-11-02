@@ -156,6 +156,44 @@ function expectedCostAfterDraw(hand7, unseen) {
   return sum / unseen.length;
 }
 
+// ---- Round-length awareness (used by the "aware" strategy) ----
+// Rounds are short: about 10-12 turns in total (state.turns), whatever the number of
+// players. Early on there is time to build, so cards that are one step from a meld
+// are worth more than their lookahead already says. Late, the round may end any turn
+// and every unmatched point is about to be paid, so high cards should go now.
+const AWARE = {
+  lateStart:  6,     // total turns before the round starts to count as "late"
+  lateFull:   16,    // total turns by which it counts as fully late
+  lateWeight: 0.5,   // late: extra cost per unmatched point left in the hand right now
+  earlyBonus: 0.5,   // early: cost taken off for each partial meld (a pair, or two near cards of one suit)
+};
+
+// 0 at the start of the round, rising to 1 as it gets late
+function lateness() {
+  const t = (state.turns - AWARE.lateStart) / (AWARE.lateFull - AWARE.lateStart);
+  return Math.min(1, Math.max(0, t));
+}
+
+// How many partial melds (pairs, or same-suit cards 1-2 steps apart) the unmatched cards form
+function partialMelds(unmatched) {
+  let count = 0;
+  for (let i = 0; i < unmatched.length; i++) {
+    for (let j = i + 1; j < unmatched.length; j++) {
+      const a = unmatched[i], b = unmatched[j];
+      if (a.value === b.value) count++;
+      else if (a.suit === b.suit && Math.abs(rankIndex(a) - rankIndex(b)) <= 2) count++;
+    }
+  }
+  return count;
+}
+
+// Cost adjustment for keeping this 7-card hand, given how late it is (lower = better)
+function awareAdjustment(hand7) {
+  const late = lateness();
+  const ev = evaluateHand(hand7);
+  return late * AWARE.lateWeight * ev.points - (1 - late) * AWARE.earlyBonus * partialMelds(ev.unmatched);
+}
+
 // ---- The base strategies (greedy, smart) and the three levels built from them ----
 
 const STRATEGIES = {
@@ -220,21 +258,47 @@ const STRATEGIES = {
     // the next draw. A card that is one step from a meld is worth keeping even
     // if it has a high point value.
     chooseDiscard(p) {
-      const hand = state.hands[p];
-      const unseen = unseenCards(p, hand);
-      let best = null;
-      for (let i = 0; i < hand.length; i++) {
-        const rest = hand.filter((card, j) => j !== i);
-        let score = expectedCostAfterDraw(rest, unseen);
-        if (SMART.denyWeight) score += SMART.denyWeight * denialRisk(p, hand[i]);
-        const better = best === null || score < best.score - 1e-9 ||
-                       (Math.abs(score - best.score) <= 1e-9 &&
-                        cardPoints(hand[i]) > cardPoints(hand[best.index]));
-        if (better) best = { score, index: i };
-      }
-      return best.index;
+      return smartDiscard(p, () => 0);
     },
   },
+};
+
+// The discard choice shared by smart and aware. `adjust(rest)` adds to the cost of
+// keeping the 7 cards `rest` (smart adds nothing; aware adds its round-length terms).
+function smartDiscard(p, adjust) {
+  const hand = state.hands[p];
+  const unseen = unseenCards(p, hand);
+  let best = null;
+  for (let i = 0; i < hand.length; i++) {
+    const rest = hand.filter((card, j) => j !== i);
+    let score = expectedCostAfterDraw(rest, unseen) + adjust(rest);
+    if (SMART.denyWeight) score += SMART.denyWeight * denialRisk(p, hand[i]);
+    const better = best === null || score < best.score - 1e-9 ||
+                   (Math.abs(score - best.score) <= 1e-9 &&
+                    cardPoints(hand[i]) > cardPoints(hand[best.index]));
+    if (better) best = { score, index: i };
+  }
+  return best.index;
+}
+
+// AWARE: smart, plus the round-length weighting above in the discard choice.
+// NOT used by any level: benchmarked against plain smart with duplicate dealing
+// (3,200 plays = 1,600 deals each; A - B in avg points per round, lower is better,
+// so negative = aware is better; se is of the difference):
+//   lateWeight 0.5, earlyBonus 0.5 (defaults)     +0.02  se 0.05  no gain
+//   earlyBonus 0 (late dumping only), weight 0.5  -0.01  se 0.03  no gain
+//   lateWeight 1.5, earlyBonus 0                  -0.04  se 0.03  no gain
+//   lateWeight 4,   earlyBonus 0                  -0.03  se 0.04  no gain
+//   lateWeight 0,   earlyBonus 0.5 (early only)   +0.05  se 0.05  no gain
+//   lateWeight 0,   earlyBonus 1.5                +0.05  se 0.07  no gain
+//   lateWeight 0,   earlyBonus 4                  +0.62  se 0.13  WORSE
+//   both 1.5, late from turn 3 to 10              +0.06  se 0.07  no gain
+//   lateWeight 4, late from turn 3 to 10          +0.02  se 0.04  no gain
+// smart's one-step lookahead already prices partial melds and late rounds barely
+// change what the best discard is, so the extra terms rarely alter a decision.
+STRATEGIES.aware = {
+  ...STRATEGIES.smart,                                   // same source and close decisions
+  chooseDiscard(p) { return smartDiscard(p, awareAdjustment); },
 };
 
 // Wrap a strategy so that, with probability `chance`, it makes a mistake when
@@ -246,13 +310,13 @@ function withMistakes(base, chance) {
   return {
     chooseSource(p) {
       const source = base.chooseSource(p);
-      if (Math.random() >= chance || state.discardPile.length === 0) return source;
+      if (decisionRandom() >= chance || state.discardPile.length === 0) return source;
       return source === "deck" ? "discard" : "deck";
     },
     chooseClose: (p) => base.chooseClose(p),
     chooseDiscard(p) {
-      if (Math.random() >= chance) return base.chooseDiscard(p);
-      return Math.floor(Math.random() * state.hands[p].length);   // random int 0..n-1
+      if (decisionRandom() >= chance) return base.chooseDiscard(p);
+      return Math.floor(decisionRandom() * state.hands[p].length);   // random int 0..n-1
     },
   };
 }

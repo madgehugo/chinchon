@@ -5,7 +5,7 @@
    ---------------------------------------------------------
    Usage:  node tools/bench.js <rounds> <A> <B> [deck]
      <A> and <B> are CPU levels (easy, medium, hard, greedy or smart), optionally with overrides
-     for the SMART settings in ai.js, for example
+     for the SMART or AWARE settings in ai.js, for example
          smart
          "smart:closeBonus=5,perfectBonus=1"
      Four CPUs play: A B A B. Seats AND the starting player rotate, so each
@@ -22,11 +22,18 @@
    each average; a difference smaller than about 2 x se is just noise. Run
    `smart smart` as a control to see how big the noise is.
 
+   NOISE CONTROL: add --control and the two plays of each deal use DIFFERENT, independent
+   deals instead of the same one (no pairing). `smart smart --control` then shows how big
+   the luck of the cards is without duplicate dealing; the difference should be about 0,
+   within a couple of standard errors. (With duplicate dealing, `smart smart` is exactly 0.)
+
    Example:  node tools/bench.js 3200 smart "smart:takeMargin=-1"
    ========================================================= */
 const { loadGame } = require("./harness");
 
-const [rounds = "1600", specA = "smart", specB = "greedy", deck = "40"] = process.argv.slice(2);
+const CONTROL = process.argv.includes("--control");         // see NOISE CONTROL above
+const [rounds = "1600", specA = "smart", specB = "greedy", deck = "40"] =
+  process.argv.slice(2).filter(arg => arg !== "--control");
 const g = loadGame();
 g.setDeckSize(Number(deck));
 
@@ -35,17 +42,19 @@ g.setDeckSize(Number(deck));
 function register(spec) {
   const [base, settings] = spec.split(":");
   if (!settings) return base;                               // plain level name
-  const overrides = {};
+  const targets = [g.SMART, g.AWARE];                       // settings objects an override may name
+  const overrides = [];                                     // [object, key, value]
   for (const pair of settings.split(",")) {
     const [key, value] = pair.split("=");
-    if (!(key in g.SMART)) { console.error(`Unknown setting "${key}". Known: ${Object.keys(g.SMART).join(", ")}`); process.exit(1); }
-    overrides[key] = Number(value);
+    const target = targets.find(t => key in t);
+    if (!target) { console.error(`Unknown setting "${key}". Known: ${targets.flatMap(Object.keys).join(", ")}`); process.exit(1); }
+    overrides.push([target, key, Number(value)]);
   }
   const inner = g.STRATEGIES[base];
   const wrap = (method) => (...args) => {
-    const saved = { ...g.SMART };
-    Object.assign(g.SMART, overrides);
-    try { return inner[method](...args); } finally { Object.assign(g.SMART, saved); }
+    const saved = overrides.map(([t, k]) => t[k]);
+    overrides.forEach(([t, k, v]) => { t[k] = v; });
+    try { return inner[method](...args); } finally { overrides.forEach(([t, k], i) => { t[k] = saved[i]; }); }
   };
   g.STRATEGIES[spec] = { chooseSource: wrap("chooseSource"), chooseClose: wrap("chooseClose"), chooseDiscard: wrap("chooseDiscard") };
   return spec;
@@ -84,8 +93,11 @@ let stalemates = 0;
 
 // Play one deal (same shuffle every time for a given `deal`) with the given seating and
 // starter. Adds to `stats` and returns A's average minus B's average points in this play.
-function playDeal(deal, rotation, start) {
-  g.setRandom(g.makeSeededRandom(SEED + deal));             // same shuffles (and reshuffles) for both plays
+function playDeal(deal, rotation, start, shuffleSeed = deal) {
+  // Two separate seeded streams: one for shuffles (and reshuffles), one for the CPUs'
+  // mistake rolls. A different decision in one play can then never change a later shuffle.
+  g.setRandom(g.makeSeededRandom(SEED + shuffleSeed));
+  g.setDecisionRandom(g.makeSeededRandom(SEED + 1e6 + shuffleSeed));
   const seat = [0, 1, 2, 3].map(s => labels[(s + rotation) % 2]);   // A B A B, shifted
   const result = playRound(seat, start);
   if (!result) return null;
@@ -112,12 +124,14 @@ for (let d = 0; d < deals; d++) {
   const rotation = d % 4;                                   // who sits where (swapped for the second play)
   const start = Math.floor(d / 4) % 4;                      // who starts (independent of seating)
   const first = playDeal(d, rotation, start);
-  const second = playDeal(d, rotation + 1, start);          // A and B swap seats; identical cards
+  // A and B swap seats with identical cards (in --control mode: a different, independent deal)
+  const second = playDeal(d, rotation + 1, start, CONTROL ? d + deals : d);
   if (first !== null && second !== null) dealDiffs.push((first + second) / 2);
 }
 g.setRandom(Math.random);
+g.setDecisionRandom(Math.random);
 
-console.log(`${deals * 2} rounds (${deals} deals, each played twice), ${deck}-card deck, ${((Date.now() - started) / 1000).toFixed(0)}s, ${stalemates} stalemates`);
+console.log(`${deals * 2} rounds (${deals} deals, each played ${CONTROL ? "on two independent deals: CONTROL, no pairing" : "twice, same cards"}), ${deck}-card deck, ${((Date.now() - started) / 1000).toFixed(0)}s, ${stalemates} stalemates`);
 const summary = labels.map(label => {
   const st = stats[label];
   const mean = st.sum / st.n;
@@ -125,6 +139,9 @@ const summary = labels.map(label => {
   console.log(`  ${label.padEnd(36)} avg points ${mean.toFixed(2)}   rounds won ${(100 * st.wins / st.n).toFixed(1)}%   closed ${(100 * st.closes / st.n).toFixed(1)}%`);
   return { mean, se };
 });
+if (labels[0] !== labels[1]) {                              // for comparison: the old unpaired formula
+  console.log(`  (old unpaired se of the difference: ${Math.hypot(summary[0].se, summary[1].se).toFixed(2)})`);
+}
 // The deals are independent of each other; the two plays of one deal are not, so
 // the standard error comes from the per-deal differences rather than from the two averages.
 const diff = dealDiffs.reduce((a, b) => a + b, 0) / dealDiffs.length;
