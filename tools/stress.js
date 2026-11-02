@@ -31,7 +31,7 @@ for (const size of [40, 48]) {
 
   for (let n = 0; n < GAMES; n++) {
     state.cpuLevels = [...g.CPU_MODES[["easy", "medium", "hard", "mixed"][n % 4]]];
-    g.newGame(); settle();
+    g.newGame(1 + Math.floor(n / 4) % 3); settle();   // cycle through 1, 2 and 3 CPUs
     let rounds = 0, ok = true;
     while (ok && !state.gameOver && rounds < 300) {
       rounds++; stats.rounds++;
@@ -65,7 +65,7 @@ for (const size of [40, 48]) {
       g.nextRound();
     }
     if (state.gameOver) { stats.games++; stats.winners[state.winner]++; if (/Chinch/.test(state.summary)) stats.chinchon++; }
-    for (let p = 0; p < 4; p++) if (state.inGame[p] && state.totals[p] > g.SCORE_LIMIT) fail("active over limit", p, state.totals[p]);
+    for (let p = 0; p < state.numPlayers; p++) if (state.inGame[p] && state.totals[p] > g.SCORE_LIMIT) fail("active over limit", p, state.totals[p]);
   }
   console.log(stats);
   totalErrors += stats.errors + stats.stuck + stats.endlessRound;

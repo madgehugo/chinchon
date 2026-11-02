@@ -7,7 +7,8 @@
 
 "use strict";
 
-// CPU difficulty. Each mode lists the strategy for seats 0-3 (seat 0 is you).
+// CPU difficulty. Each mode lists the strategy for seats 0-3 (seat 0 is you); with fewer
+// CPUs in the game only the first entries are used.
 // The keys "easy", "medium" and "hard" refer to entries in STRATEGIES (section 4d).
 const CPU_MODES = {
   easy:   [null, "easy",   "easy",   "easy"],
@@ -101,7 +102,7 @@ function handCost(hand) {
 function denialRisk(p, card) {
   let risk = 0;
   const r = rankIndex(card);
-  for (let q = 0; q < NUM_PLAYERS; q++) {
+  for (let q = 0; q < state.numPlayers; q++) {
     if (q === p || !state.inGame[q]) continue;
     const known = state.known[q];
     if (known.length === 0) continue;
@@ -139,7 +140,7 @@ function bestAfterDiscard(hand) {
 // are known to be holding (because they took them from the discard pile).
 function unseenCards(p, hand) {
   const seen = new Set([...hand, ...state.discardPile].map(cardKey));
-  for (let q = 0; q < NUM_PLAYERS; q++) {
+  for (let q = 0; q < state.numPlayers; q++) {
     if (q !== p) state.known[q].forEach(card => seen.add(cardKey(card)));
   }
   return createDeck().filter(card => !seen.has(cardKey(card)));

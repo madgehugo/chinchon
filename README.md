@@ -1,6 +1,6 @@
 # Chinchón
 
-A browser game of **Chinchón**, the Spanish card game: you against three CPU players.
+A browser game of **Chinchón**, the Spanish card game: you against one to three CPU players.
 Plain HTML, CSS and JavaScript, with no build step, no framework and no libraries.
 
 **Play it:** `https://madgehugo.github.io/chinchon/` (GitHub Pages; replace the placeholders with your own).
@@ -8,7 +8,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 
 ## Features
 
-* 1 human vs 3 CPUs, with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
+* 1 human vs 1, 2 or 3 CPUs (the "CPUs" dropdown starts a new game), with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
 * 40-card Spanish deck (1-7, 10-12) or 48-card deck (adds the 8s and 9s), which suits bigger groups.
 * Cards show their number of suit symbols (the 4 of swords has four swords).
 * Drag cards to rearrange your hand; one button sorts by number or by suit.
@@ -43,7 +43,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the results panel, startup. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser), `bench.js` (CPU benchmark), `stress.js` (random-game bug hunt). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, phone layout). |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout). |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file. |
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
 
@@ -53,6 +53,8 @@ the game also works from `file://`, where browsers block modules.
 
 ## How the pieces connect
 
+* **`state.numPlayers`** (2-4) is how many seats are in use; every per-player array has that length, and `MAX_PLAYERS`
+  in `rules.js` is the table size. `renderSeats()` in `ui.js` places the seats (1 CPU sits opposite you).
 * **`state`** (in `game.js`) holds everything that changes. Game logic writes to it; `render()` in `ui.js` only reads it
   and rebuilds the page. Nearly every action is "check it is allowed, change `state`, call `render()`".
 * A **turn** is: draw, then discard one card or close. `state.phase` tracks this (`draw`, `discard`, `roundOver`).
@@ -67,7 +69,7 @@ the game also works from `file://`, where browsers block modules.
 | Easy | `greedy` (looks only at points right now), with a 25% chance per decision of a mistake (`EASY_MISTAKE_CHANCE`). |
 | Medium | `smart` with a 16% chance of a mistake (`MEDIUM_MISTAKE_CHANCE`). |
 | Hard | `smart`, no mistakes. |
-| Mixed | One CPU of each level: CPU 1 easy, CPU 2 medium, CPU 3 hard. |
+| Mixed | One CPU of each level: CPU 1 easy, CPU 2 medium, CPU 3 hard (with fewer CPUs, the first ones). |
 
 A mistake is drawing from the other pile or discarding a random card; CPUs never miss a legal close.
 Benchmark (`node tools/bench.js 3200 <A> <B>`, 2 CPUs of each level, seats and starter rotated, se about 0.2):
@@ -96,7 +98,7 @@ node tools/stress.js 20           # play random games on both decks, check no ca
 node tools/bench.js 1600 smart greedy             # compare two CPU settings
 node tools/bench.js 3200 smart "smart:takeMargin=-1"   # try a SMART override against the default
 npm install && npx playwright install chromium    # once, for the browser tests
-npm run test:browser              # drag, touch, results panel, phone layout
+npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout
 ```
 
 * Unit tests in `tests.js` run every time the page loads; open the console (F12) and look for

@@ -229,9 +229,33 @@ function renderPiles() {
     `Discard pile (${state.discardPile.length})`;
 }
 
+// Where each seat sits on the table (grid-area names from style.css), by number of
+// players. Index = seat number. With one CPU it sits opposite you; with two they
+// sit left and right; with three, left, top and right.
+const SEAT_AREAS = {
+  2: ["bottom", "top"],
+  3: ["bottom", "left", "right"],
+  4: ["bottom", "left", "top", "right"],
+};
+
+// Place the seats for the current number of players and hide the unused ones
+function renderSeats() {
+  const areas = SEAT_AREAS[state.numPlayers];
+  document.getElementById("table").dataset.players = state.numPlayers;   // CSS reads this (data-players)
+  for (let p = 0; p < MAX_PLAYERS; p++) {
+    const seat = document.getElementById(`seat-${p}`);
+    seat.hidden = p >= state.numPlayers;
+    if (p < state.numPlayers) {
+      seat.style.gridArea = areas[p];
+      // CPUs at the left or right edge stack their cards vertically (see style.css)
+      seat.classList.toggle("side", areas[p] === "left" || areas[p] === "right");
+    }
+  }
+}
+
 // Highlight whoever's turn it is
 function renderTurnIndicator() {
-  for (let p = 0; p < NUM_PLAYERS; p++) {
+  for (let p = 0; p < state.numPlayers; p++) {
     const seat = document.getElementById(`seat-${p}`);
     seat.classList.toggle("active", p === state.currentPlayer && state.phase !== "roundOver");
 
@@ -245,7 +269,8 @@ function renderTurnIndicator() {
 
 // Master render: redraw everything from state
 function render() {
-  for (let p = 0; p < NUM_PLAYERS; p++) {
+  renderSeats();
+  for (let p = 0; p < state.numPlayers; p++) {
     // While you are dragging a card, don't rebuild your hand (it would cancel the drag)
     if (p === 0 && dragFrom !== null) continue;
     renderHand(p);
@@ -260,7 +285,7 @@ function render() {
 
 // Table of running totals under the game
 function renderScoreboard() {
-  const rows = PLAYER_NAMES.map((name, p) => {
+  const rows = PLAYER_NAMES.slice(0, state.numPlayers).map((name, p) => {
     const last = state.roundPoints[p];
     return `<tr class="${state.inGame[p] ? "" : "out"}">` +
            `<td>${name}</td><td>${state.totals[p]}</td>` +
@@ -429,7 +454,7 @@ function setStatus(message) {
    call fn". The human's cards get their own click handlers inside
    renderHand(), because those elements are rebuilt on every render.
    --------------------------------------------------------- */
-document.getElementById("new-game").addEventListener("click", newGame);
+document.getElementById("new-game").addEventListener("click", () => newGame());
 document.getElementById("draw-pile").addEventListener("click", () => humanDraw("deck"));
 document.getElementById("discard-pile").addEventListener("click", () => humanDraw("discard"));
 document.getElementById("close-btn").addEventListener("click", humanClose);
@@ -454,37 +479,46 @@ document.getElementById("cpu-speed").addEventListener("change", (e) => {
   state.cpuSpeed = e.target.value;
 });
 
-// Changing the deck starts a new game. If a game is under way, ask first with a
-// bar inside the page (the browser's pop-up dialogs are blocked in some places).
-let pendingDeck = null;
+// Changing the deck or the number of CPUs starts a new game. If a game is under way,
+// ask first with a bar inside the page (the browser's pop-up dialogs are blocked in
+// some places). `pendingChange` holds the function to run if the player says yes
+// (functions are ordinary values in JS, so we can store one and call it later).
+let pendingChange = null;
 
-function switchDeck(size) {
-  setDeckSize(size);
-  newGame();
+// Put both dropdowns back to what the game is actually using
+function syncSettingDropdowns() {
+  document.getElementById("deck-size").value = String(DECK_SIZE);
+  document.getElementById("cpu-count").value = String(state.numPlayers - 1);
 }
 
-function closeDeckConfirm(keepPlaying) {
+function closeConfirm(accepted) {
   document.getElementById("deck-confirm").hidden = true;
-  if (keepPlaying) document.getElementById("deck-size").value = String(DECK_SIZE);   // put the dropdown back
-  pendingDeck = null;
+  const change = pendingChange;
+  pendingChange = null;
+  if (accepted && change) change(); else syncSettingDropdowns();
+}
+
+function askBeforeNewGame(question, change) {
+  const inProgress = state.round > 1 || state.totals.some(t => t !== 0) ||
+                     state.hands[0].length > CARDS_PER_HAND;
+  if (!inProgress) { change(); return; }
+  pendingChange = change;
+  document.getElementById("deck-confirm-text").textContent = question;
+  document.getElementById("deck-confirm").hidden = false;
 }
 
 document.getElementById("deck-size").addEventListener("change", (e) => {
   const size = Number(e.target.value);
-  const inProgress = state.round > 1 || state.totals.some(t => t !== 0) ||
-                     state.hands[0].length > CARDS_PER_HAND;
-  if (!inProgress) { switchDeck(size); return; }
-  pendingDeck = size;
-  document.getElementById("deck-confirm-text").textContent =
-    `Switch to the ${size}-card deck? This starts a new game.`;
-  document.getElementById("deck-confirm").hidden = false;
+  askBeforeNewGame(`Switch to the ${size}-card deck? This starts a new game.`,
+                   () => { setDeckSize(size); newGame(); });
 });
-document.getElementById("deck-yes").addEventListener("click", () => {
-  const size = pendingDeck;
-  closeDeckConfirm(false);
-  if (size !== null) switchDeck(size);
+document.getElementById("cpu-count").addEventListener("change", (e) => {
+  const cpus = Number(e.target.value);
+  askBeforeNewGame(`Play against ${cpus} CPU${cpus === 1 ? "" : "s"}? This starts a new game.`,
+                   () => newGame(cpus));
 });
-document.getElementById("deck-no").addEventListener("click", () => closeDeckConfirm(true));
+document.getElementById("deck-yes").addEventListener("click", () => closeConfirm(true));
+document.getElementById("deck-no").addEventListener("click", () => closeConfirm(false));
 document.getElementById("reenter-yes").addEventListener("click", () => humanReenter(true));
 document.getElementById("reenter-no").addEventListener("click", () => humanReenter(false));
 
@@ -494,7 +528,7 @@ document.getElementById("res-hide").addEventListener("click", () => setResultsOp
 document.getElementById("res-next").addEventListener("click", nextRound);
 document.getElementById("res-reenter").addEventListener("click", () => humanReenter(true));
 document.getElementById("res-stayout").addEventListener("click", () => humanReenter(false));
-document.getElementById("res-newgame").addEventListener("click", newGame);
+document.getElementById("res-newgame").addEventListener("click", () => newGame());
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && state.showResults) setResultsOpen(false);
 });

@@ -59,6 +59,9 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
   box-shadow: 0 10px 30px rgba(0,0,0,.6);
 }
 
+/* With a single CPU there are no side seats: give their columns no width */
+#table[data-players="2"] { grid-template-columns: 0 1fr 0; }
+
 /* Each seat is a box holding a name label and a row of cards */
 .seat {
   display: flex;
@@ -67,10 +70,9 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
   justify-content: center;
   gap: 6px;
 }
-#seat-1 { grid-area: left; }     /* CPU 1 (to the human's left)  */
-#seat-2 { grid-area: top; }      /* CPU 2 (opposite)             */
-#seat-3 { grid-area: right; }    /* CPU 3 (to the human's right) */
-#seat-0 { grid-area: bottom; }   /* Human                        */
+/* Which grid area each seat uses is set by renderSeats() in ui.js, because it
+   depends on how many players there are. */
+.seat[hidden] { display: none; }   /* unused seats (the hidden attribute alone loses to display:flex above) */
 #centre { grid-area: center; }
 
 .seat-name { font-size: .9rem; opacity: .85; }
@@ -81,9 +83,8 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 .hand .card + .card { margin-left: var(--card-overlap); }
 
 /* Side players: stack their cards vertically instead */
-#seat-1 .hand, #seat-3 .hand { flex-direction: column; align-items: center; }
-#seat-1 .hand .card + .card,
-#seat-3 .hand .card + .card { margin-left: 0; margin-top: var(--side-overlap); }
+.seat.side .hand { flex-direction: column; align-items: center; }
+.seat.side .hand .card + .card { margin-left: 0; margin-top: var(--side-overlap); }
 
 /* Human cards are a bit bigger and don't overlap as much */
 #seat-0 .hand .card { --card-w: var(--human-w); --card-h: var(--human-h); }
@@ -338,6 +339,7 @@ button.secondary { background: rgba(255, 255, 255, .85); }
     height: auto;
     min-height: 470px;
   }
+  #table[data-players="2"] { grid-template-columns: 0 1fr 0; }
   .seat-name { font-size: .68rem; text-align: center; line-height: 1.25; }
   #piles { gap: 14px; }
   .pile-label { font-size: .65rem; text-align: center; }

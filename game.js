@@ -25,7 +25,8 @@ const CPU_SPEEDS = {
 const state = {
   drawPile:    [],   // array of cards; the LAST element is the top card
   discardPile: [],   // same convention
-  hands:       [],   // hands[0] = human's cards, hands[1..3] = CPUs
+  hands:       [],   // hands[0] = human's cards, hands[1..] = CPUs
+  numPlayers:  MAX_PLAYERS,   // seats in use this game (2-4): you plus 1-3 CPUs. All per-player arrays have this length.
   currentPlayer: 0,  // index of whose turn it is
 
   // Where we are inside a turn. Every turn is: draw -> (close, or discard).
@@ -69,13 +70,18 @@ const state = {
    4. GAME SETUP: shuffle, deal, flip first discard, set turn
    --------------------------------------------------------- */
 // Start a brand-new GAME: reset all scores, then start round 1.
-function newGame() {
+// `cpuCount` (1-3) optionally changes how many CPUs play; omitted, it keeps the current number.
+function newGame(cpuCount) {
   clearTimeout(state.timer);
+  // The "New game" buttons call newGame(clickEvent), so only trust a plain number
+  if (typeof cpuCount === "number") {
+    state.numPlayers = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, cpuCount + 1));
+  }
   state.round = 0;
-  state.totals = [0, 0, 0, 0];
-  state.inGame = [true, true, true, true];
+  state.totals = Array(state.numPlayers).fill(0);
+  state.inGame = Array(state.numPlayers).fill(true);
   state.startPlayer = 0;                       // you play first in round 1
-  state.roundPoints = [null, null, null, null];
+  state.roundPoints = Array(state.numPlayers).fill(null);
   state.awaitingReentry = false;
   state.gameOver = false;
   state.winner = null;
@@ -90,13 +96,13 @@ function startRound() {
   // Fresh shuffled deck
   state.drawPile = shuffle(createDeck());
 
-  // Empty hands for each player: [[], [], [], []]
-  state.hands = Array.from({ length: NUM_PLAYERS }, () => []);
+  // Empty hands for each player, e.g. [[], [], []]
+  state.hands = Array.from({ length: state.numPlayers }, () => []);
 
   // Deal one card at a time around the table (like a real dealer),
   // rather than 7 in a row to each player.
   for (let round = 0; round < CARDS_PER_HAND; round++) {
-    for (let p = 0; p < NUM_PLAYERS; p++) {
+    for (let p = 0; p < state.numPlayers; p++) {
       if (state.inGame[p]) state.hands[p].push(state.drawPile.pop());   // skip eliminated players
     }
   }
@@ -107,7 +113,7 @@ function startRound() {
   clearTimeout(state.timer);        // cancel any CPU move left from a previous round
   state.round++;
   state.reshuffles = 0;
-  state.known = [[], [], [], []];
+  state.known = Array.from({ length: state.numPlayers }, () => []);
   state.currentPlayer = state.inGame[state.startPlayer]
     ? state.startPlayer
     : nextActivePlayer(state.startPlayer);
@@ -221,6 +227,7 @@ function sortHand() {
 
 // Pass the turn to the next player. Order is clockwise around the table:
 // you (bottom) -> CPU 1 (left) -> CPU 2 (top) -> CPU 3 (right) -> you.
+// With fewer CPUs the order is the same, just shorter (see SEAT_AREAS in ui.js).
 // (Eliminated players are skipped.)
 function endTurn() {
   state.currentPlayer = nextActivePlayer(state.currentPlayer);
@@ -230,13 +237,13 @@ function endTurn() {
 
 // Players still in the game, e.g. [0, 2, 3]
 function activePlayers() {
-  return [0, 1, 2, 3].filter(p => state.inGame[p]);
+  return state.inGame.map((isIn, p) => isIn ? p : -1).filter(p => p >= 0);
 }
 
 // The next player clockwise after `from` who is still in the game
 function nextActivePlayer(from) {
-  for (let i = 1; i <= NUM_PLAYERS; i++) {
-    const p = (from + i) % NUM_PLAYERS;
+  for (let i = 1; i <= state.numPlayers; i++) {
+    const p = (from + i) % state.numPlayers;
     if (state.inGame[p]) return p;
   }
   return from;
@@ -415,13 +422,13 @@ function scoreRound(closer, info, points) {
   }
 
   // 1. Add the round's points to the running totals
-  for (let p = 0; p < NUM_PLAYERS; p++) {
+  for (let p = 0; p < state.numPlayers; p++) {
     if (state.inGame[p]) state.totals[p] += points[p] ?? 0;   // ?? = "if null, use 0"
   }
 
   // 2. Eliminate anyone over the limit
   const busted = [];
-  for (let p = 0; p < NUM_PLAYERS; p++) {
+  for (let p = 0; p < state.numPlayers; p++) {
     if (state.inGame[p] && state.totals[p] > SCORE_LIMIT) {
       state.inGame[p] = false;
       busted.push(p);
@@ -442,7 +449,7 @@ function scoreRound(closer, info, points) {
   // 3. Re-entry. The entry score is the highest total among players still in.
   state.entryScore = Math.max(...active.map(p => state.totals[p]));
   const returned = [];
-  for (let p = 1; p < NUM_PLAYERS; p++) {          // CPUs decide automatically
+  for (let p = 1; p < state.numPlayers; p++) {          // CPUs decide automatically
     if (!state.inGame[p] && state.entryScore <= CPU_REENTRY_MAX) {
       reenter(p);
       returned.push(p);
