@@ -8,13 +8,22 @@
 "use strict";
 
 // CPU difficulty. Each mode lists the strategy for seats 0-3 (seat 0 is you).
-// The keys "greedy" and "smart" refer to entries in STRATEGIES (section 4d).
+// The keys "easy", "medium" and "hard" refer to entries in STRATEGIES (section 4d).
 const CPU_MODES = {
-  simple: [null, "greedy", "greedy", "greedy"],
-  smart:  [null, "smart",  "smart",  "smart"],
-  mixed:  [null, "greedy", "smart",  "greedy"],   // CPU 2 is the strong one
+  easy:   [null, "easy",   "easy",   "easy"],
+  medium: [null, "medium", "medium", "medium"],
+  hard:   [null, "hard",   "hard",   "hard"],
+  mixed:  [null, "easy",   "medium", "hard"],   // one CPU of each level
 };
-const LEVEL_LABEL = { greedy: "simple", smart: "smart" };
+// The name shown next to each CPU on the table
+const LEVEL_LABEL = { easy: "easy", medium: "medium", hard: "hard" };
+
+// Chance (0 to 1) that a CPU makes a deliberate mistake on a decision (where to
+// draw from, what to discard). Easy plays "greedy" with mistakes; medium plays
+// the "smart" strategy with fewer mistakes. Hard never makes one. Medium's value
+// was tuned with tools/bench.js (results in the comment above STRATEGIES.easy).
+const EASY_MISTAKE_CHANCE   = 0.25;
+const MEDIUM_MISTAKE_CHANCE = 0.16;
 
 /* ---------------------------------------------------------
    4d. CPU STRATEGIES
@@ -26,7 +35,9 @@ const LEVEL_LABEL = { greedy: "simple", smart: "smart" };
                          (hand has 8 cards, after drawing)
      chooseDiscard(p) -> index of the card to throw away (hand has 8 cards)
    cpuTurn() calls them in that order. Adding a new CPU level is just adding
-   another entry to STRATEGIES at the bottom of this section.
+   another entry to STRATEGIES at the bottom of this section. The three levels
+   shown to the player (easy, medium, hard) are built from the two base
+   strategies, greedy and smart.
    --------------------------------------------------------- */
 
 // Tunable settings for the "smart" strategy
@@ -144,7 +155,7 @@ function expectedCostAfterDraw(hand7, unseen) {
   return sum / unseen.length;
 }
 
-// ---- The two strategies ----
+// ---- The base strategies (greedy, smart) and the three levels built from them ----
 
 const STRATEGIES = {
 
@@ -224,6 +235,36 @@ const STRATEGIES = {
     },
   },
 };
+
+// Wrap a strategy so that, with probability `chance`, it makes a mistake when
+// choosing where to draw from or what to discard. A mistake is the opposite
+// source, or a random card. Closing is left alone: a CPU that has a legal close
+// takes it, so the mistakes only affect how well the hand is built.
+// (`base` is passed in rather than looked up, so any strategy can be wrapped.)
+function withMistakes(base, chance) {
+  return {
+    chooseSource(p) {
+      const source = base.chooseSource(p);
+      if (Math.random() >= chance || state.discardPile.length === 0) return source;
+      return source === "deck" ? "discard" : "deck";
+    },
+    chooseClose: (p) => base.chooseClose(p),
+    chooseDiscard(p) {
+      if (Math.random() >= chance) return base.chooseDiscard(p);
+      return Math.floor(Math.random() * state.hands[p].length);   // random int 0..n-1
+    },
+  };
+}
+
+// The levels. Benchmarked over 3,200 rounds each (2 CPUs of each level, seats and
+// starting player rotated). Average points lost per round against hard:
+//   easy   (greedy, 25% mistakes)  8.91 worse than hard
+//   medium (smart,  16% mistakes)  4.60 worse than hard (target: about half of easy's)
+// Tuning medium: 10% -> 2.75, 14% -> 3.81, 16% -> 4.60, 18% -> 4.92, 25% -> 7.82.
+// Noise is about +/-0.22, so retune only if you change the strategies.
+STRATEGIES.easy   = withMistakes(STRATEGIES.greedy, EASY_MISTAKE_CHANCE);
+STRATEGIES.medium = withMistakes(STRATEGIES.smart, MEDIUM_MISTAKE_CHANCE);
+STRATEGIES.hard   = STRATEGIES.smart;   // the very same object: hard IS smart, unchanged
 
 // (Simple strategy helper.) Which card should this 8-card hand discard? Try
 // each one and keep the choice that leaves the fewest unmatched points

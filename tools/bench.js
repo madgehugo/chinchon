@@ -4,7 +4,7 @@
    tools/bench.js: which CPU setting plays better?
    ---------------------------------------------------------
    Usage:  node tools/bench.js <rounds> <A> <B> [deck]
-     <A> and <B> are CPU levels (greedy or smart), optionally with overrides
+     <A> and <B> are CPU levels (easy, medium, hard, greedy or smart), optionally with overrides
      for the SMART settings in ai.js, for example
          smart
          "smart:closeBonus=5,perfectBonus=1"

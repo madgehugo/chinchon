@@ -237,7 +237,7 @@ function renderTurnIndicator() {
 
     // Seat label: name, running total, and OUT if eliminated
     const base = p === 0 ? "You (Player 1)"
-               : `${PLAYER_NAMES[p]} (${LEVEL_LABEL[state.cpuLevels[p]] || "smart"})`;
+               : `${PLAYER_NAMES[p]} (${LEVEL_LABEL[state.cpuLevels[p]] || "hard"})`;
     seat.querySelector(".seat-name").textContent =
       `${base} · ${state.totals[p]} pts${state.inGame[p] ? "" : " · OUT"}`;
   }

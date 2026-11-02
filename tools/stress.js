@@ -30,7 +30,7 @@ for (const size of [40, 48]) {
   const settle = () => { if (!g.drain(20000)) { stats.endlessRound++; return false; } return true; };
 
   for (let n = 0; n < GAMES; n++) {
-    state.cpuLevels = [...g.CPU_MODES[["simple", "smart", "mixed"][n % 3]]];
+    state.cpuLevels = [...g.CPU_MODES[["easy", "medium", "hard", "mixed"][n % 4]]];
     g.newGame(); settle();
     let rounds = 0, ok = true;
     while (ok && !state.gameOver && rounds < 300) {

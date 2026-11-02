@@ -8,7 +8,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 
 ## Features
 
-* 1 human vs 3 CPUs, with a CPU difficulty setting (simple, smart, or mixed) and an adjustable CPU speed.
+* 1 human vs 3 CPUs, with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
 * 40-card Spanish deck (1-7, 10-12) or 48-card deck (adds the 8s and 9s), which suits bigger groups.
 * Cards show their number of suit symbols (the 4 of swords has four swords).
 * Drag cards to rearrange your hand; one button sorts by number or by suit.
@@ -38,7 +38,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 | `index.html` | The page skeleton: empty containers that the JavaScript fills in. |
 | `style.css` | How it looks, including the phone layout (`@media` block at the end). |
 | `rules.js` | The rules: deck, shuffling, runs and groups, scoring, closing. No display code. |
-| `ai.js` | The CPU players (`greedy` and `smart`) and the tunable `SMART` settings. |
+| `ai.js` | The CPU players (base strategies `greedy` and `smart`, the easy/medium/hard levels built from them) and the tunable `SMART` settings. |
 | `game.js` | The game state (`state`), turns, rounds, scoring, elimination and re-entry. |
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the results panel, startup. |
@@ -59,6 +59,25 @@ the game also works from `file://`, where browsers block modules.
 * CPU turns have two timed beats (draw, then discard) so you can follow them. Decisions come from a **strategy** object in
   `ai.js` with three functions: `chooseSource`, `chooseClose`, `chooseDiscard`. A new level is an entry in `STRATEGIES`
   plus an entry in `CPU_MODES` and `LEVEL_LABEL`.
+
+## CPU levels
+
+| Level | How it plays |
+| --- | --- |
+| Easy | `greedy` (looks only at points right now), with a 25% chance per decision of a mistake (`EASY_MISTAKE_CHANCE`). |
+| Medium | `smart` with a 16% chance of a mistake (`MEDIUM_MISTAKE_CHANCE`). |
+| Hard | `smart`, no mistakes. |
+| Mixed | One CPU of each level: CPU 1 easy, CPU 2 medium, CPU 3 hard. |
+
+A mistake is drawing from the other pile or discarding a random card; CPUs never miss a legal close.
+Benchmark (`node tools/bench.js 3200 <A> <B>`, 2 CPUs of each level, seats and starter rotated, se about 0.2):
+
+| A vs B | A avg points | B avg points | A - B |
+| --- | --- | --- | --- |
+| hard vs easy | 14.20 | 23.11 | -8.91 |
+| hard vs medium | 15.43 | 20.04 | -4.60 |
+| medium vs easy | 17.23 | 21.85 | -4.62 |
+
 * A **tap** on one of your cards discards it (or closes, in closing mode); a **drag** rearranges the hand. Both use pointer
   events, so mouse, touch and pen share one code path.
 
@@ -99,4 +118,4 @@ There is no build step, so what is in the repo is what is served.
 
 ## License
 
-No license has been chosen yet. Add a `LICENSE` file if you want others to be able to reuse the code.
+MIT. See [`LICENSE`](LICENSE).

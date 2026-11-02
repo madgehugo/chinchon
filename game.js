@@ -39,15 +39,15 @@ const state = {
   reshuffles: 0,     // how many times the draw pile has been refilled this round
   closing: false,    // true while you are choosing which card to close with
   sortMode: "number",// how the Sort button orders your hand: "number" or "suit"
-  cpuMode: "smart",  // "simple" | "smart" | "mixed" (see CPU_MODES)
+  cpuMode: "hard",   // "easy" | "medium" | "hard" | "mixed" (see CPU_MODES)
   cpuSpeed: "normal",// "slow" | "normal" | "fast" (see CPU_SPEEDS)
 
   // What every player can see: cards a player took from the discard pile are
-  // known to be in their hand until they discard them again. The smart CPUs
+  // known to be in their hand until they discard them again. The medium and hard CPUs
   // use this to work out which cards can still come from the draw pile.
   known: [[], [], [], []],
   // Which strategy each CPU uses (see STRATEGIES). Index 0 is the human.
-  cpuLevels: [null, "smart", "smart", "smart"],
+  cpuLevels: [null, "hard", "hard", "hard"],
 
   // ---- Game-level state: lasts across rounds ----
   round: 0,
@@ -301,7 +301,7 @@ function humanClose() {
 //   beat 2, cpuFinishTurn(): close the round, or discard, then pass the turn
 // The strategy (see STRATEGIES) makes the actual decisions.
 function cpuStrategy(p) {
-  return STRATEGIES[state.cpuLevels[p]] || STRATEGIES.smart;
+  return STRATEGIES[state.cpuLevels[p]] || STRATEGIES.hard;
 }
 
 function cpuTurn() {
