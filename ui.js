@@ -8,7 +8,6 @@
 "use strict";
 
 const FACE_NAME   = { 10: "Sota", 11: "Caballo", 12: "Rey" };  // shown on figure cards
-const FIGURE_ICON = { 10: "🧑", 11: "🐴", 12: "👑" };
 
 // Where to put each pip on a 1-7 card. Each pair is [x%, y%] inside the
 // card's face area: x = 0 (left) .. 100 (right), y = 0 (top) .. 100 (bottom).
@@ -57,11 +56,36 @@ const SUIT_SPRITE = `
       <circle cx="13.8" cy="9.5" r="1" fill="var(--cut,#fffaf0)"/>
     </g>
   </symbol>
+  <!-- figures: 10 Sota (page), 11 Caballo (horse), 12 Rey (king, shown as a crown) -->
+  <symbol id="sym-fig-10" viewBox="0 0 24 24">
+    <path d="M7.2 8C7.2 4.2 9.3 2 12 2s4.8 2.200 4.800 6z" fill="currentColor"/>
+    <path d="M16.200 4.500q4-1.500 5 2.500-2.500-.8-4.300 0z" fill="currentColor"/>
+    <circle cx="12" cy="10.500" r="3.600" fill="currentColor"/>
+    <path d="M3.500 22c0-5.200 3.700-8 8.500-8s8.500 2.800 8.500 8z" fill="currentColor"/>
+    <path d="M7.800 8.100h8.400" stroke="var(--cut,#fffaf0)" stroke-width="1"/>
+    <path d="M9.300 14.800L12 18l2.700-3.200" fill="none" stroke="var(--cut,#fffaf0)" stroke-width="1.200"/>
+  </symbol>
+  <symbol id="sym-fig-11" viewBox="0 0 24 24">
+    <path d="M5 22c0-5.500 2.200-9.500 4.800-12.500L8.200 4.800l3.200 1.800C12.500 3.800 14.800 2 17.500 2.500L17 5c3 1 5 4.300 5 8l-2 1.800-3.800-1.500c-1.500.8-2.400 2.500-2.400 4.200 0 1.700.8 3.200 1.800 4.500z" fill="currentColor"/>
+    <circle cx="15.800" cy="7.800" r="1" fill="var(--cut,#fffaf0)"/>
+    <path d="M9.800 9.500q3 1.500 3.800 5" fill="none" stroke="var(--cut,#fffaf0)" stroke-width="1"/>
+  </symbol>
+  <symbol id="sym-fig-12" viewBox="0 0 24 24">
+    <path d="M2.500 19.500L1.500 6.500l6 5L12 3.500l4.500 8 6-5-1 13z" fill="currentColor"/>
+    <rect x="2.500" y="19.500" width="19" height="2.800" rx="1" fill="currentColor"/>
+    <circle cx="12" cy="15.500" r="1.400" fill="var(--cut,#fffaf0)"/>
+    <circle cx="7" cy="15.500" r="1" fill="var(--cut,#fffaf0)"/>
+    <circle cx="17" cy="15.500" r="1" fill="var(--cut,#fffaf0)"/>
+  </symbol>
 </svg>`;
 
 // HTML for one suit symbol. Its size is 1em, so it scales with the font-size of whatever holds it.
 const suitIcon = suit =>
   `<svg class="suit-icon" aria-label="${suit}" role="img"><use href="#sym-${suit}"/></svg>`;
+
+// Same idea for the figure cards (10 Sota, 11 Caballo, 12 Rey); coloured by the card's suit colour.
+const figureIcon = value =>
+  `<svg class="suit-icon" aria-hidden="true"><use href="#sym-fig-${value}"/></svg>`;
 
 // Put the sprite into the page once, at load (it is invisible; it only holds the shapes).
 document.body.insertAdjacentHTML("afterbegin", SUIT_SPRITE);
@@ -100,7 +124,7 @@ function createCardElement(card, faceUp) {
     faceHTML = `
       <div class="face figure">
         <span class="fig-suit">${symbol}</span>
-        <span class="fig-icon">${FIGURE_ICON[card.value]}</span>
+        <span class="fig-icon">${figureIcon(card.value)}</span>
         <span class="fig-name">${FACE_NAME[card.value]}</span>
       </div>`;
   }
