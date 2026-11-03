@@ -9,6 +9,9 @@
 
 const FACE_NAME   = { 10: "Sota", 11: "Caballo", 12: "Rey" };  // shown on figure cards
 
+const MOVE_MS          = 260;   // how long one card takes to slide (kept under 300 ms)
+const DEAL_STAGGER_MS  = 30;    // delay between one dealt card and the next
+
 // Where to put each pip on a 1-7 card. Each pair is [x%, y%] inside the
 // card's face area: x = 0 (left) .. 100 (right), y = 0 (top) .. 100 (bottom).
 // The number of pairs equals the card's value, so a 4 shows 4 symbols.
@@ -164,13 +167,13 @@ function renderHand(playerIndex) {
         el.classList.add("clickable", "close-option");
         el.title += info.chinchon ? " - close with CHINCHÓN!"
                                   : ` - close and score ${info.closerScore}`;
-        onTap = () => closeRound(0, index);
+        onTap = () => { discardFrom = el.getBoundingClientRect(); closeRound(0, index); };
       } else {
         el.classList.add("dimmed");                          // this discard is not a legal close
       }
     } else if (canDiscard) {
       el.classList.add("clickable");                         // CSS highlights it
-      onTap = () => humanDiscard(index);
+      onTap = () => { discardFrom = el.getBoundingClientRect(); humanDiscard(index); };
     }
     if (playerIndex === 0) makeInteractive(el, index, onTap);   // tap = act, drag = rearrange
     container.appendChild(el);
@@ -337,10 +340,11 @@ function renderTurnIndicator() {
 // Master render: redraw everything from state
 function render() {
   renderSeats();
+  const rebuilt = [];                 // which hands were redrawn this time (the animations need it)
   for (let p = 0; p < state.numPlayers; p++) {
     // While you are dragging a card, don't rebuild your hand (it would cancel the drag)
-    if (p === 0 && dragFrom !== null) continue;
-    renderHand(p);
+    rebuilt[p] = !(p === 0 && dragFrom !== null);
+    if (rebuilt[p]) renderHand(p);
   }
   renderPiles();
   renderTurnIndicator();
@@ -349,6 +353,81 @@ function render() {
   renderAnalysis();
   renderResults();
   renderToggles();
+  animateChanges(rebuilt);            // last, because it needs the new cards to be in the page
+}
+
+/* ---------------------------------------------------------
+   Card animations. render() rebuilds every card from scratch, so a card that
+   "moves" is really a new element. To make it look like it travelled, we compare
+   this render with the previous one (animSeen), and slide the NEW card in from
+   where it came from: the draw pile, the discard pile, or the hand it was played from.
+   The sliding uses the Web Animations API: element.animate(keyframes, options).
+   Nothing here changes `state`, and nothing runs when the player's system asks
+   for reduced motion.
+   --------------------------------------------------------- */
+const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");  // live: .matches follows the OS setting
+let animSeen = { deals: 0, drawLen: 0, discardLen: 0, handLen: [] };   // what the previous render looked like
+let discardFrom = null;       // where the card you just tapped was (set by the tap, used once)
+
+// Slide a card element from `from` (a rectangle) to where it now is.
+// matchSize: also start at the size of `from` (a pile card is bigger than a hand card).
+function slideFrom(el, from, matchSize, delay = 0) {
+  const to = el.getBoundingClientRect();
+  const dx = (from.left + from.width / 2) - (to.left + to.width / 2);
+  const dy = (from.top + from.height / 2) - (to.top + to.height / 2);
+  const scale = matchSize ? from.width / to.width : 1;
+  el.style.zIndex = 30;                                   // fly above the other cards
+  const anim = el.animate(
+    [{ transform: `translate(${dx}px, ${dy}px) scale(${scale})` }, { transform: "none" }],
+    { duration: MOVE_MS, delay, easing: "ease-out", fill: "backwards" });   // backwards: wait at the start spot during the delay
+  const done = () => { el.style.zIndex = ""; };
+  anim.onfinish = done;
+  anim.oncancel = done;
+}
+
+const rectOf = id => document.getElementById(id).getBoundingClientRect();
+
+// The cards of a new round fly out of the draw pile one at a time, round the table
+function animateDeal() {
+  const from = rectOf("draw-slot");
+  let n = 0;
+  for (let r = 0; r < CARDS_PER_HAND; r++) {
+    for (let p = 0; p < state.numPlayers; p++) {
+      const card = document.querySelectorAll(`#hand-${p} .card`)[r];
+      if (card) slideFrom(card, from, true, (n++) * DEAL_STAGGER_MS);
+    }
+  }
+}
+
+function animateChanges(rebuilt) {
+  const prev = animSeen;
+  const now = { deals: state.deals, drawLen: state.drawPile.length,
+                discardLen: state.discardPile.length, handLen: prev.handLen.slice() };
+  state.hands.forEach((hand, p) => { if (rebuilt[p]) now.handLen[p] = hand.length; });
+
+  if (!REDUCED_MOTION.matches) {
+    if (now.deals !== prev.deals) {
+      animateDeal();
+    } else {
+      for (let p = 0; p < state.numPlayers; p++) {
+        if (!rebuilt[p]) continue;
+        const before = prev.handLen[p] || 0, after = now.handLen[p];
+        if (after === before + 1) {
+          // A card was drawn. It came from the discard pile if that shrank and the draw pile did not.
+          const fromDiscard = now.discardLen === prev.discardLen - 1 && now.drawLen === prev.drawLen;
+          const cards = document.querySelectorAll(`#hand-${p} .card`);
+          slideFrom(cards[cards.length - 1], rectOf(fromDiscard ? "discard-slot" : "draw-slot"), true);
+        } else if (after === before - 1 && now.discardLen === prev.discardLen + 1) {
+          // A card was discarded: slide the new top of the discard pile in from the hand
+          const top = document.querySelector("#discard-slot .card");
+          const from = (p === 0 && discardFrom) ? discardFrom : rectOf(`hand-${p}`);
+          if (top) slideFrom(top, from, p === 0 && discardFrom !== null);
+        }
+      }
+    }
+  }
+  animSeen = now;
+  discardFrom = null;
 }
 
 // Hints / Settings buttons and the settings panel follow state

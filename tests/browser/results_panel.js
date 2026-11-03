@@ -6,7 +6,7 @@ const URL_ = 'file://' + path.join(__dirname, '..', '..', 'index.html');
 const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
 (async () => {
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1000, height: 1100 } });
+  const page = await browser.newPage({ reducedMotion: 'reduce', viewport: { width: 1000, height: 1100 } });
   const errs = [];
   page.on('pageerror', e => errs.push(e.message));
   await page.goto(URL_);

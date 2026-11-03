@@ -55,6 +55,7 @@ const state = {
 
   // ---- Game-level state: lasts across rounds ----
   round: 0,
+  deals: 0,                           // how many times cards have been dealt (the UI plays the dealing animation when it changes)
   totals: [0, 0, 0, 0],               // running score per player (lower is better)
   inGame: [true, true, true, true],   // false = eliminated (may re-enter)
   startPlayer: 0,                     // who plays first this round (rotates)
@@ -115,6 +116,7 @@ function startRound() {
 
   clearTimeout(state.timer);        // cancel any CPU move left from a previous round
   state.round++;
+  state.deals++;
   state.reshuffles = 0;
   state.turns = 0;
   state.known = Array.from({ length: state.numPlayers }, () => []);

@@ -174,7 +174,22 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 
 /* Cards you can click (added by JS while you must discard) lift on hover */
 .card.clickable { cursor: pointer; }
-#seat-0 .card.clickable:hover { transform: translateY(-10px); transition: transform .12s; }
+
+/* Gentle lift: your cards rise a little under the pointer (hover) and when pressed (tap).
+   Only for real hover devices, so touch screens do not keep a card lifted after a tap. */
+#seat-0 .card { transition: transform .14s ease-out, box-shadow .14s ease-out; }
+@media (hover: hover) {
+  #seat-0 .card:hover { transform: translateY(-6px); box-shadow: 0 6px 10px rgba(0,0,0,.4); }
+  #seat-0 .card.clickable:hover { transform: translateY(-10px); }
+}
+#seat-0 .card:active { transform: translateY(-8px) scale(1.04); }
+#seat-0 .card.dragging { transform: none; }
+
+/* Reduced motion: no movement at all; hovering still shows a shadow so it is not a dead end */
+@media (prefers-reduced-motion: reduce) {
+  #seat-0 .card { transition: none; }
+  #seat-0 .card:hover, #seat-0 .card:active, #seat-0 .card.clickable:hover { transform: none; }
+}
 
 /* A pile you may click right now (class toggled by JS) gets a gold outline */
 .pile.can-pick .card { outline: 3px solid #ffd54a; cursor: pointer; }

@@ -9,7 +9,7 @@ const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
   const browser = await chromium.launch();
   const errors = [];
   for (const [label, viewport] of [['desktop', { width: 1000, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
-    const page = await browser.newPage({ viewport });
+    const page = await browser.newPage({ reducedMotion: 'reduce', viewport });
     page.on('pageerror', e => errors.push(label + ': ' + e.message));
     await page.goto(url);
     await page.click('#settings-btn');            // settings live in a collapsible panel

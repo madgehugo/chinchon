@@ -12,6 +12,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 * 1 human vs 1, 2 or 3 CPUs (the "CPUs" dropdown starts a new game), with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
 * 40-card Spanish deck (1-7, 10-12) or 48-card deck (adds the 8s and 9s), which suits bigger groups.
 * Cards show their number of suit symbols (the 4 of swords has four swords), drawn as inline SVG shapes defined once in `ui.js` (`SUIT_SPRITE`) so they look the same on every device.
+* Short card animations (260 ms or less each): the deal, drawing from either pile, discarding, and a gentle lift when you hover or press one of your cards. They switch off when the system asks for reduced motion (`prefers-reduced-motion`).
 * Drag cards to rearrange your hand; one button sorts by number or by suit.
 * You pick which card to close with.
 * Round results screen showing every hand split into melds and leftovers.
@@ -44,7 +45,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the results panel, startup. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout). |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations). |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file. |
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
 

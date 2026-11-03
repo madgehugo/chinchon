@@ -18,7 +18,7 @@ const noCpuClose = (page) => page.evaluate(() => { for (const s of Object.values
   const errors = [];
 
   // ================= DESKTOP: mouse =================
-  let page = await browser.newPage({ viewport: { width: 1000, height: 1150 } });
+  let page = await browser.newPage({ reducedMotion: 'reduce', viewport: { width: 1000, height: 1150 } });
   page.on('pageerror', e => errors.push('desktop: ' + e.message));
   await page.goto(url);
   await noCpuClose(page);
@@ -70,7 +70,7 @@ const noCpuClose = (page) => page.evaluate(() => { for (const s of Object.values
   await page.close();
 
   // ================= PHONE: touch =================
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  const ctx = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   page = await ctx.newPage();
   page.on('pageerror', e => errors.push('phone: ' + e.message));
   await page.goto(url);
