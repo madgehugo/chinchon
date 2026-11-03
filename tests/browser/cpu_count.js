@@ -12,6 +12,7 @@ const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
     const page = await browser.newPage({ viewport });
     page.on('pageerror', e => errors.push(label + ': ' + e.message));
     await page.goto(url);
+    await page.click('#settings-btn');            // settings live in a collapsible panel
     await page.selectOption('#cpu-speed', 'fast');
     for (const cpus of [1, 2, 3]) {
       await page.selectOption('#cpu-count', String(cpus));   // asks first once a game is under way

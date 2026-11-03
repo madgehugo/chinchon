@@ -43,6 +43,8 @@ const state = {
   sortMode: "number",// how the Sort button orders your hand: "number" or "suit"
   cpuMode: "hard",   // "easy" | "medium" | "hard" | "mixed" (see CPU_MODES)
   cpuSpeed: "normal",// "slow" | "normal" | "fast" (see CPU_SPEEDS)
+  showHints: false,  // is the hand analysis table visible? (off by default)
+  showSettings: false, // is the settings panel open?
 
   // What every player can see: cards a player took from the discard pile are
   // known to be in their hand until they discard them again. The medium and hard CPUs

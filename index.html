@@ -60,18 +60,25 @@
   </div>
 </div>
 
-<div id="controls">
+<!-- Main actions, right under your hand. Hints and Settings are toggles. -->
+<div id="actions">
+  <button id="sort-btn">Sort hand</button>
+  <button id="close-btn" disabled>Close round</button>
+  <button id="next-btn" disabled>Next round</button>
+  <button id="results-btn" disabled>Round results</button>
+  <span class="spacer"></span>
+  <button id="hints-btn" class="secondary" aria-pressed="false">Hints</button>
+  <button id="settings-btn" class="secondary" aria-expanded="false" aria-controls="settings" title="Settings">&#9881; Settings</button>
+</div>
+
+<!-- Settings panel: hidden until the Settings button is pressed -->
+<div id="settings" hidden>
   <label class="opt">Sort by
     <select id="sort-mode">
       <option value="number">Number</option>
       <option value="suit">Suit</option>
     </select>
   </label>
-  <button id="sort-btn">Sort hand</button>
-  <button id="close-btn" disabled>Close round</button>
-  <button id="next-btn" disabled>Next round</button>
-  <button id="results-btn" disabled>Round results</button>
-  <button id="new-game">New game</button>
   <label class="opt">CPUs
     <select id="cpu-count">
       <option value="1">1</option>
@@ -100,6 +107,7 @@
       <option value="48">48 cards (with 8s and 9s)</option>
     </select>
   </label>
+  <button id="new-game">New game</button>
 </div>
 
 <!-- Asks before a deck change throws away a game in progress (browser pop-up

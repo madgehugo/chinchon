@@ -22,6 +22,7 @@ const noCpuClose = (page) => page.evaluate(() => { for (const s of Object.values
   page.on('pageerror', e => errors.push('desktop: ' + e.message));
   await page.goto(url);
   await noCpuClose(page);
+  await page.click('#settings-btn');            // settings live in a collapsible panel
   await page.selectOption('#cpu-speed', 'fast');
 
   const before = await handNames(page);
@@ -74,6 +75,7 @@ const noCpuClose = (page) => page.evaluate(() => { for (const s of Object.values
   page.on('pageerror', e => errors.push('phone: ' + e.message));
   await page.goto(url);
   await noCpuClose(page);
+  await page.click('#settings-btn');            // settings live in a collapsible panel
   await page.selectOption('#cpu-speed', 'fast');
   const overflow = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
   log('PHONE horizontal overflow:', overflow.sw > overflow.cw, overflow);

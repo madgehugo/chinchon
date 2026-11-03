@@ -23,6 +23,49 @@ const PIP_LAYOUTS = {
   7: [[28, 12], [72, 12], [50, 31], [28, 50], [72, 50], [28, 88], [72, 88]],
 };
 
+// Suit symbols, drawn as inline SVG (vector graphics written as text, so they stay sharp at any
+// size and need no image files). Each <symbol> is drawn once on a 24x24 grid in the hidden sprite
+// below; every use of a suit is then a tiny <svg><use href="#sym-oros"/></svg> pointing at it
+// (see suitIcon). `fill="currentColor"` means "use the text colour of the surroundings", so the
+// CSS colours .suit-oros, .suit-copas, ... colour the symbols too. `--cut` is the card-paper
+// colour, used for the details cut out of each shape (coin ring, cup bowl, blade groove, knots).
+const SUIT_SPRITE = `
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="sym-oros" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="11" fill="currentColor"/>
+    <circle cx="12" cy="12" r="7.6" fill="none" stroke="var(--cut,#fffaf0)" stroke-width="1.6"/>
+    <path d="M12 7.4l1.5 3.1 3.4.4-2.5 2.3.7 3.4-3.1-1.7-3.1 1.7.7-3.4-2.5-2.3 3.4-.4z" fill="var(--cut,#fffaf0)"/>
+  </symbol>
+  <symbol id="sym-copas" viewBox="0 0 24 24">
+    <path d="M3.5 2h17c.4 7.5-3 12-8.5 12S3.1 9.5 3.5 2z" fill="currentColor"/>
+    <path d="M10.6 13.5h2.8v5.2h-2.8z" fill="currentColor"/>
+    <path d="M6.5 19.5c0-.6.5-1 1-1h9c.5 0 1 .4 1 1V22h-11z" fill="currentColor"/>
+    <path d="M6.2 4.2h11.6c.1 3.6-2 6.3-5.8 6.3S6.1 7.8 6.2 4.2z" fill="none" stroke="var(--cut,#fffaf0)" stroke-width="1.3"/>
+  </symbol>
+  <symbol id="sym-espadas" viewBox="0 0 24 24">
+    <path d="M12 .8l3 4.7v10H9v-10z" fill="currentColor"/>
+    <path d="M12 4v10.5" stroke="var(--cut,#fffaf0)" stroke-width="1.1"/>
+    <rect x="4" y="15.5" width="16" height="2.6" rx="1.3" fill="currentColor"/>
+    <rect x="10.5" y="18" width="3" height="3" fill="currentColor"/>
+    <circle cx="12" cy="22" r="1.8" fill="currentColor"/>
+  </symbol>
+  <!-- club: a smooth tapered cudgel, tilted, with two knots; drawn large so it matches the other suits -->
+  <symbol id="sym-bastos" viewBox="0 0 24 24">
+    <g transform="rotate(38 12 12) translate(12 12) scale(1.1) translate(-12 -12)">
+      <path d="M12 1c4.4 0 5.8 2.7 5.1 6.3-.5 3-2.3 5.3-2.5 8.2l-.2 5.2c-.1 1.7-4.1 1.7-4.2 0l-.2-5.2c-.2-2.9-2-5.2-2.5-8.2C6.2 3.7 7.6 1 12 1z" fill="currentColor"/>
+      <circle cx="10.8" cy="5.5" r="1.2" fill="var(--cut,#fffaf0)"/>
+      <circle cx="13.8" cy="9.5" r="1" fill="var(--cut,#fffaf0)"/>
+    </g>
+  </symbol>
+</svg>`;
+
+// HTML for one suit symbol. Its size is 1em, so it scales with the font-size of whatever holds it.
+const suitIcon = suit =>
+  `<svg class="suit-icon" aria-label="${suit}" role="img"><use href="#sym-${suit}"/></svg>`;
+
+// Put the sprite into the page once, at load (it is invisible; it only holds the shapes).
+document.body.insertAdjacentHTML("afterbegin", SUIT_SPRITE);
+
 /* ---------------------------------------------------------
    5. RENDERING: turn `state` into HTML elements.
    Each render function rebuilds its container from scratch.
@@ -41,7 +84,7 @@ function createCardElement(card, faceUp) {
 
   el.classList.add(`suit-${card.suit}`);
   const label  = card.value;   // the cards show 1-7 and 10, 11, 12 as numbers
-  const symbol = SUIT_SYMBOL[card.suit];
+  const symbol = suitIcon(card.suit);
 
   // Build the middle of the card.
   //  - values 1-7: that many suit symbols, positioned from PIP_LAYOUTS
@@ -281,6 +324,18 @@ function render() {
   renderScoreboard();
   renderAnalysis();
   renderResults();
+  renderToggles();
+}
+
+// Hints / Settings buttons and the settings panel follow state
+function renderToggles() {
+  document.getElementById("settings").hidden = !state.showSettings;
+  const hints = document.getElementById("hints-btn");
+  hints.setAttribute("aria-pressed", String(state.showHints));
+  hints.textContent = state.showHints ? "Hints: on" : "Hints";
+  const settings = document.getElementById("settings-btn");
+  settings.setAttribute("aria-expanded", String(state.showSettings));
+  settings.classList.toggle("active", state.showSettings);
 }
 
 // Table of running totals under the game
@@ -326,7 +381,10 @@ function renderControls() {
 // Debug panel under the table: shows how the evaluator sees YOUR hand.
 // (Useful while building; you can remove it later.)
 function renderAnalysis() {
-  const describe = card => `${card.value}${SUIT_SYMBOL[card.suit]}`;
+  const box = document.getElementById("analysis");
+  box.hidden = !state.showHints;               // the table is only shown when Hints is on
+  if (!state.showHints) return;
+  const describe = card => `${card.value}${suitIcon(card.suit)}`;
   if (state.hands[0].length === 0) {          // you are out of the game
     document.getElementById("analysis").innerHTML =
       "<b>Your hand analysis</b><br>You are not playing this round.";
@@ -460,6 +518,14 @@ document.getElementById("discard-pile").addEventListener("click", () => humanDra
 document.getElementById("close-btn").addEventListener("click", humanClose);
 document.getElementById("next-btn").addEventListener("click", nextRound);
 document.getElementById("sort-btn").addEventListener("click", sortHand);
+document.getElementById("hints-btn").addEventListener("click", () => {
+  state.showHints = !state.showHints;
+  render();
+});
+document.getElementById("settings-btn").addEventListener("click", () => {
+  state.showSettings = !state.showSettings;
+  render();
+});
 
 // Choosing a sort method also sorts straight away
 document.getElementById("sort-mode").addEventListener("change", (e) => {

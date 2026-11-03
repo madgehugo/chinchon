@@ -8,9 +8,10 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 
 ## Features
 
+* Sort and Close sit under your hand; the dropdowns (sort mode, CPUs, level, speed, deck) and New game are in a panel behind the Settings button, and the hand analysis table is behind the Hints toggle (off by default).
 * 1 human vs 1, 2 or 3 CPUs (the "CPUs" dropdown starts a new game), with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
 * 40-card Spanish deck (1-7, 10-12) or 48-card deck (adds the 8s and 9s), which suits bigger groups.
-* Cards show their number of suit symbols (the 4 of swords has four swords).
+* Cards show their number of suit symbols (the 4 of swords has four swords), drawn as inline SVG shapes defined once in `ui.js` (`SUIT_SPRITE`) so they look the same on every device.
 * Drag cards to rearrange your hand; one button sorts by number or by suit.
 * You pick which card to close with.
 * Round results screen showing every hand split into melds and leftovers.
