@@ -448,6 +448,13 @@ function scoreRound(closer, info, points) {
     return;
   }
 
+  // Only one player left under the limit: they win, and nobody gets to re-enter.
+  if (active.length === 1) {
+    state.notice = notes;
+    endGame(active[0], "reason.lastStanding");
+    return;
+  }
+
   // 3. Re-entry. The entry score is the highest total among players still in.
   state.entryScore = Math.max(...active.map(p => state.totals[p]));
   const returned = [];
@@ -486,13 +493,8 @@ function humanReenter(wantsIn) {
   finishRoundScoring();
 }
 
-// 4. Decide whether the game is over, otherwise wait for "Next round"
+// 4. Wait for "Next round" (a game with one player left was already ended in step 2)
 function finishRoundScoring() {
-  const active = activePlayers();
-  if (active.length <= 1) {
-    endGame(active[0], "reason.lastStanding");
-    return;
-  }
   render();
   setStatus(...state.summary, ...state.notice, msg("msg.pressNext"));
 }
