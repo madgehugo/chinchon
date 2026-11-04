@@ -5,7 +5,7 @@
   "description": "Browser Chinchón: you against three CPU players. Plain HTML, CSS and JavaScript.",
   "scripts": {
     "test": "node tools/stress.js 20",
-    "test:browser": "node tests/browser/ui.js && node tests/browser/results_panel.js && node tests/browser/cpu_count.js && node tests/browser/animation.js",
+    "test:browser": "node tests/browser/ui.js && node tests/browser/results_panel.js && node tests/browser/cpu_count.js && node tests/browser/animation.js && node tests/browser/language.js",
     "bench": "node tools/bench.js 1600 smart greedy",
     "build:single": "python3 build_single.py"
   },

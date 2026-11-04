@@ -236,6 +236,8 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 #actions { width: min(960px, 100%); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
 #actions button { margin: 0; }
 #actions .spacer { flex: 1; }
+/* The language dropdown: same look as the secondary buttons */
+#actions select { font-size: .85rem; padding: 7px 8px; border-radius: 6px; border: 0; font-family: inherit; background: rgba(255, 255, 255, .85); color: #222; }
 button.active { background: #ffd54a; }
 
 /* Settings panel (the [hidden] rule keeps the hidden attribute working with display: flex) */
@@ -255,13 +257,13 @@ button.active { background: #ffd54a; }
 .card.dimmed       { opacity: .4; }
 
 #reentry, #deck-confirm {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
   margin-bottom: 10px; padding: 8px 14px;
   background: rgba(255, 213, 74, .18);
   border-radius: 8px;
 }
 #reentry[hidden], #deck-confirm[hidden] { display: none; }          /* keep the hidden attribute working */
-#reentry button, #deck-confirm button { margin: 0; }
+#reentry button, #deck-confirm button { margin: 0; white-space: nowrap; }   /* long Spanish labels must not wrap inside the button */
 
 #scoreboard {
   width: min(960px, 100%);

@@ -8,6 +8,12 @@ It copies index.html and replaces
     <script src="rules.js"></script> ...        with inline <script> blocks,
 keeping the same order. Nothing else changes, so the bundled file behaves
 exactly like the multi-file version. Edit the separate files, then re-run this.
+
+It only relies on the tag shapes above, so a new script (such as i18n.js, the English
+and Spanish text) needs no change here, as long as it is listed in index.html in
+exactly that form. The text lives in i18n.js, not in the HTML, apart from the
+English fallback written in index.html and the data-i18n attributes, which the
+bundle keeps unchanged.
 """
 import re
 import sys

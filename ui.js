@@ -7,8 +7,6 @@
 
 "use strict";
 
-const FACE_NAME   = { 10: "Sota", 11: "Caballo", 12: "Rey" };  // shown on figure cards
-
 const MOVE_MS          = 260;   // how long one card takes to slide (kept under 300 ms)
 const DEAL_STAGGER_MS  = 30;    // delay between one dealt card and the next
 
@@ -84,7 +82,7 @@ const SUIT_SPRITE = `
 
 // HTML for one suit symbol. Its size is 1em, so it scales with the font-size of whatever holds it.
 const suitIcon = suit =>
-  `<svg class="suit-icon" aria-label="${suit}" role="img"><use href="#sym-${suit}"/></svg>`;
+  `<svg class="suit-icon" aria-label="${t(`suit.${suit}`)}" role="img"><use href="#sym-${suit}"/></svg>`;
 
 // Same idea for the figure cards (10 Sota, 11 Caballo, 12 Rey); coloured by the card's suit colour.
 const figureIcon = value =>
@@ -128,7 +126,7 @@ function createCardElement(card, faceUp) {
       <div class="face figure">
         <span class="fig-suit">${symbol}</span>
         <span class="fig-icon">${figureIcon(card.value)}</span>
-        <span class="fig-name">${FACE_NAME[card.value]}</span>
+        <span class="fig-name">${t(`card.fig.${card.value}`)}</span>
       </div>`;
   }
 
@@ -138,9 +136,8 @@ function createCardElement(card, faceUp) {
     ${faceHTML}
     <div class="corner bottom">${label}</div>
   `;
-  // Tooltip on hover, e.g. "12 de oros (Rey)"
-  const faceName = FACE_NAME[card.value] ? ` (${FACE_NAME[card.value]})` : "";
-  el.title = `${card.value} de ${card.suit}${faceName}`;
+  // Tooltip on hover, e.g. "12 de oros (Rey)"; {fig} is empty for the number cards
+  el.title = t("card.title", { value: card.value, suit: card.suit, fig: card.value });
   return el;
 }
 
@@ -165,8 +162,8 @@ function renderHand(playerIndex) {
       if (closable.has(index)) {
         const info = closable.get(index);
         el.classList.add("clickable", "close-option");
-        el.title += info.chinchon ? " - close with CHINCHÓN!"
-                                  : ` - close and score ${info.closerScore}`;
+        el.title += info.chinchon ? t("card.closeChinchon")
+                                  : t("card.closeScore", { n: info.closerScore });
         onTap = () => { discardFrom = el.getBoundingClientRect(); closeRound(0, index); };
       } else {
         el.classList.add("dimmed");                          // this discard is not a legal close
@@ -286,7 +283,7 @@ function renderPiles() {
     drawSlot.innerHTML = '<div class="pile-empty"></div>';
   }
   document.getElementById("draw-label").textContent =
-    `Draw pile (${state.drawPile.length})`;
+    t("pile.draw", { n: state.drawPile.length });
 
   // Discard pile: show only the TOP card, face-up
   if (state.discardPile.length > 0) {
@@ -296,7 +293,7 @@ function renderPiles() {
     discardSlot.innerHTML = '<div class="pile-empty"></div>';
   }
   document.getElementById("discard-label").textContent =
-    `Discard pile (${state.discardPile.length})`;
+    t("pile.discard", { n: state.discardPile.length });
 }
 
 // Where each seat sits on the table (grid-area names from style.css), by number of
@@ -330,15 +327,16 @@ function renderTurnIndicator() {
     seat.classList.toggle("active", p === state.currentPlayer && state.phase !== "roundOver");
 
     // Seat label: name, running total, and OUT if eliminated
-    const base = p === 0 ? "You (Player 1)"
-               : `${PLAYER_NAMES[p]} (${LEVEL_LABEL[state.cpuLevels[p]] || "hard"})`;
+    const name = p === 0 ? t("seat.you")
+               : t("seat.cpu", { name: playerName(p), level: state.cpuLevels[p] || "hard" });
     seat.querySelector(".seat-name").textContent =
-      `${base} · ${state.totals[p]} pts${state.inGame[p] ? "" : " · OUT"}`;
+      t("seat.score", { name, n: state.totals[p] }) + (state.inGame[p] ? "" : t("seat.out"));
   }
 }
 
 // Master render: redraw everything from state
 function render() {
+  applyStaticText();
   renderSeats();
   const rebuilt = [];                 // which hands were redrawn this time (the animations need it)
   for (let p = 0; p < state.numPlayers; p++) {
@@ -353,6 +351,7 @@ function render() {
   renderAnalysis();
   renderResults();
   renderToggles();
+  renderStatus();
   animateChanges(rebuilt);            // last, because it needs the new cards to be in the page
 }
 
@@ -430,12 +429,32 @@ function animateChanges(rebuilt) {
   discardFrom = null;
 }
 
+// The text written in index.html (data-i18n attributes): rewritten whenever the language
+// changes, and once at startup. Everything else is rebuilt by render() anyway.
+let staticTextLang = null;    // the language the page text is currently in
+function applyStaticText() {
+  if (staticTextLang === currentLang) return;
+  staticTextLang = currentLang;
+  document.documentElement.lang = currentLang;                     // <html lang="es">
+  document.title = t("app.title");
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  // data-i18n-title="key" is read in JS as dataset.i18nTitle (dashes become camelCase)
+  document.querySelectorAll("[data-i18n-title]").forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll("[data-i18n-aria]").forEach(el => {
+    el.setAttribute("aria-label", t(el.dataset.i18nAria));
+  });
+  document.getElementById("lang").value = currentLang;
+  if (pendingQuestion) {                                           // a confirm bar is open
+    document.getElementById("deck-confirm-text").textContent = pendingQuestion();
+  }
+}
+
 // Hints / Settings buttons and the settings panel follow state
 function renderToggles() {
   document.getElementById("settings").hidden = !state.showSettings;
   const hints = document.getElementById("hints-btn");
   hints.setAttribute("aria-pressed", String(state.showHints));
-  hints.textContent = state.showHints ? "Hints: on" : "Hints";
+  hints.textContent = t(state.showHints ? "btn.hintsOn" : "btn.hints");
   const settings = document.getElementById("settings-btn");
   settings.setAttribute("aria-expanded", String(state.showSettings));
   settings.classList.toggle("active", state.showSettings);
@@ -443,17 +462,18 @@ function renderToggles() {
 
 // Table of running totals under the game
 function renderScoreboard() {
-  const rows = PLAYER_NAMES.slice(0, state.numPlayers).map((name, p) => {
+  const rows = Array.from({ length: state.numPlayers }, (_, p) => {
     const last = state.roundPoints[p];
     return `<tr class="${state.inGame[p] ? "" : "out"}">` +
-           `<td>${name}</td><td>${state.totals[p]}</td>` +
+           `<td>${playerName(p)}</td><td>${state.totals[p]}</td>` +
            `<td>${last === null ? "–" : last}</td>` +
-           `<td>${state.inGame[p] ? "in" : "OUT"}</td></tr>`;
+           `<td>${t(state.inGame[p] ? "board.in" : "board.out")}</td></tr>`;
   }).join("");
 
   document.getElementById("scoreboard").innerHTML =
-    `<b>Round ${state.round}</b> (out above ${SCORE_LIMIT} points)` +
-    `<table><tr><th>Player</th><th>Total</th><th>Last round</th><th>Status</th></tr>${rows}</table>`;
+    `<b>${t("board.round", { n: state.round, limit: SCORE_LIMIT })}</b>` +
+    `<table><tr><th>${t("board.player")}</th><th>${t("board.total")}</th>` +
+    `<th>${t("board.last")}</th><th>${t("board.status")}</th></tr>${rows}</table>`;
 }
 
 // Enable/disable the buttons and highlight the piles you can click
@@ -465,7 +485,7 @@ function renderControls() {
 
   document.getElementById("close-btn").disabled = !closeAllowed;
   document.getElementById("close-btn").textContent =
-    state.closing ? "Cancel closing" : "Close round";
+    t(state.closing ? "btn.closeCancel" : "btn.close");
   document.getElementById("sort-btn").disabled = state.hands[0].length === 0;
   document.getElementById("next-btn").disabled =
     !(state.phase === "roundOver" && !state.awaitingReentry && !state.gameOver);
@@ -475,7 +495,7 @@ function renderControls() {
   // (while the results panel is open, it asks the question itself)
   document.getElementById("reentry").hidden = !(state.awaitingReentry && !state.showResults);
   document.getElementById("reentry-text").textContent =
-    `You are out of the game. Re-enter with ${state.entryScore} points?`;
+    reentryText();
   document.getElementById("draw-pile").classList.toggle("can-pick", drawing);
   document.getElementById("discard-pile").classList.toggle(
     "can-pick", drawing && state.discardPile.length > 0);
@@ -488,39 +508,38 @@ function renderAnalysis() {
   box.hidden = !state.showHints;               // the table is only shown when Hints is on
   if (!state.showHints) return;
   const describe = card => `${card.value}${suitIcon(card.suit)}`;
+  const title = `<b>${t("hint.title")}</b><br>`;
   if (state.hands[0].length === 0) {          // you are out of the game
-    document.getElementById("analysis").innerHTML =
-      "<b>Your hand analysis</b><br>You are not playing this round.";
+    box.innerHTML = title + t("hint.notPlaying");
     return;
   }
   const info = getCloseInfo(state.hands[0]);
 
   const meldText = info.melds.length
-    ? info.melds.map(m => `${m.type}: ${m.cards.map(describe).join(" ")}`).join(" | ")
-    : "none";
+    ? info.melds.map(m => `${meldName(m.type)}: ${m.cards.map(describe).join(" ")}`).join(" | ")
+    : t("hint.none");
   const unmatchedText = info.unmatched.length
     ? `${info.unmatched.map(describe).join(" ")} (${info.points} pts)`
-    : "none";
+    : t("hint.none");
 
-  let closeText = "No";
+  let closeText = t("hint.no");
   if (state.hands[0].length > CARDS_PER_HAND) {
     // 8 cards in hand: you must discard one to close, so show the best option
     const option = findBestClose(state.hands[0]);
     if (option) {
       const discarded = describe(state.hands[0][option.discardIndex]);
       closeText = option.info.chinchon
-        ? `Yes: discard ${discarded} for CHINCHÓN!`
-        : `Yes: discard ${discarded} (would score ${option.info.closerScore})`;
+        ? t("hint.yesDiscardChinchon", { discard: discarded })
+        : t("hint.yesDiscard", { discard: discarded, n: option.info.closerScore });
     }
   } else if (info.chinchon) {
-    closeText = "Yes: CHINCHÓN!";
+    closeText = t("hint.yesChinchon");
   } else if (info.canClose) {
-    closeText = `Yes (would score ${info.closerScore})`;
+    closeText = t("hint.yes", { n: info.closerScore });
   }
 
-  document.getElementById("analysis").innerHTML =
-    `<b>Your hand analysis</b><br>Melds: ${meldText}<br>` +
-    `Unmatched: ${unmatchedText}<br>Can close: ${closeText}`;
+  box.innerHTML = title + `${t("hint.melds")}: ${meldText}<br>` +
+    `${t("hint.unmatched")}: ${unmatchedText}<br>${t("hint.canClose")}: ${closeText}`;
 }
 
 // ---- The round results panel ----
@@ -542,15 +561,15 @@ function resultGroup(cards, label, cls) {
 }
 
 function resultRow(d) {
-  const name = d.p === 0 ? "You" : PLAYER_NAMES[d.p];
+  const name = playerName(d.p);
   const row = document.createElement("div");
   row.className = "res-row" + (d.closer ? " closer" : "");
 
-  const pts = d.chinchon ? "Chinchón!" : (d.points > 0 ? `+${d.points}` : String(d.points));
+  const pts = d.chinchon ? t("res.chinchon") : (d.points > 0 ? `+${d.points}` : String(d.points));
   const gameEndedHere = state.roundResult.chinchon && CHINCHON_ENDS_GAME;
-  const total = gameEndedHere ? "" : `total ${state.totals[d.p]}`;
-  const badges = (d.closer && !d.chinchon ? '<span class="badge">closed</span>' : "") +
-                 (!state.inGame[d.p] ? '<span class="badge out">out</span>' : "");
+  const total = gameEndedHere ? "" : t("res.total", { n: state.totals[d.p] });
+  const badges = (d.closer && !d.chinchon ? `<span class="badge">${t("res.badgeClosed")}</span>` : "") +
+                 (!state.inGame[d.p] ? `<span class="badge out">${t("res.badgeOut")}</span>` : "");
   const head = document.createElement("div");
   head.className = "res-head";
   head.innerHTML = `<b>${name}</b>${badges}` +
@@ -559,10 +578,10 @@ function resultRow(d) {
 
   const cards = document.createElement("div");
   cards.className = "res-cards";
-  d.melds.forEach(m => cards.appendChild(resultGroup(m.cards, m.type === "run" ? "Run" : "Group", "meld")));
+  d.melds.forEach(m => cards.appendChild(resultGroup(m.cards, meldName(m.type), "meld")));
   if (d.unmatched.length) {
     const sum = d.unmatched.reduce((s, c) => s + cardPoints(c), 0);
-    cards.appendChild(resultGroup(d.unmatched, `Left over: ${sum} pts`, "leftover"));
+    cards.appendChild(resultGroup(d.unmatched, t("res.leftover", { n: sum }), "leftover"));
   }
   row.append(head, cards);
   return row;
@@ -576,21 +595,20 @@ function renderResults() {
   if (!show) return;
 
   const rr = state.roundResult;
-  const name = p => p === 0 ? "You" : PLAYER_NAMES[p];
-  const headline = rr.closer === null ? "Stalemate: nobody closed"
-                 : rr.chinchon        ? `${name(rr.closer)} made CHINCHÓN!`
-                 :                      `${name(rr.closer)} closed the round`;
-  document.getElementById("results-title").textContent = `Round ${state.round}: ${headline}`;
+  const headline = rr.closer === null ? t("res.head.stalemate")
+                 : rr.chinchon        ? t(whoKey("res.head.chinchon", rr.closer), { who: rr.closer })
+                 :                      t(whoKey("res.head.closed", rr.closer), { who: rr.closer });
+  document.getElementById("results-title").textContent = t("res.title", { n: state.round, headline });
 
   const body = document.getElementById("results-body");
   body.innerHTML = "";
   detail.forEach(d => { if (d) body.appendChild(resultRow(d)); });
 
-  let notice = state.notice;
+  let notice = tms(state.notice);
   if (state.awaitingReentry) {
-    notice = `You are out of the game. Re-enter with ${state.entryScore} points? ${state.notice}`;
+    notice = `${reentryText()} ${notice}`;
   } else if (state.gameOver) {
-    notice = `${state.winner === 0 ? "You win" : name(state.winner) + " wins"} the game! ${state.notice}`;
+    notice = `${t(whoKey("res.noticeWin", state.winner), { who: state.winner })} ${notice}`;
   }
   document.getElementById("results-notice").textContent = notice;
 
@@ -605,9 +623,22 @@ function setResultsOpen(open) {
   render();
 }
 
-function setStatus(message) {
-  document.getElementById("status").textContent = message;
+// The status line. Pass messages (msg(key, data) from i18n.js), not sentences: they are kept
+// in state.status so that renderStatus() can write them again in another language.
+function setStatus(...messages) {
+  state.status = messages;
+  renderStatus();
 }
+
+function renderStatus() {
+  document.getElementById("status").textContent = tms(state.status);
+}
+
+// "Capitalised meld name" for a meld type ("run" or "group")
+const meldName = type => t(`meld.${type}`);
+
+// "You are out of the game. Re-enter with 64 points?"
+const reentryText = () => plural("reentry.text", state.entryScore);
 
 /* ---------------------------------------------------------
    6. EVENT WIRING: connect clicks to functions.
@@ -629,6 +660,9 @@ document.getElementById("settings-btn").addEventListener("click", () => {
   state.showSettings = !state.showSettings;
   render();
 });
+
+// Language: setLanguage (i18n.js) remembers the choice and calls render()
+document.getElementById("lang").addEventListener("change", (e) => setLanguage(e.target.value));
 
 // Choosing a sort method also sorts straight away
 document.getElementById("sort-mode").addEventListener("change", (e) => {
@@ -653,6 +687,7 @@ document.getElementById("cpu-speed").addEventListener("change", (e) => {
 // some places). `pendingChange` holds the function to run if the player says yes
 // (functions are ordinary values in JS, so we can store one and call it later).
 let pendingChange = null;
+let pendingQuestion = null;     // function giving the question text for the bar that is open
 
 // Put both dropdowns back to what the game is actually using
 function syncSettingDropdowns() {
@@ -664,26 +699,30 @@ function closeConfirm(accepted) {
   document.getElementById("deck-confirm").hidden = true;
   const change = pendingChange;
   pendingChange = null;
+  pendingQuestion = null;
   if (accepted && change) change(); else syncSettingDropdowns();
 }
 
+// `question` is a function returning the text, so the bar can be written again if the
+// language is switched while it is open (see applyStaticText)
 function askBeforeNewGame(question, change) {
   const inProgress = state.round > 1 || state.totals.some(t => t !== 0) ||
                      state.hands[0].length > CARDS_PER_HAND;
   if (!inProgress) { change(); return; }
   pendingChange = change;
-  document.getElementById("deck-confirm-text").textContent = question;
+  pendingQuestion = question;
+  document.getElementById("deck-confirm-text").textContent = question();
   document.getElementById("deck-confirm").hidden = false;
 }
 
 document.getElementById("deck-size").addEventListener("change", (e) => {
   const size = Number(e.target.value);
-  askBeforeNewGame(`Switch to the ${size}-card deck? This starts a new game.`,
+  askBeforeNewGame(() => t("confirm.deck", { n: size }),
                    () => { setDeckSize(size); newGame(); });
 });
 document.getElementById("cpu-count").addEventListener("change", (e) => {
   const cpus = Number(e.target.value);
-  askBeforeNewGame(`Play against ${cpus} CPU${cpus === 1 ? "" : "s"}? This starts a new game.`,
+  askBeforeNewGame(() => plural("confirm.cpus", cpus),
                    () => newGame(cpus));
 });
 document.getElementById("deck-yes").addEventListener("click", () => closeConfirm(true));

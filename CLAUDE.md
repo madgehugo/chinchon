@@ -10,9 +10,15 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 ## Hard constraints
 
 * **Classic `<script>` tags in one shared global scope, no ES modules**, so the game works from `file://`.
-  Script order in `index.html` is `rules.js, ai.js, game.js, tests.js, ui.js`; a file may only use what earlier
+  Script order in `index.html` is `rules.js, i18n.js, ai.js, game.js, tests.js, ui.js`; a file may only use what earlier
   files define at load time. `build_single.py` depends on the exact `<link>`/`<script src>` tag shapes in `index.html`.
 * **No libraries, no build step, no external requests.**
+* **Text and languages (English + Spanish):** no player-visible string in JS or `state`. Look text up with
+  `t("key", vars)` / `plural()` from `i18n.js`; static HTML uses `data-i18n`. `state` stores messages as
+  `msg(key, data)` (never finished sentences, never player names) so `setLanguage()` + `render()` redraws everything.
+  `setStatus()` takes messages, not strings. Every new key goes into BOTH `en` and `es` (Spanish lines carry
+  `// TODO review` until a native speaker checks them). Tools and tests must not match on text: read `state`
+  (e.g. `state.roundResult`). Console messages in `tests.js` and `tools/` stay English.
 * **Logic vs display:** `rules.js`, `ai.js`, `game.js` never touch the DOM except through `render()` and `setStatus()`
   (defined in `ui.js`; stubbed in `tools/harness.js`). Keep it that way, because the Node tools rely on it.
 * **State flow:** change `state`, then call `render()`. `render()` only reads `state`.
@@ -58,7 +64,8 @@ npm run test:browser                         # needs: npm install && npx playwri
 
 * Unit tests (`tests.js`) run on every page load and print to the browser console.
 * UI changes: run the browser tests and look at the page at about 390px width (no horizontal overflow, cards tappable).
-* If you change the HTML ids that the browser tests use (`#close-btn`, `#results`, `#res-next`, ...), update them too.
+* If you change the HTML ids that the browser tests use (`#close-btn`, `#results`, `#res-next`, `#lang`, ...), update them too.
+* Check the page at about 390px in both languages (`node tests/browser/language.js <dir>` saves screenshots).
 
 ## Conventions
 

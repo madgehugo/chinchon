@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chinchón</title>
+<title data-i18n="app.title">Chinchón</title>
 
 <!-- Files in this project (all in one folder; just open index.html):
        style.css  how it looks
        rules.js   the rules of Chinchón: deck, melds, scoring
+       i18n.js    the text in English and Spanish, and t() to look it up
        ai.js      the CPU players
        game.js    game state, turns, rounds and scoring
        tests.js   self-tests for the rules (results appear in the console)
@@ -18,20 +19,25 @@
 </head>
 
 <body>
-<h1>Chinchón</h1>
+<h1 data-i18n="app.title">Chinchón</h1>
 
 <!-- =========================================================
      HTML: the skeleton. It contains EMPTY containers; JavaScript
      fills them with cards. Each id is how JS finds its element.
+     Text: an element with data-i18n="key" gets its text from STRINGS in
+     i18n.js (data-i18n-title and data-i18n-aria do the same for the title
+     and aria-label attributes). The English written here is only what shows
+     if the script fails; the text of the seats and piles is filled in by
+     ui.js on every render, so those elements start empty.
      ========================================================= -->
 <div id="table">
   <div class="seat" id="seat-2">
-    <div class="seat-name">CPU 2</div>
+    <div class="seat-name"></div>
     <div class="hand" id="hand-2"></div>
   </div>
 
   <div class="seat" id="seat-1">
-    <div class="seat-name">CPU 1</div>
+    <div class="seat-name"></div>
     <div class="hand" id="hand-1"></div>
   </div>
 
@@ -39,90 +45,94 @@
     <div id="piles">
       <div class="pile" id="draw-pile">
         <div id="draw-slot"></div>
-        <div class="pile-label" id="draw-label">Draw pile</div>
+        <div class="pile-label" id="draw-label"></div>
       </div>
       <div class="pile" id="discard-pile">
         <div id="discard-slot"></div>
-        <div class="pile-label" id="discard-label">Discard pile</div>
+        <div class="pile-label" id="discard-label"></div>
       </div>
     </div>
     <div id="status"></div>
   </div>
 
   <div class="seat" id="seat-3">
-    <div class="seat-name">CPU 3</div>
+    <div class="seat-name"></div>
     <div class="hand" id="hand-3"></div>
   </div>
 
   <div class="seat" id="seat-0">
-    <div class="seat-name">You (Player 1)</div>
+    <div class="seat-name"></div>
     <div class="hand" id="hand-0"></div>
   </div>
 </div>
 
 <!-- Main actions, right under your hand. Hints and Settings are toggles. -->
 <div id="actions">
-  <button id="sort-btn">Sort hand</button>
-  <button id="close-btn" disabled>Close round</button>
-  <button id="next-btn" disabled>Next round</button>
-  <button id="results-btn" disabled>Round results</button>
+  <button id="sort-btn" data-i18n="btn.sort">Sort hand</button>
+  <button id="close-btn" data-i18n="btn.close" disabled>Close round</button>
+  <button id="next-btn" data-i18n="btn.next" disabled>Next round</button>
+  <button id="results-btn" data-i18n="btn.results" disabled>Round results</button>
   <span class="spacer"></span>
-  <button id="hints-btn" class="secondary" aria-pressed="false">Hints</button>
-  <button id="settings-btn" class="secondary" aria-expanded="false" aria-controls="settings" title="Settings">&#9881; Settings</button>
+  <button id="hints-btn" class="secondary" data-i18n="btn.hints" aria-pressed="false">Hints</button>
+  <button id="settings-btn" class="secondary" aria-expanded="false" aria-controls="settings" data-i18n-title="btn.settings" title="Settings"><span aria-hidden="true">&#9881;</span> <span data-i18n="btn.settings">Settings</span></button>
+  <select id="lang" data-i18n-aria="lang.label" data-i18n-title="lang.label" aria-label="Language" title="Language">
+    <option value="en">English</option>
+    <option value="es">Español</option>
+  </select>
 </div>
 
 <!-- Settings panel: hidden until the Settings button is pressed -->
 <div id="settings" hidden>
-  <label class="opt">Sort by
+  <label class="opt"><span data-i18n="set.sortBy">Sort by</span>
     <select id="sort-mode">
-      <option value="number">Number</option>
-      <option value="suit">Suit</option>
+      <option value="number" data-i18n="set.sort.number">Number</option>
+      <option value="suit" data-i18n="set.sort.suit">Suit</option>
     </select>
   </label>
-  <label class="opt">CPUs
+  <label class="opt"><span data-i18n="set.cpus">CPUs</span>
     <select id="cpu-count">
       <option value="1">1</option>
       <option value="2">2</option>
       <option value="3" selected>3</option>
     </select>
   </label>
-  <label class="opt">CPU level
+  <label class="opt"><span data-i18n="set.level">CPU level</span>
     <select id="cpu-mode">
-      <option value="hard">Hard</option>
-      <option value="medium">Medium</option>
-      <option value="easy">Easy</option>
-      <option value="mixed">Mixed</option>
+      <option value="hard" data-i18n="level.hard">Hard</option>
+      <option value="medium" data-i18n="level.medium">Medium</option>
+      <option value="easy" data-i18n="level.easy">Easy</option>
+      <option value="mixed" data-i18n="level.mixed">Mixed</option>
     </select>
   </label>
-  <label class="opt">CPU speed
+  <label class="opt"><span data-i18n="set.speed">CPU speed</span>
     <select id="cpu-speed">
-      <option value="slow">Slow</option>
-      <option value="normal" selected>Normal</option>
-      <option value="fast">Fast</option>
+      <option value="slow" data-i18n="set.speed.slow">Slow</option>
+      <option value="normal" data-i18n="set.speed.normal" selected>Normal</option>
+      <option value="fast" data-i18n="set.speed.fast">Fast</option>
     </select>
   </label>
-  <label class="opt">Deck
+  <label class="opt"><span data-i18n="set.deck">Deck</span>
     <select id="deck-size">
-      <option value="40">40 cards</option>
-      <option value="48">48 cards (with 8s and 9s)</option>
+      <option value="40" data-i18n="set.deck.40">40 cards</option>
+      <option value="48" data-i18n="set.deck.48">48 cards (with 8s and 9s)</option>
     </select>
   </label>
-  <button id="new-game">New game</button>
+  <button id="new-game" data-i18n="btn.newGame">New game</button>
 </div>
 
 <!-- Asks before a deck change throws away a game in progress (browser pop-up
      dialogs are blocked in some places, so this is built into the page) -->
 <div id="deck-confirm" hidden>
   <span id="deck-confirm-text"></span>
-  <button id="deck-yes">Start new game</button>
-  <button id="deck-no" class="secondary">Keep playing</button>
+  <button id="deck-yes" data-i18n="confirm.yes">Start new game</button>
+  <button id="deck-no" class="secondary" data-i18n="confirm.no">Keep playing</button>
 </div>
 
 <!-- Only visible while you are eliminated and must choose (see renderControls) -->
 <div id="reentry" hidden>
   <span id="reentry-text"></span>
-  <button id="reenter-yes">Re-enter</button>
-  <button id="reenter-no">Stay out</button>
+  <button id="reenter-yes" data-i18n="btn.reenter">Re-enter</button>
+  <button id="reenter-no" data-i18n="btn.stayOut">Stay out</button>
 </div>
 
 <div id="scoreboard"></div>
@@ -135,16 +145,17 @@
     <div id="results-body"></div>
     <p id="results-notice"></p>
     <div class="panel-buttons">
-      <button id="res-next">Next round</button>
-      <button id="res-reenter">Re-enter</button>
-      <button id="res-stayout">Stay out</button>
-      <button id="res-newgame">New game</button>
-      <button id="res-hide" class="secondary">Hide</button>
+      <button id="res-next" data-i18n="btn.next">Next round</button>
+      <button id="res-reenter" data-i18n="btn.reenter">Re-enter</button>
+      <button id="res-stayout" data-i18n="btn.stayOut">Stay out</button>
+      <button id="res-newgame" data-i18n="btn.newGame">New game</button>
+      <button id="res-hide" class="secondary" data-i18n="btn.hide">Hide</button>
     </div>
   </div>
 </div>
 
 <script src="rules.js"></script>
+<script src="i18n.js"></script>
 <script src="ai.js"></script>
 <script src="game.js"></script>
 <script src="tests.js"></script>

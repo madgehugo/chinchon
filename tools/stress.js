@@ -55,7 +55,7 @@ for (const size of [40, 48]) {
         audit("turn");
       }
       stats.maxRoundTurns = Math.max(stats.maxRoundTurns, turns);
-      if (/Stalemate/.test(state.summary)) stats.stalemates++;
+      if (state.roundResult.closer === null) stats.stalemates++;   // no closer = stalemate
       if (!ok) break;
       if (state.phase !== "roundOver") { stats.stuck++; break; }
       state.hands.forEach((h, p) => { if (h.length !== 0 && h.length !== 7) fail("hand size", p, h.length); });
@@ -64,7 +64,7 @@ for (const size of [40, 48]) {
       if (state.gameOver) break;
       g.nextRound();
     }
-    if (state.gameOver) { stats.games++; stats.winners[state.winner]++; if (/Chinch/.test(state.summary)) stats.chinchon++; }
+    if (state.gameOver) { stats.games++; stats.winners[state.winner]++; if (state.roundResult.chinchon) stats.chinchon++; }
     for (let p = 0; p < state.numPlayers; p++) if (state.inGame[p] && state.totals[p] > g.SCORE_LIMIT) fail("active over limit", p, state.totals[p]);
   }
   console.log(stats);

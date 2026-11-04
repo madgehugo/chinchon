@@ -3,7 +3,7 @@
 /* =========================================================
    tools/harness.js: run the game engine in Node (no browser)
    ---------------------------------------------------------
-   Loads the game's own files (rules.js, ai.js, game.js, tests.js) into a
+   Loads the game's own files (rules.js, i18n.js, ai.js, game.js, tests.js) into a
    sandbox and replaces the page with do-nothing stubs. Timers are fake:
    setTimeout just queues the callback and drain() runs the queue, so a whole
    game (CPU turns included) plays out instantly.
@@ -14,7 +14,7 @@ const path = require("path");
 const vm = require("vm");
 
 const ROOT  = path.join(__dirname, "..");
-const FILES = ["rules.js", "ai.js", "game.js", "tests.js"];   // same order as index.html
+const FILES = ["rules.js", "i18n.js", "ai.js", "game.js", "tests.js"];   // same order as index.html
 
 function loadGame() {
   const queue = [];                                  // pending fake timers
@@ -29,7 +29,7 @@ function loadGame() {
   // not visible from outside the sandbox otherwise).
   const source = FILES.map(f => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n") + `
 function render() {}
-function setStatus() {}
+function setStatus(...messages) { state.status = messages; }
 globalThis.__game = {
   state, STRATEGIES, AWARE, RISK, MAX_PLAYERS, SMART, CPU_MODES, SCORE_LIMIT, CPU_REENTRY_MAX,
   setRandom, setDecisionRandom, makeSeededRandom,

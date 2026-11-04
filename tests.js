@@ -14,7 +14,7 @@
 function runSelfTests() {
   const originalDeck = DECK_SIZE;
   setDeckSize(40);                                // the tests below assume the 40-card deck
-  try { runTests40(); runTests48(); runTestsAI(); runTestsRoundDetail(); }
+  try { runTests40(); runTests48(); runTestsAI(); runTestsRoundDetail(); runTestsI18n(); }
   finally { setDeckSize(originalDeck); }          // always restore the player's choice
 }
 
@@ -145,4 +145,36 @@ function runTestsRoundDetail() {
 
   state.hands = savedHands; state.inGame = savedIn; setDeckSize(savedDeck);
   if (failures === 0) console.log("All round-detail tests passed.");
+}
+
+// The texts (i18n.js): both languages must be complete and agree with each other
+function runTestsI18n() {
+  let failures = 0;
+  const check = (ok, label) => { if (!ok) { failures++; console.error("TEST FAILED:", label); } };
+  const placeholders = text => (text.match(/\{\w+\}/g) || []).sort().join(",");
+  const savedLang = currentLang;
+  const reference = STRINGS.en;
+
+  for (const lang of LANGUAGES) {
+    for (const key of Object.keys(reference)) {
+      check(key in STRINGS[lang], `${lang} is missing "${key}"`);
+      if (key in STRINGS[lang]) {
+        check(placeholders(STRINGS[lang][key]) === placeholders(reference[key]),
+              `${lang} "${key}" has different {placeholders} from English`);
+      }
+    }
+    for (const key of Object.keys(STRINGS[lang])) check(key in reference, `${lang} has an extra key "${key}"`);
+  }
+
+  // t() fills placeholders; plural() picks key.one or key.other; players get a name in each language
+  currentLang = "en";
+  check(t("pile.draw", { n: 5 }) === "Draw pile (5)", "t fills {n}");
+  check(plural("confirm.cpus", 1).includes("1 CPU?") && plural("confirm.cpus", 3).includes("3 CPUs?"), "plural: one / other");
+  check(playerName(0) === "You" && playerName(2) === "CPU 2", "English player names");
+  currentLang = "es";
+  check(playerName(0) === "Tú" && t("pile.discard", { n: 2 }) === "Descartes (2)", "Spanish text");
+  check(t(whoKey("sum.closed", 1), { who: 1 }) === "CPU 1 cerró la ronda.", "who formatter + .cpu variant");
+  currentLang = savedLang;
+
+  if (failures === 0) console.log("All text (i18n) tests passed.");
 }

@@ -44,7 +44,7 @@ const MAX_PLAYERS    = 4;   // seats at the table: player 0 = human, players 1-3
 const MIN_PLAYERS    = 2;   // the human plus at least one CPU
 // (how many seats are actually used in the current game is state.numPlayers, in game.js)
 const CARDS_PER_HAND = 7;
-const PLAYER_NAMES   = ["You", "CPU 1", "CPU 2", "CPU 3"];
+// (player names are text, so they live in i18n.js: see playerName)
 
 /* ---------------------------------------------------------
    3. DECK FUNCTIONS

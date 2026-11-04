@@ -16,8 +16,7 @@ const CPU_MODES = {
   hard:   [null, "hard",   "hard",   "hard"],
   mixed:  [null, "easy",   "medium", "hard"],   // one CPU of each level
 };
-// The name shown next to each CPU on the table
-const LEVEL_LABEL = { easy: "easy", medium: "medium", hard: "hard" };
+// (the name shown next to each CPU on the table is the text key "level.<name>" in i18n.js)
 
 // Chance (0 to 1) that a CPU makes a deliberate mistake on a decision (where to
 // draw from, what to discard). Easy plays "greedy" with mistakes; medium plays

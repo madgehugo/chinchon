@@ -4,6 +4,8 @@
    Holds `state` (everything that changes), deals rounds, runs turns for
    you and the CPUs, closes rounds and keeps score. It never builds HTML
    itself: it just calls render() and setStatus(), which live in ui.js.
+   It also never stores a finished sentence: messages are kept as msg(key, data)
+   (see i18n.js) so they can be shown in whichever language is current.
    ========================================================= */
 
 "use strict";
@@ -64,8 +66,9 @@ const state = {
   awaitingReentry: false,             // true while the human must choose re-enter / stay out
   gameOver: false,
   winner: null,
-  summary: "",                        // text describing how the last round ended
-  notice: "",                         // eliminations / re-entries after the last round
+  status: [],                         // messages (see msg in i18n.js) shown in the status line; set by setStatus()
+  summary: [],                        // messages describing how the last round ended
+  notice: [],                         // messages about eliminations / re-entries after the last round
   roundDetail: null,                  // per-player breakdown of the round that just ended
   showResults: false,                 // is the results panel open?
 };
@@ -89,8 +92,8 @@ function newGame(cpuCount) {
   state.awaitingReentry = false;
   state.gameOver = false;
   state.winner = null;
-  state.summary = "";
-  state.notice = "";
+  state.summary = [];
+  state.notice = [];
   startRound();
 }
 
@@ -165,18 +168,20 @@ function endRoundStalemate() {
   state.phase = "roundOver";
   state.revealed = true;
 
-  const list = points
-    .map((pts, p) => state.inGame[p] ? `${PLAYER_NAMES[p]}: ${pts}` : null)
-    .filter(Boolean)
-    .join(" | ");
-  state.summary = `Stalemate: the deck ran out too many times and nobody closed. Round points: ${list}.`;
+  state.summary = [msg("sum.stalemate"), msg("sum.points", { list: pointsList(points, null, false) })];
   render();
-  setStatus(state.summary);
+  setStatus(...state.summary);
   scoreRound(null, { chinchon: false }, points);
 }
 
-// Short text for a card, e.g. "12🪙", used in the status line
-const cardText = card => `${card.value}${SUIT_SYMBOL[card.suit]}`;
+// The data behind "Round points: You: 5 | CPU 1: 3" (the "list" placeholder in i18n.js):
+// one row per player who took part in the round. Players who sat it out are left
+// out, and so is anyone who is out by the time this is called.
+function pointsList(points, closer, chinchon) {
+  return points
+    .map((pts, p) => ({ p, pts, chinchon: chinchon && p === closer }))
+    .filter(row => state.inGame[row.p]);
+}
 
 // Move a card from a pile into a player's hand.
 // source is "deck" (face-down draw pile) or "discard" (top face-up card).
@@ -261,9 +266,9 @@ function beginTurn() {
   state.closing = false;     // never carry "closing mode" into another turn
   render();
   if (state.currentPlayer === 0) {
-    setStatus("Your turn: click the draw pile or the top discard to take a card.");
+    setStatus(msg("msg.yourTurn"));
   } else {
-    setStatus(`${PLAYER_NAMES[state.currentPlayer]} is playing...`);
+    setStatus(msg("msg.playing", { who: state.currentPlayer }));
     state.timer = setTimeout(cpuTurn, CPU_SPEEDS[state.cpuSpeed].draw);   // run cpuTurn() after a pause
   }
 }
@@ -277,7 +282,7 @@ function humanDraw(source) {
   if (!drawCard(0, source)) return;      // null = stalemate already ended the round
   state.phase = "discard";
   render();
-  setStatus("Click a card in your hand to discard it, or press Close round if you can.");
+  setStatus(msg("msg.pickDiscard"));
 }
 
 function humanDiscard(cardIndex) {
@@ -305,9 +310,7 @@ function humanClose() {
   if (!state.closing && closeOptions(state.hands[0]).length === 0) return;
   state.closing = !state.closing;
   render();
-  setStatus(state.closing
-    ? "Closing: click the highlighted card you want to discard. (Press the button again to cancel.)"
-    : "Click a card in your hand to discard it, or press Close round if you can.");
+  setStatus(msg(state.closing ? "msg.closing" : "msg.pickDiscard"));
 }
 
 // A CPU turn happens in two beats, with a pause between them (see CPU_SPEEDS):
@@ -325,11 +328,11 @@ function cpuTurn() {
   if (!card) return;                      // null = stalemate ended the round
 
   const took = source === "discard"
-    ? `took ${cardText(card)} from the discard pile`
-    : "drew from the draw pile";
+    ? msg("msg.tookDiscard", { who: p, card })
+    : msg("msg.drewDeck", { who: p });
   state.phase = "discard";                // (this only matters to the human's buttons)
   render();                               // the discard pile / draw pile count change here
-  setStatus(`${PLAYER_NAMES[p]} ${took}...`);
+  setStatus(took);
   state.timer = setTimeout(cpuFinishTurn, CPU_SPEEDS[state.cpuSpeed].discard);
 }
 
@@ -392,17 +395,9 @@ function closeRound(closer, discardIndex) {
   state.revealed = true;
   render();
 
-  const summary = points
-    .map((pts, p) => state.inGame[p]
-      ? `${PLAYER_NAMES[p]}: ${p === closer && info.chinchon ? "Chinchón" : pts}`
-      : null)
-    .filter(Boolean)                      // drop players who weren't in this round
-    .join(" | ");
-  const headline = info.chinchon
-    ? `${PLAYER_NAMES[closer]} made CHINCHÓN!`
-    : `${PLAYER_NAMES[closer]} closed the round.`;
-  state.summary = `${headline} Round points: ${summary}.`;
-  setStatus(state.summary);
+  const headline = msg(whoKey(info.chinchon ? "sum.chinchon" : "sum.closed", closer), { who: closer });
+  state.summary = [headline, msg("sum.points", { list: pointsList(points, closer, info.chinchon) })];
+  setStatus(...state.summary);
 
   scoreRound(closer, info, points);
 }
@@ -419,12 +414,12 @@ function closeRound(closer, discardIndex) {
      4. if only one player is left in the game, they win
    --------------------------------------------------------- */
 function scoreRound(closer, info, points) {
-  state.notice = "";            // forget last round's eliminations / re-entries
+  state.notice = [];            // forget last round's eliminations / re-entries
   state.roundPoints = points.map((pts, p) => state.inGame[p] ? pts : null);
 
   // Chinchón ends the whole game immediately (traditional rule)
   if (info.chinchon && CHINCHON_ENDS_GAME) {
-    endGame(closer, "Chinchón!");
+    endGame(closer, "reason.chinchon");
     return;
   }
 
@@ -442,14 +437,14 @@ function scoreRound(closer, info, points) {
     }
   }
   const notes = [];
-  if (busted.length) notes.push(`Out (over ${SCORE_LIMIT}): ${busted.map(p => PLAYER_NAMES[p]).join(", ")}.`);
+  if (busted.length) notes.push(msg("notice.out", { limit: SCORE_LIMIT, names: busted }));
 
   // Edge case: everyone went over the limit in the same round.
   // The lowest total wins the game.
   const active = activePlayers();
   if (active.length === 0) {
     const winner = busted.reduce((a, b) => state.totals[a] <= state.totals[b] ? a : b);
-    endGame(winner, "everyone went over the limit, lowest total wins");
+    endGame(winner, "reason.allOut");
     return;
   }
 
@@ -463,15 +458,15 @@ function scoreRound(closer, info, points) {
     }
   }
   if (returned.length) {
-    notes.push(`Re-entered at ${state.entryScore}: ${returned.map(p => PLAYER_NAMES[p]).join(", ")}.`);
+    notes.push(msg("notice.reentered", { score: state.entryScore, names: returned }));
   }
-  state.notice = notes.join(" ");
+  state.notice = notes;
 
   // The human, if out, must choose (buttons appear; see renderControls)
   if (!state.inGame[0]) {
     state.awaitingReentry = true;
     render();
-    setStatus(`${state.summary} ${state.notice} You may re-enter below.`);
+    setStatus(...state.summary, ...state.notice, msg("msg.mayReenter"));
     return;
   }
   finishRoundScoring();
@@ -495,20 +490,20 @@ function humanReenter(wantsIn) {
 function finishRoundScoring() {
   const active = activePlayers();
   if (active.length <= 1) {
-    endGame(active[0], "last player standing");
+    endGame(active[0], "reason.lastStanding");
     return;
   }
   render();
-  setStatus(`${state.summary} ${state.notice} Press Next round.`);
+  setStatus(...state.summary, ...state.notice, msg("msg.pressNext"));
 }
 
+// `reason` is a message key ("reason.chinchon", ...), not a sentence
 function endGame(winner, reason) {
   state.gameOver = true;
   state.winner = winner;
   state.awaitingReentry = false;
   render();
-  const who = winner === 0 ? "You win" : `${PLAYER_NAMES[winner]} wins`;
-  setStatus(`${state.summary} GAME OVER: ${who} (${reason}). Press New game to play again.`);
+  setStatus(...state.summary, msg("msg.gameOver", { winner, reason }));
 }
 
 // "Next round" button: rotate the starting player, then deal again

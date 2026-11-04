@@ -8,6 +8,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 
 ## Features
 
+* **English and Spanish**, with a language dropdown next to the Settings button. The first visit follows the browser's language (Spanish if it starts with `es`, else English); after that the choice is remembered in `localStorage`. All text lives in `i18n.js`.
 * Sort and Close sit under your hand; the dropdowns (sort mode, CPUs, level, speed, deck) and New game are in a panel behind the Settings button, and the hand analysis table is behind the Hints toggle (off by default).
 * 1 human vs 1, 2 or 3 CPUs (the "CPUs" dropdown starts a new game), with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
 * 40-card Spanish deck (1-7, 10-12) or 48-card deck (adds the 8s and 9s), which suits bigger groups.
@@ -40,17 +41,18 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 | `index.html` | The page skeleton: empty containers that the JavaScript fills in. |
 | `style.css` | How it looks, including the phone layout (`@media` block at the end). |
 | `rules.js` | The rules: deck, shuffling, runs and groups, scoring, closing. No display code. |
+| `i18n.js` | All the player-visible text in English and Spanish (`STRINGS`), `t(key, vars)`, `plural()`, `setLanguage()`, and the `msg()` helper for messages kept in `state`. |
 | `ai.js` | The CPU players (base strategies `greedy` and `smart`, the easy/medium/hard levels built from them) and the tunable `SMART` settings. |
 | `game.js` | The game state (`state`), turns, rounds, scoring, elimination and re-entry. |
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the results panel, startup. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations). |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch). |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file. |
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
 
 The scripts share one global scope, so the order of the `<script>` tags in `index.html` matters: each file may use what
-the files above it define (`rules.js, ai.js, game.js, tests.js, ui.js`). They are plain scripts rather than ES modules so
+the files above it define (`rules.js, i18n.js, ai.js, game.js, tests.js, ui.js`). They are plain scripts rather than ES modules so
 the game also works from `file://`, where browsers block modules.
 
 ## How the pieces connect
@@ -60,9 +62,20 @@ the game also works from `file://`, where browsers block modules.
 * **`state`** (in `game.js`) holds everything that changes. Game logic writes to it; `render()` in `ui.js` only reads it
   and rebuilds the page. Nearly every action is "check it is allowed, change `state`, call `render()`".
 * A **turn** is: draw, then discard one card or close. `state.phase` tracks this (`draw`, `discard`, `roundOver`).
+* **Text and languages.** Nothing in the game files is a finished sentence. A message is a key plus its data,
+  `msg("sum.closed.cpu", { who: 2 })`; `state.status`, `state.summary` and `state.notice` hold lists of these, and
+  `t()` turns them into words only when the page is drawn. That is why `setLanguage()` can call `render()` and have
+  everything, including the status line written earlier, appear in the new language. Placeholders named `who`,
+  `names`, `card`, `list`, ... hold data (a player number, a card) and are formatted by `FORMATTERS` in `i18n.js`.
+  Messages whose verb changes with the subject come as `key.you` and `key.cpu` (see `whoKey`); counts use
+  `key.one` / `key.other` (see `plural`). Static HTML text carries `data-i18n="key"` (or `data-i18n-title`,
+  `data-i18n-aria` for attributes), and `applyStaticText()` in `ui.js` fills it in.
+* **To add or change a text:** add the key to BOTH `en` and `es` in `STRINGS` (the Spanish line gets a `// TODO review`
+  comment until a native speaker has checked it). The unit test `runTestsI18n` fails if the two languages differ in keys
+  or `{placeholders}`. **To add a language:** add an entry to `STRINGS` and an `<option>` to `#lang` in `index.html`.
 * CPU turns have two timed beats (draw, then discard) so you can follow them. Decisions come from a **strategy** object in
   `ai.js` with three functions: `chooseSource`, `chooseClose`, `chooseDiscard`. A new level is an entry in `STRATEGIES`
-  plus an entry in `CPU_MODES` and `LEVEL_LABEL`.
+  plus an entry in `CPU_MODES` and a `level.<name>` text in `i18n.js`.
 
 ## CPU levels
 
@@ -103,7 +116,7 @@ node tools/bench.js 1600 smart greedy             # compare two CPU settings
 node tools/bench.js 3200 smart "smart:takeMargin=-1"   # try a SMART override against the default
 node tools/gamebench.js 4000 risk hard 40 4 --jobs 8   # whole games: one A against three B, on 8 CPU cores
 npm install && npx playwright install chromium    # once, for the browser tests
-npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout
+npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch
 ```
 
 * Unit tests in `tests.js` run every time the page loads; open the console (F12) and look for
@@ -125,7 +138,8 @@ npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts,
   still knock a B out for the other). Each deal is played with A in every seat, so a fair share is exactly 1/players
   (25% with 4 players); `--control` gives the noise level (about 0.7 percentage points at 4,000 games, 0.3-0.4 paired).
   4,000 games take about 5 minutes with `--jobs 8`.
-* After changing `ui.js` or `style.css`, run the browser tests and check the page at phone width (about 390px).
+* After changing `ui.js` or `style.css`, run the browser tests and check the page at phone width (about 390px), in both
+  languages (Spanish labels are longer). `tools/stress.js` does not depend on any text: it reads `state.roundResult`.
 
 ## Building a single file
 
