@@ -503,7 +503,8 @@ function endGame(winner, reason) {
   state.winner = winner;
   state.awaitingReentry = false;
   render();
-  setStatus(...state.summary, msg("msg.gameOver", { winner, reason }));
+  // Short on purpose: the round summary and totals are in the results panel
+  setStatus(msg("msg.gameOver", { winner, reason }));
 }
 
 // "Next round" button: rotate the starting player, then deal again

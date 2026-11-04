@@ -104,7 +104,7 @@ const STRINGS = {
     "msg.closing": "Closing: click the highlighted card you want to discard. (Press the button again to cancel.)",
     "msg.mayReenter": "You may re-enter below.",
     "msg.pressNext": "Press Next round.",
-    "msg.gameOver": "GAME OVER: {winner} ({reason}). Press New game to play again.",
+    "msg.gameOver": "Game over! {winner} ({reason}).",
 
     // ---- How a round ended (the .you / .cpu variants fix the verb for "You" vs "CPU 1") ----
     "sum.stalemate": "Stalemate: the deck ran out too many times and nobody closed.",
@@ -230,7 +230,7 @@ const STRINGS = {
     "board.out": "ELIMINADO",
 
     // ---- Status line ----
-    "msg.yourTurn": "Tu turno: haz clic en el mazo o en la carta superior de los descartes para tomar una carta.",
+    "msg.yourTurn": "Tu turno: haz clic en el mazo o en la carta superior de los descartes para coger una carta.",
     "msg.playing": "{who} está jugando...",
     "msg.tookDiscard": "{who} tomó {card} de los descartes...",
     "msg.drewDeck": "{who} tomó una carta del mazo...",
@@ -238,7 +238,7 @@ const STRINGS = {
     "msg.closing": "Cerrando: haz clic en la carta resaltada que quieres descartar. (Presiona el botón otra vez para cancelar.)",
     "msg.mayReenter": "Puedes volver a entrar más abajo.",
     "msg.pressNext": "Presiona Siguiente ronda.",
-    "msg.gameOver": "FIN DE LA PARTIDA: {winner} ({reason}). Presiona Nueva partida para jugar de nuevo.",
+    "msg.gameOver": "¡Fin de la partida! {winner} ({reason}).",
 
     // ---- How a round ended ----
     "sum.stalemate": "Ronda bloqueada: el mazo se agotó demasiadas veces y nadie cerró.",
