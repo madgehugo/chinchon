@@ -39,6 +39,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 | File | What it contains |
 | --- | --- |
 | `index.html` | The page skeleton: empty containers that the JavaScript fills in. |
+| `favicon.svg` | The small icon in the browser tab (two cards on the green table). |
 | `style.css` | How it looks, including the phone layout (`@media` block at the end). |
 | `rules.js` | The rules: deck, shuffling, runs and groups, scoring, closing. No display code. |
 | `i18n.js` | All the player-visible text in English and Spanish (`STRINGS`), `t(key, vars)`, `plural()`, `setLanguage()`, and the `msg()` helper for messages kept in `state`. |
