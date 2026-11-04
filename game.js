@@ -47,6 +47,9 @@ const state = {
   cpuSpeed: "normal",// "slow" | "normal" | "fast" (see CPU_SPEEDS)
   showHints: false,  // is the hand analysis table visible? (off by default)
   showSettings: false, // is the settings panel open?
+  maxReshuffles: MAX_RESHUFFLES, // reshuffles allowed per round (null = no limit); a setting
+  roundLimit: null,  // rounds per game (null = no limit: play until one player is left); a setting
+  maxReentries: null, // times each player may re-enter after elimination (null = no limit); a setting
 
   // What every player can see: cards a player took from the discard pile are
   // known to be in their hand until they discard them again. The medium and hard CPUs
@@ -63,6 +66,7 @@ const state = {
   startPlayer: 0,                     // who plays first this round (rotates)
   roundPoints: [null, null, null, null], // points from the last round (null = didn't play)
   entryScore: 0,                      // total a re-entering player starts with
+  reentries: [0, 0, 0, 0],            // how many times each player has re-entered this game
   awaitingReentry: false,             // true while the human must choose re-enter / stay out
   gameOver: false,
   winner: null,
@@ -87,6 +91,7 @@ function newGame(cpuCount) {
   state.round = 0;
   state.totals = Array(state.numPlayers).fill(0);
   state.inGame = Array(state.numPlayers).fill(true);
+  state.reentries = Array(state.numPlayers).fill(0);
   state.startPlayer = 0;                       // you play first in round 1
   state.roundPoints = Array(state.numPlayers).fill(null);
   state.awaitingReentry = false;
@@ -149,13 +154,37 @@ function startRound() {
 // Returns false if the pile could not be refilled (stalemate).
 function refillDrawPileIfEmpty() {
   if (state.drawPile.length > 0) return true;
-  if (state.discardPile.length <= 1 || state.reshuffles >= MAX_RESHUFFLES) return false;
+  if (deckIsFinished()) return false;
 
   state.reshuffles++;
   const top = state.discardPile.pop();
   state.drawPile = shuffle(state.discardPile);
   state.discardPile = [top];
   return true;
+}
+
+// How many more times the draw pile may be refilled this round (null = no limit).
+// Everyone can see this; the board shows it and the hard CPU plans with it.
+function reshufflesLeft() {
+  return state.maxReshuffles === null ? null : Math.max(0, state.maxReshuffles - state.reshuffles);
+}
+
+// True when drawing from the deck is no longer possible: the pile is empty and cannot be
+// refilled. The next player who draws from the deck then ends the round (a stalemate).
+function deckIsFinished() {
+  return state.drawPile.length === 0 && (state.discardPile.length <= 1 || reshufflesLeft() === 0);
+}
+
+// A CPU re-enters after elimination if the entry score is low enough. With a round
+// limit a player who stays out can no longer win, so then the CPUs always come back.
+function cpuWantsReentry() {
+  return state.roundLimit !== null || state.entryScore <= CPU_REENTRY_MAX;
+}
+
+// True once the round limit has been reached: the game is decided after this round
+// (or, after a tie for the lowest total, after the next round that breaks it)
+function isLastRound() {
+  return state.roundLimit !== null && state.round >= state.roundLimit;
 }
 
 // Nobody can close and the deck keeps running out: end the round with no
@@ -266,7 +295,8 @@ function beginTurn() {
   state.closing = false;     // never carry "closing mode" into another turn
   render();
   if (state.currentPlayer === 0) {
-    setStatus(msg("msg.yourTurn"));
+    // With the deck used up, clicking it ends the round: say so before it happens
+    setStatus(msg(deckIsFinished() ? "msg.yourTurnDeckDone" : "msg.yourTurn"));
   } else {
     setStatus(msg("msg.playing", { who: state.currentPlayer }));
     state.timer = setTimeout(cpuTurn, CPU_SPEEDS[state.cpuSpeed].draw);   // run cpuTurn() after a pause
@@ -412,6 +442,8 @@ function closeRound(closer, discardIndex) {
         the highest-scoring player still in the game (the "entry score").
         CPUs decide automatically; the human is asked.
      4. if only one player is left in the game, they win
+   With a round limit (state.roundLimit), the game also ends after that many rounds:
+   the lowest total among the players still in wins, and a tie means one more round.
    --------------------------------------------------------- */
 function scoreRound(closer, info, points) {
   state.notice = [];            // forget last round's eliminations / re-entries
@@ -455,11 +487,27 @@ function scoreRound(closer, info, points) {
     return;
   }
 
+  // Round limit reached: the lowest total among the players still in wins. A tie for
+  // the lowest total means one more round for everyone still in, then the same check.
+  // Nobody re-enters any more: an eliminated player could no longer win.
+  if (isLastRound()) {
+    const lowest = Math.min(...active.map(p => state.totals[p]));
+    const leaders = active.filter(p => state.totals[p] === lowest);
+    state.notice = notes;
+    if (leaders.length === 1) {
+      endGame(leaders[0], "reason.roundLimit");
+      return;
+    }
+    notes.push(msg("notice.tieBreak", { score: lowest, names: leaders }));
+    finishRoundScoring();
+    return;
+  }
+
   // 3. Re-entry. The entry score is the highest total among players still in.
   state.entryScore = Math.max(...active.map(p => state.totals[p]));
   const returned = [];
   for (let p = 1; p < state.numPlayers; p++) {          // CPUs decide automatically
-    if (!state.inGame[p] && state.entryScore <= CPU_REENTRY_MAX) {
+    if (!state.inGame[p] && canReenter(p) && cpuWantsReentry()) {
       reenter(p);
       returned.push(p);
     }
@@ -469,8 +517,8 @@ function scoreRound(closer, info, points) {
   }
   state.notice = notes;
 
-  // The human, if out, must choose (buttons appear; see renderControls)
-  if (!state.inGame[0]) {
+  // The human, if out and still allowed back, must choose (buttons appear; see renderControls)
+  if (!state.inGame[0] && canReenter(0)) {
     state.awaitingReentry = true;
     render();
     setStatus(...state.summary, ...state.notice, msg("msg.mayReenter"));
@@ -479,10 +527,16 @@ function scoreRound(closer, info, points) {
   finishRoundScoring();
 }
 
+// Has player p any re-entries left under the re-entry limit?
+function canReenter(p) {
+  return state.maxReentries === null || state.reentries[p] < state.maxReentries;
+}
+
 // Put a player back in the game with the entry score
 function reenter(p) {
   state.inGame[p] = true;
   state.totals[p] = state.entryScore;
+  state.reentries[p]++;
 }
 
 // Called when the human answers the re-entry question

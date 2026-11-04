@@ -47,11 +47,16 @@ which cuts the standard error by about a third. `smart smart` now always prints 
 `node tools/bench.js 3200 smart smart --control` (independent deals, no pairing; se about 0.21). Both shuffles and CPU
 mistake rolls come from seeded streams in benchmarks, so runs are repeatable.
 A ninth idea, round-length awareness (`aware` in `ai.js`, uses `state.turns`), also did not beat `smart`; results are
-in the comment above `STRATEGIES.aware`. Hard is still plain `smart`.
+in the comment above `STRATEGIES.aware`. Hard (and medium, with mistakes) is `finish`: `smart` plus end-of-deck rules
+for the reshuffle limit, which only change moves when the deck runs out (results above `FINISH`).
 Also tried and not kept: deeper search (two-step lookahead for take-vs-draw and for the discard; results in the `SMART`
 comments) and game-risk awareness (`risk` in `ai.js`: bust avoidance near 100, close bonuses when someone is near it,
-re-entry aware; results above `STRATEGIES.risk`). Game-level ideas need `tools/gamebench.js` (whole games, one A
-against a field of B's), since `bench.js` plays single rounds with all totals at 0.
+re-entry aware; results above `STRATEGIES.risk`). Combinations of the earlier ideas (results in the `SMART` comments)
+and Monte Carlo rollouts with a greedy rollout policy (`mc` in `ai.js`, results above `MC`) did not beat it either; a
+rollout idea would need a rollout policy close to `smart`'s strength. `bench.js` takes `--jobs N` like `gamebench.js`,
+and both take `--reshuffles N`; `gamebench.js` also takes `--rounds N` and `--reentries N` (the game settings).
+Benchmark on both decks (`48` after the two strategies) when a change could depend on deck size. Game-level ideas need
+`tools/gamebench.js` (whole games, one A against a field of B's), since `bench.js` plays single rounds with all totals at 0.
 
 ## How to check your work
 

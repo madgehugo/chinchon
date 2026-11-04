@@ -9,9 +9,12 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 ## Features
 
 * **English and Spanish**, with a language dropdown next to the Settings button. The first visit follows the browser's language (Spanish if it starts with `es`, else English); after that the choice is remembered in `localStorage`. All text lives in `i18n.js`.
-* Sort and Close sit under your hand; the dropdowns (sort mode, CPUs, level, speed, deck) and New game are in a panel behind the Settings button, and the hand analysis table is behind the Hints toggle (off by default).
+* Sort and Close sit under your hand; the dropdowns (sort mode, CPUs, level, speed, deck, reshuffles per round, re-entries per player, rounds per game) and New game are in a panel behind the Settings button, and the hand analysis table is behind the Hints toggle (off by default).
 * 1 human vs 1, 2 or 3 CPUs (the "CPUs" dropdown starts a new game), with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
 * 40-card Spanish deck (1-7, 10-12) or 48-card deck (adds the 8s and 9s), which suits bigger groups.
+* Adjustable rules: how often the draw pile may be reshuffled in a round (0, 1, 2, 3, 5 or no limit; the board
+  shows how many reshuffles are left), how many times each player may re-enter after elimination (0, 1, 2 or
+  no limit) and how many rounds a game lasts (no limit, 5, 10, 15 or 20). Changing any of them starts a new game.
 * Cards show their number of suit symbols (the 4 of swords has four swords), drawn as inline SVG shapes defined once in `ui.js` (`SUIT_SPRITE`) so they look the same on every device.
 * Short card animations (260 ms or less each): the deal, drawing from either pile, discarding, and a gentle lift when you hover or press one of your cards. They switch off when the system asks for reduced motion (`prefers-reduced-motion`).
 * Drag cards to rearrange your hand; one button sorts by number or by suit.
@@ -30,8 +33,16 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 * **Chinchón:** all seven cards form one run in a single suit. It ends the whole game with a win for that player
   (`CHINCHON_ENDS_GAME` in `rules.js`).
 * **Elimination:** over 100 points you are out. An eliminated player may **re-enter** with the same total as the
-  highest-scoring player still in. CPUs re-enter only if that total is 70 or less.
-* **Stalemate:** if the draw pile runs out more than 5 times in one round, the round ends with no closer.
+  highest-scoring player still in. CPUs re-enter only if that total is 70 or less (with a round limit they always
+  re-enter, since a player who stays out cannot win). The re-entry setting limits how many times each player may
+  come back in one game; with none left, an eliminated player stays out.
+* **Stalemate:** when the draw pile runs out it is refilled from the discard pile, up to the reshuffle limit
+  (default 5, a setting). After that, the next player to draw from the empty pile ends the round with no closer,
+  and everyone scores the unmatched points in their hand. Taking the top discard instead keeps the round going.
+  The board warns about this under the draw pile and in the status line.
+* **Round limit** (optional setting): after the last round the player still in with the lowest total wins.
+  Elimination over 100 still applies until then, and nobody re-enters after the last round. If two or more
+  players tie for the lowest total, everyone still in plays one more round, until the tie is broken.
 * No jokers.
 
 ## Files
@@ -43,7 +54,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 | `style.css` | How it looks, including the phone layout (`@media` block at the end). |
 | `rules.js` | The rules: deck, shuffling, runs and groups, scoring, closing. No display code. |
 | `i18n.js` | All the player-visible text in English and Spanish (`STRINGS`), `t(key, vars)`, `plural()`, `setLanguage()`, and the `msg()` helper for messages kept in `state`. |
-| `ai.js` | The CPU players (base strategies `greedy` and `smart`, the easy/medium/hard levels built from them) and the tunable `SMART` settings. |
+| `ai.js` | The CPU players (base strategies `greedy`, `smart` and `finish`, the easy/medium/hard levels built from them), experiments that were not kept, and the tunable `SMART` settings. |
 | `game.js` | The game state (`state`), turns, rounds, scoring, elimination and re-entry. |
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the results panel, startup. |
@@ -106,6 +117,11 @@ All the rule numbers are named constants near the top of `rules.js` (`SCORE_LIMI
 and how they scored. Nine tuning ideas were tried (the ninth, round-length awareness, is the `aware` strategy) and none beat plain `smart`, so they are left off.
 Two later ideas did not beat it either: deeper search (results in the `SMART` comments) and game-risk awareness, the
 `risk` strategy (playing safe near the score limit and ending rounds on opponents near it; results above `STRATEGIES.risk`).
+Nor did combinations of the earlier ideas (results in the `SMART` comments) or Monte Carlo rollouts, the `mc` strategy
+(guess the hidden cards, play the round out many times for each candidate discard; results above `MC`).
+Hard and medium are built on `finish`: `smart` plus three rules for when the deck runs out under the reshuffle limit
+(take-or-stop when drawing would end the round, draw odds from the known discards when the pile is about to be refilled,
+and discarding for points once no draw is left). Results above `FINISH`: slightly better with few reshuffles, never worse.
 
 ## Testing
 
@@ -116,6 +132,7 @@ node tools/stress.js 20           # play random games on both decks, check no ca
 node tools/bench.js 1600 smart greedy             # compare two CPU settings
 node tools/bench.js 3200 smart "smart:takeMargin=-1"   # try a SMART override against the default
 node tools/gamebench.js 4000 risk hard 40 4 --jobs 8   # whole games: one A against three B, on 8 CPU cores
+node tools/bench.js 3200 finish smart 48 --reshuffles 2   # 48-card deck, at most 2 reshuffles (gamebench: also --rounds, --reentries)
 npm install && npx playwright install chromium    # once, for the browser tests
 npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch
 ```
@@ -125,7 +142,8 @@ npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts,
 * `bench.js` rotates seats and the starting player, and plays every deal twice from the same seeded shuffle with the two
   sides in swapped seats ("duplicate dealing"), so both sides get identical cards. `<rounds>` counts plays (3200 = 1600
   deals). It prints a standard error computed from the per-deal differences; differences under about two standard
-  errors are noise. Use at least 1,600 rounds.
+  errors are noise. Use at least 1,600 rounds. `--jobs N` splits the deals over N processes, with exactly the same
+  result (useful for slow strategies such as `mc`).
 * The shuffle uses `random` in `rules.js` and the easy/medium mistake rolls use a separate `decisionRandom`; both are
   `Math.random` in the browser. The benchmark swaps in two seeded generators (`makeSeededRandom`), so runs are exactly
   repeatable and a different decision can never change a later shuffle.

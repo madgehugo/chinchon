@@ -198,6 +198,7 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 
 /* A pile you may click right now (class toggled by JS) gets a gold outline */
 .pile.can-pick .card { outline: 3px solid #ffd54a; cursor: pointer; }
+.pile.can-pick .pile-empty { outline: 3px solid #ffd54a; cursor: pointer; }   /* an empty deck can still be clicked */
 
 /* ---------- Centre area: draw pile + discard pile ---------- */
 #centre {
@@ -210,6 +211,8 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 #piles { display: flex; gap: 32px; }
 .pile { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .pile-label { font-size: .8rem; opacity: .85; }
+/* "Drawing here ends the round": stands out, and wraps instead of widening the pile */
+.pile-label.warn { color: #ffd54a; font-weight: bold; opacity: 1; max-width: 8em; text-align: center; }
 .pile .card { --card-w: var(--pile-w); --card-h: var(--pile-h); }
 .pile-empty {
   width: var(--pile-w); height: var(--pile-h);

@@ -57,6 +57,10 @@ const STRINGS = {
     "set.deck": "Deck",
     "set.deck.40": "40 cards",
     "set.deck.48": "48 cards (with 8s and 9s)",
+    "set.reshuffles": "Reshuffles per round",
+    "set.rounds": "Rounds per game",
+    "set.reentries": "Re-entries per player",
+    "set.noLimit": "No limit",
     "level.easy": "Easy",
     "level.medium": "Medium",
     "level.hard": "Hard",
@@ -67,6 +71,8 @@ const STRINGS = {
     "player.cpu": "CPU {n}",
     "pile.draw": "Draw pile ({n})",
     "pile.discard": "Discard pile ({n})",
+    "pile.reshuffles": "Reshuffles left: {n}",
+    "pile.endsRound": "Drawing here ends the round",
     "seat.you": "You (Player 1)",
     "seat.cpu": "{name} ({level})",
     "seat.score": "{name} · {n} pts",
@@ -88,6 +94,8 @@ const STRINGS = {
 
     // ---- Scoreboard ----
     "board.round": "Round {n} (out above {limit} points)",
+    "board.roundOf": "Round {n} of {max} (out above {limit} points)",
+    "board.tieBreak": "Round {n}: tie-break (out above {limit} points)",
     "board.player": "Player",
     "board.total": "Total",
     "board.last": "Last round",
@@ -97,6 +105,7 @@ const STRINGS = {
 
     // ---- Status line ----
     "msg.yourTurn": "Your turn: click the draw pile or the top discard to take a card.",
+    "msg.yourTurnDeckDone": "Your turn: the draw pile is used up. Take the top discard to play on, or click the empty pile to end the round (everyone scores their hand).",
     "msg.playing": "{who} is playing...",
     "msg.tookDiscard": "{who} took {card} from the discard pile...",
     "msg.drewDeck": "{who} drew from the draw pile...",
@@ -116,20 +125,24 @@ const STRINGS = {
     "sum.chinchonWord": "Chinchón",
     "notice.out": "Out (over {limit}): {names}.",
     "notice.reentered": "Re-entered at {score}: {names}.",
+    "notice.tieBreak": "Tied for the lowest total ({score}): {names}. One more round decides.",
     "win.you": "You win",
     "win.cpu": "{who} wins",
     "reason.chinchon": "Chinchón!",
     "reason.allOut": "everyone went over the limit, lowest total wins",
     "reason.lastStanding": "last player standing",
+    "reason.roundLimit": "lowest total after the last round",
 
     // ---- Confirmation bars ----
     "confirm.deck": "Switch to the {n}-card deck? This starts a new game.",
+    "confirm.rules": "Change this rule? This starts a new game.",
     "confirm.cpus.one": "Play against {n} CPU? This starts a new game.",
     "confirm.cpus.other": "Play against {n} CPUs? This starts a new game.",
     "confirm.yes": "Start new game",
     "confirm.no": "Keep playing",
     "reentry.text.one": "You are out of the game. Re-enter with {n} point?",
     "reentry.text.other": "You are out of the game. Re-enter with {n} points?",
+    "reentry.left": "(Re-entries left: {n}.)",
 
     // ---- Hints panel ----
     "hint.title": "Your hand analysis",
@@ -191,6 +204,10 @@ const STRINGS = {
     "set.deck": "Baraja",
     "set.deck.40": "40 cartas",
     "set.deck.48": "48 cartas (con 8 y 9)",
+    "set.reshuffles": "Barajadas por ronda",   // TODO review
+    "set.rounds": "Rondas por partida",   // TODO review
+    "set.reentries": "Reenganches por jugador",   // TODO review
+    "set.noLimit": "Sin límite",   // TODO review
     "level.easy": "Fácil",
     "level.medium": "Medio",
     "level.hard": "Difícil",
@@ -201,6 +218,8 @@ const STRINGS = {
     "player.cpu": "CPU {n}",
     "pile.draw": "Mazo ({n})",
     "pile.discard": "Descartes ({n})",
+    "pile.reshuffles": "Barajadas restantes: {n}",   // TODO review
+    "pile.endsRound": "Robar aquí termina la ronda",   // TODO review
     "seat.you": "Tú (Jugador 1)",
     "seat.cpu": "{name} ({level})",
     "seat.score": "{name} · {n} pts",
@@ -222,6 +241,8 @@ const STRINGS = {
 
     // ---- Scoreboard ----
     "board.round": "Ronda {n} (eliminado al superar {limit} puntos)",
+    "board.roundOf": "Ronda {n} de {max} (eliminado al superar {limit} puntos)",   // TODO review
+    "board.tieBreak": "Ronda {n}: desempate (eliminado al superar {limit} puntos)",   // TODO review
     "board.player": "Jugador",
     "board.total": "Total",
     "board.last": "Última ronda",
@@ -231,6 +252,7 @@ const STRINGS = {
 
     // ---- Status line ----
     "msg.yourTurn": "Tu turno: haz clic en el mazo o en la carta superior de los descartes para coger una carta.",
+    "msg.yourTurnDeckDone": "Tu turno: el mazo se agotó. Coge la carta superior de los descartes para seguir, o haz clic en el mazo vacío para terminar la ronda (cada uno anota su mano).",   // TODO review
     "msg.playing": "{who} está jugando...",
     "msg.tookDiscard": "{who} tomó {card} de los descartes...",
     "msg.drewDeck": "{who} tomó una carta del mazo...",
@@ -250,20 +272,24 @@ const STRINGS = {
     "sum.chinchonWord": "Chinchón",
     "notice.out": "Eliminados (más de {limit}): {names}.",
     "notice.reentered": "Volvieron a entrar con {score}: {names}.",
+    "notice.tieBreak": "Empate en el total más bajo ({score}): {names}. Una ronda más decide.",   // TODO review
     "win.you": "Ganaste",
     "win.cpu": "{who} ganó",
     "reason.chinchon": "¡Chinchón!",
     "reason.allOut": "todos superaron el límite; gana el total más bajo",
     "reason.lastStanding": "último jugador en pie",
+    "reason.roundLimit": "total más bajo tras la última ronda",   // TODO review
 
     // ---- Confirmation bars ----
     "confirm.deck": "¿Cambiar a la baraja de {n} cartas? Esto inicia una nueva partida.",
+    "confirm.rules": "¿Cambiar esta regla? Esto inicia una nueva partida.",   // TODO review
     "confirm.cpus.one": "¿Jugar contra {n} CPU? Esto inicia una nueva partida.",
     "confirm.cpus.other": "¿Jugar contra {n} CPU? Esto inicia una nueva partida.",
     "confirm.yes": "Iniciar nueva partida",
     "confirm.no": "Seguir jugando",
     "reentry.text.one": "Estás eliminado. ¿Volver a entrar con {n} punto?",
     "reentry.text.other": "Estás eliminado. ¿Volver a entrar con {n} puntos?",
+    "reentry.left": "(Reenganches restantes: {n}.)",   // TODO review
 
     // ---- Hints panel ----
     "hint.title": "Análisis de tu mano",

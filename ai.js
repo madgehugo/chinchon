@@ -72,6 +72,13 @@ const SMART = {
   // not kept: valuing take-vs-draw by the hand one draw later, -0.03 se 0.03 (6,400
   // rounds; 48-card deck -0.04 se 0.04), about 4x slower; a two-draw lookahead for the
   // discard (best 3 candidates only), -0.05 se 0.08, about 20x slower. Both no gain.
+  // Combinations of the earlier ideas were also tried, in case they help together
+  // (6,400 rounds each, A - B against plain smart, negative = better):
+  //   aware late 1.5 + perfectBonus 1 + closeBonus 5          -0.01  se 0.03  no gain
+  //   aware late 1.5 + perfectBonus 1 + takeMargin -1         -0.01  se 0.05  no gain
+  //   perfectBonus 1 + closeBonus 5 + denyWeight 1.5 + takeMargin -1   +0.18  se 0.05  WORSE
+  //   all of the above together (on aware)                    +0.02  se 0.05  no gain
+  // Monte Carlo rollouts (the "mc" strategy below) did not beat smart either.
   closeBonus:   0,     // reward a hand that could close right now (a meld and <= 7 points)
   perfectBonus: 0,     // 1 = value a hand with no unmatched cards at the real -10, not 0
   denyWeight:   0,     // penalty for discarding a card an opponent is known to need
@@ -411,6 +418,168 @@ STRATEGIES.risk = {
   chooseDiscard(p) { return smartDiscard(p, () => 0, h => riskCost(h, p)); },
 };
 
+// ---- Monte Carlo rollouts (used by the "mc" strategy) ----
+// smart looks one draw ahead and only at its own hand. It cannot see how a discard plays
+// out over the rest of the round: whether an opponent closes first, how long the round
+// lasts, which cards come back. Rollouts estimate that directly. For each candidate discard
+// we guess the hidden cards many times ("determinize": deal the unseen cards at random to
+// the opponents' hands and the draw pile, keeping the cards they are known to hold), play
+// the rest of the round out quickly with a simple policy for everyone, and average the
+// points this player ends with. The same guesses are used for every candidate ("common
+// random numbers"), so the luck of a guess affects all candidates alike and cancels out.
+// NOT used by any level: benchmarked against plain smart (1,600 rounds, A - B, duplicate
+// dealing, negative = better):
+//   defaults (3 candidates, 48 rollouts, margin 0)   +0.36  se 0.19  no gain (if anything worse)
+//   margin 1.5, 96 rollouts                          -0.00  se 0.11  no gain
+// It closed and won rounds more often but lost more points when it did not: the quick
+// rollout policy is weaker than smart, so the rollouts reward hands that suit a fast
+// greedy finish. It is also about 20x slower than smart (about 0.5 s per round).
+const MC = {
+  candidates: 3,     // roll out only smart's best few discards (the others are rarely right)
+  rollouts:   48,    // guessed deals per candidate
+  maxTurns:   40,    // a rollout this long ends as a stalemate (everyone scores their points)
+  margin:     0,     // keep smart's own pick unless another candidate's rollouts beat it by this many points
+};
+
+// A cheap discard rule for inside the rollouts: the card that leaves the fewest unmatched
+// points (like greedy, but through the evalSummary cache). Returns { index, points, melds }.
+function quickDiscard(hand) {
+  let best = null;
+  for (let i = 0; i < hand.length; i++) {
+    const s = evalSummary(hand.filter((card, j) => j !== i));
+    if (best === null || s.points < best.points ||
+        (s.points === best.points && cardPoints(hand[i]) > cardPoints(hand[best.index]))) {
+      best = { index: i, points: s.points, melds: s.melds };
+    }
+  }
+  return best;
+}
+
+// One guess at the hidden cards, as player p sees them: { hands, draw }. Opponents keep
+// the cards they are known to hold plus random unseen ones; the rest is the draw pile.
+function determinize(p, hand8) {
+  const unseen = unseenCards(p, hand8);
+  for (let i = unseen.length - 1; i > 0; i--) {                 // Fisher-Yates, as in shuffle()
+    const j = Math.floor(decisionRandom() * (i + 1));
+    [unseen[i], unseen[j]] = [unseen[j], unseen[i]];
+  }
+  const hands = state.hands.map((hand, q) => {
+    if (q === p || !state.inGame[q]) return [];
+    const missing = hand.length - state.known[q].length;
+    return [...state.known[q], ...unseen.splice(0, missing)];   // splice removes and returns
+  });
+  return { hands, draw: unseen };
+}
+
+// Play the round on from player p's discard of `top` (p keeps `hand7`), every player
+// using the quick policy: take the discard if it lowers your points, close as soon as
+// you can. Returns the points p ends the round with. `guess` is not changed.
+function rollout(p, hand7, top, guess) {
+  const hands = guess.hands.map(hand => [...hand]);
+  hands[p] = [...hand7];
+  const draw = [...guess.draw];
+  let q = p;
+  for (let turn = 0; turn < MC.maxTurns; turn++) {
+    q = nextActivePlayer(q);
+    const hand = hands[q];
+    if (quickDiscard([...hand, top]).points < evalSummary(hand).points) {
+      hand.push(top);
+    } else {
+      if (draw.length === 0) break;                             // no reshuffles here: stalemate
+      hand.push(draw.pop());
+    }
+    const d = quickDiscard(hand);
+    [top] = hand.splice(d.index, 1);
+    if (isSingleSuitRun(hand)) return q === p ? -SMART.chinchonValue : evalSummary(hands[p]).points;
+    if (d.melds >= 1 && d.points <= MAX_UNMATCHED_TO_CLOSE) {
+      if (q !== p) return evalSummary(hands[p]).points;
+      return d.points === 0 ? CLOSE_BONUS : d.points;
+    }
+  }
+  return evalSummary(hands[p]).points;
+}
+
+// MC: smart, except that the discard is chosen among smart's best MC.candidates by
+// the average result of MC.rollouts rollouts each.
+STRATEGIES.mc = {
+  ...STRATEGIES.smart,
+  chooseDiscard(p) {
+    const hand = state.hands[p];
+    const unseen = unseenCards(p, hand);
+    const scored = hand.map((card, i) => ({ i, score: expectedCostAfterDraw(hand.filter((c, j) => j !== i), unseen) }));
+    scored.sort((a, b) => a.score - b.score);
+    const shortlist = scored.slice(0, MC.candidates);
+    if (shortlist.length < 2 || unseen.length === 0) return scored[0].i;
+
+    const guesses = Array.from({ length: MC.rollouts }, () => determinize(p, hand));
+    let best = null;
+    for (const { i } of shortlist) {
+      const rest = hand.filter((card, j) => j !== i);
+      let mean = guesses.reduce((sum, g) => sum + rollout(p, rest, hand[i], g), 0) / guesses.length;
+      if (i === shortlist[0].i) mean -= MC.margin;              // smart's pick gets a head start
+      if (best === null || mean < best.mean) best = { i, mean };
+    }
+    return best.i;
+  },
+};
+
+// ---- End-of-deck awareness (used by the "finish" strategy) ----
+// With a reshuffle limit (state.maxReshuffles) the end of a round can be seen coming:
+// once no reshuffles are left, the round ends when someone has to draw from an empty
+// deck, and everyone then pays the points in their hand. smart ignores this, which
+// costs it in three places:
+//   * when the deck is finished, drawing from it ends the round with the hand as it
+//     is, so the real choice is "take the discard" or "stop here";
+//   * when the deck is empty but will be reshuffled, the next card comes from the
+//     discard pile, whose cards are known, not from the unseen cards;
+//   * when it will not draw again, building towards future melds is pointless and
+//     the discard should simply leave the fewest points.
+// Benchmarked against plain smart (6,400 rounds each, A - B, negative = better):
+//   reshuffles      0              1              2              5 (default)
+//   40-card deck   -0.03 se 0.02  -0.02 se 0.02   0.00 se 0.02  +0.02 se 0.02
+//   48-card deck   -0.02 se 0.01  -0.01 se 0.01  -0.01 se 0.01  -0.02 se 0.01
+// Never measurably worse and slightly better when the deck runs out often, so hard and
+// medium are built on it: the gain is small because these moments are rare and short.
+// lastDraws 1 (switch to "points now" one turn earlier) was WORSE: +0.25 se 0.04 on the
+// 40-card deck with 0 reshuffles, no difference elsewhere.
+const FINISH = {
+  lastDraws: 0,      // discard for points now once p expects at most this many more draws
+};
+
+// How many more cards p expects to draw from the deck this round (Infinity while the
+// deck can still be refilled). Players draw in turn, so with `left` cards in the pile
+// and `n` players, p's next draw is the n-th card from now, the one after the 2n-th...
+function drawsLeft(p) {
+  if (reshufflesLeft() !== 0) return Infinity;              // 0 = the last pile; null or more = no end in sight
+  return Math.floor(state.drawPile.length / activePlayers().length);
+}
+
+// The cards a draw from the deck could give p: normally the unseen cards, but right
+// after the pile ran out it is refilled from the discard pile (all but its top card).
+function drawableCards(p, hand) {
+  if (state.drawPile.length === 0 && !deckIsFinished()) return state.discardPile.slice(0, -1);
+  return unseenCards(p, hand);
+}
+
+// FINISH: smart, plus the three end-of-deck rules above. Closing is smart's.
+STRATEGIES.finish = {
+  ...STRATEGIES.smart,
+  chooseSource(p) {
+    if (state.discardPile.length === 0) return "deck";
+    const hand = state.hands[p];
+    const top = state.discardPile[state.discardPile.length - 1];
+    const takeCost = bestAfterDiscard([...hand, top]).cost;
+    // Drawing would end the round now: take the discard only if it improves the hand
+    if (deckIsFinished()) return takeCost < handCost(hand) ? "discard" : "deck";
+    const drawCost = expectedCostAfterDraw(hand, drawableCards(p, hand));
+    return takeCost < drawCost - SMART.takeMargin ? "discard" : "deck";
+  },
+  chooseDiscard(p) {
+    if (drawsLeft(p) <= FINISH.lastDraws) return bestAfterDiscard(state.hands[p]).index;
+    return smartDiscard(p, () => 0);
+  },
+};
+
 // Wrap a strategy so that, with probability `chance`, it makes a mistake when
 // choosing where to draw from or what to discard. A mistake is the opposite
 // source, or a random card. Closing is left alone: a CPU that has a legal close
@@ -438,8 +607,10 @@ function withMistakes(base, chance) {
 // Tuning medium: 10% -> 2.75, 14% -> 3.81, 16% -> 4.60, 18% -> 4.92, 25% -> 7.82.
 // Noise is about +/-0.22, so retune only if you change the strategies.
 STRATEGIES.easy   = withMistakes(STRATEGIES.greedy, EASY_MISTAKE_CHANCE);
-STRATEGIES.medium = withMistakes(STRATEGIES.smart, MEDIUM_MISTAKE_CHANCE);
-STRATEGIES.hard   = STRATEGIES.smart;   // the very same object: hard IS smart, unchanged
+// (The table above was measured when hard was plain smart; finish plays the same moves
+// except when the deck runs out, so it still holds with the default 5 reshuffles.)
+STRATEGIES.medium = withMistakes(STRATEGIES.finish, MEDIUM_MISTAKE_CHANCE);
+STRATEGIES.hard   = STRATEGIES.finish;  // the very same object: hard IS finish (smart + end-of-deck rules)
 
 // (Simple strategy helper.) Which card should this 8-card hand discard? Try
 // each one and keep the choice that leaves the fewest unmatched points

@@ -27,15 +27,29 @@
    the luck of the cards is without duplicate dealing; the difference should be about 0,
    within a couple of standard errors. (With duplicate dealing, `smart smart` is exactly 0.)
 
+   --jobs N splits the deals over N processes (one per CPU core), as in gamebench.js. The
+   result is exactly the same as without it, only faster (useful for slow strategies like mc).
+   --reshuffles N plays with that reshuffle limit per round (0, 1, 2, ... or "none"; the
+   default is the game's own, MAX_RESHUFFLES).
+
    Example:  node tools/bench.js 3200 smart "smart:takeMargin=-1"
+             node tools/bench.js 3200 mc hard --jobs 8
+             node tools/bench.js 3200 finish smart 48 --reshuffles 2 --jobs 8
    ========================================================= */
+const { fork } = require("child_process");          // to start worker processes (for --jobs)
 const { loadGame, registerSpec } = require("./harness");
 
-const CONTROL = process.argv.includes("--control");         // see NOISE CONTROL above
+const args = process.argv.slice(2);
+const CONTROL = args.includes("--control");                 // see NOISE CONTROL above
+// "--name N" options: the value is the argument after the name (undefined if absent)
+const option = name => { const at = args.indexOf(name); return at >= 0 ? args[at + 1] : undefined; };
+const JOBS = Number(option("--jobs") ?? 1);
+const RESHUFFLES = option("--reshuffles");                  // "none" = no limit; absent = the game's default
 const [rounds = "1600", specA = "smart", specB = "greedy", deck = "40"] =
-  process.argv.slice(2).filter(arg => arg !== "--control");
+  args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1].startsWith("--") && args[i - 1] !== "--control"));
 const g = loadGame();
 g.setDeckSize(Number(deck));
+if (RESHUFFLES !== undefined) g.state.maxReshuffles = RESHUFFLES === "none" ? null : Number(RESHUFFLES);
 
 // "smart:closeBonus=5" style specs become registered strategies (see registerSpec in harness.js)
 const labels = [registerSpec(g, specA), registerSpec(g, specB)];
@@ -97,34 +111,71 @@ function playDeal(deal, rotation, start, shuffleSeed = deal) {
 }
 
 const deals = Math.floor(Number(rounds) / 2);
-const dealDiffs = [];                                       // A - B for each deal, averaged over its two plays
-const started = Date.now();
-for (let d = 0; d < deals; d++) {
-  const rotation = d % 4;                                   // who sits where (swapped for the second play)
-  const start = Math.floor(d / 4) % 4;                      // who starts (independent of seating)
-  const first = playDeal(d, rotation, start);
-  // A and B swap seats with identical cards (in --control mode: a different, independent deal)
-  const second = playDeal(d, rotation + 1, start, CONTROL ? d + deals : d);
-  if (first !== null && second !== null) dealDiffs.push((first + second) / 2);
-}
-g.setRandom(Math.random);
-g.setDecisionRandom(Math.random);
 
-console.log(`${deals * 2} rounds (${deals} deals, each played ${CONTROL ? "on two independent deals: CONTROL, no pairing" : "twice, same cards"}), ${deck}-card deck, ${((Date.now() - started) / 1000).toFixed(0)}s, ${stalemates} stalemates`);
-const summary = labels.map(label => {
-  const st = stats[label];
-  const mean = st.sum / st.n;
-  const se = Math.sqrt((st.sumSq / st.n - mean * mean) / st.n);
-  console.log(`  ${label.padEnd(36)} avg points ${mean.toFixed(2)}   rounds won ${(100 * st.wins / st.n).toFixed(1)}%   closed ${(100 * st.closes / st.n).toFixed(1)}%`);
-  return { mean, se };
-});
-if (labels[0] !== labels[1]) {                              // for comparison: the old unpaired formula
-  console.log(`  (old unpaired se of the difference: ${Math.hypot(summary[0].se, summary[1].se).toFixed(2)})`);
+// Play this process's share of the deals. `shard` = [k, n]: deals k, k+n, k+2n, ...
+// Returns everything the report needs, so the shares of several processes can be added up.
+function runShard([k, n]) {
+  const dealDiffs = [];                                     // A - B for each deal, averaged over its two plays
+  for (let d = k; d < deals; d += n) {
+    const rotation = d % 4;                                 // who sits where (swapped for the second play)
+    const start = Math.floor(d / 4) % 4;                    // who starts (independent of seating)
+    const first = playDeal(d, rotation, start);
+    // A and B swap seats with identical cards (in --control mode: a different, independent deal)
+    const second = playDeal(d, rotation + 1, start, CONTROL ? d + deals : d);
+    if (first !== null && second !== null) dealDiffs.push((first + second) / 2);
+  }
+  g.setRandom(Math.random);
+  g.setDecisionRandom(Math.random);
+  return { stats, stalemates, dealDiffs };
 }
-// The deals are independent of each other; the two plays of one deal are not, so
-// the standard error comes from the per-deal differences rather than from the two averages.
-const diff = dealDiffs.reduce((a, b) => a + b, 0) / dealDiffs.length;
-const variance = dealDiffs.reduce((a, x) => a + (x - diff) ** 2, 0) / (dealDiffs.length - 1);
-const diffSe = Math.sqrt(variance / dealDiffs.length);
-console.log(`  difference (A - B): ${diff.toFixed(2)} points, se ${diffSe.toFixed(2)}` +
-            `  -> ${Math.abs(diff) > 2 * diffSe ? (diff < 0 ? "A is better" : "B is better") : "no clear difference"}`);
+
+function report(parts, seconds) {
+  // Add up the shares (with one process there is just one part)
+  const all = {};
+  for (const label of labels) all[label] = { n: 0, sum: 0, sumSq: 0, wins: 0, closes: 0 };
+  const dealDiffs = [];
+  let stalemateCount = 0;
+  for (const part of parts) {
+    for (const label of labels) for (const key in all[label]) all[label][key] += part.stats[label][key];
+    dealDiffs.push(...part.dealDiffs);
+    stalemateCount += part.stalemates;
+  }
+
+  const limit = g.state.maxReshuffles === null ? "no reshuffle limit" : `at most ${g.state.maxReshuffles} reshuffles`;
+  console.log(`${deals * 2} rounds (${deals} deals, each played ${CONTROL ? "on two independent deals: CONTROL, no pairing" : "twice, same cards"}), ${deck}-card deck, ${limit}, ${seconds.toFixed(0)}s, ${stalemateCount} stalemates`);
+  const summary = labels.map(label => {
+    const st = all[label];
+    const mean = st.sum / st.n;
+    const se = Math.sqrt((st.sumSq / st.n - mean * mean) / st.n);
+    console.log(`  ${label.padEnd(36)} avg points ${mean.toFixed(2)}   rounds won ${(100 * st.wins / st.n).toFixed(1)}%   closed ${(100 * st.closes / st.n).toFixed(1)}%`);
+    return { mean, se };
+  });
+  if (labels[0] !== labels[1]) {                            // for comparison: the old unpaired formula
+    console.log(`  (old unpaired se of the difference: ${Math.hypot(summary[0].se, summary[1].se).toFixed(2)})`);
+  }
+  // The deals are independent of each other; the two plays of one deal are not, so
+  // the standard error comes from the per-deal differences rather than from the two averages.
+  const diff = dealDiffs.reduce((a, b) => a + b, 0) / dealDiffs.length;
+  const variance = dealDiffs.reduce((a, x) => a + (x - diff) ** 2, 0) / (dealDiffs.length - 1);
+  const diffSe = Math.sqrt(variance / dealDiffs.length);
+  console.log(`  difference (A - B): ${diff.toFixed(2)} points, se ${diffSe.toFixed(2)}` +
+              `  -> ${Math.abs(diff) > 2 * diffSe ? (diff < 0 ? "A is better" : "B is better") : "no clear difference"}`);
+}
+
+const started = Date.now();
+if (process.env.BENCH_SHARD) {
+  // We are a worker started below: play our share and send the result to the parent
+  process.send(runShard(process.env.BENCH_SHARD.split("/").map(Number)), () => process.disconnect());
+} else if (JOBS > 1) {
+  // Start this same file JOBS times as child processes (see gamebench.js for how this works)
+  const parts = [];
+  for (let k = 0; k < JOBS; k++) {
+    const child = fork(__filename, args, { env: { ...process.env, BENCH_SHARD: `${k}/${JOBS}` } });
+    child.on("message", part => {
+      parts.push(part);
+      if (parts.length === JOBS) report(parts, (Date.now() - started) / 1000);
+    });
+  }
+} else {
+  report([runShard([0, 1])], (Date.now() - started) / 1000);
+}

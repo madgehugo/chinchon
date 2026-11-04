@@ -9,6 +9,9 @@
      [deck]     40 (default) or 48
      [players]  2, 3 or 4 (default 4): ONE player A against the rest, all B
      --jobs N   split the games over N processes (one per CPU core) to save time
+     --reshuffles N   reshuffle limit per round (0, 1, 2, ... or "none"; default the game's own)
+     --rounds N       round limit per game (default none: play until one player is left)
+     --reentries N    re-entries allowed per player (default none = no limit)
    bench.js scores single rounds, so it cannot see anything that depends on the
    running totals: elimination over SCORE_LIMIT, re-entry, playing safe near the
    limit. This plays whole games instead, with the real scoring code from game.js,
@@ -40,9 +43,14 @@ const SEED = 54321;           // base seed: game k uses SEED + k (and others; se
 // ---- Command line ----
 const args = process.argv.slice(2);
 const CONTROL = args.includes("--control");
-const jobsAt = args.indexOf("--jobs");
-const JOBS = jobsAt >= 0 ? Number(args[jobsAt + 1]) : 1;
-const positional = args.filter((a, i) => !a.startsWith("--") && !(jobsAt >= 0 && i === jobsAt + 1));   // skip the N after --jobs
+// "--name N" options: the value is the argument after the name (undefined if absent)
+const option = name => { const at = args.indexOf(name); return at >= 0 ? args[at + 1] : undefined; };
+const JOBS = Number(option("--jobs") ?? 1);
+const limit = value => value === undefined ? undefined : value === "none" ? null : Number(value);
+const RESHUFFLES = limit(option("--reshuffles"));           // undefined = the game's default
+const ROUND_LIMIT = limit(option("--rounds")) ?? null;      // default: no round limit
+const REENTRIES = limit(option("--reentries")) ?? null;    // default: no re-entry limit
+const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1].startsWith("--") && args[i - 1] !== "--control"));
 const [games = "400", specA = "risk", specB = "hard", deck = "40", players = "4"] = positional;
 const NUM_PLAYERS = Number(players);
 if (!(NUM_PLAYERS >= 2 && NUM_PLAYERS <= 4)) { console.error("players must be 2, 3 or 4"); process.exit(1); }
@@ -79,7 +87,7 @@ function playGame(g, seat, seed) {
   while (!s.gameOver && rounds < MAX_ROUNDS) {
     rounds++;
     playRound(g, seat);
-    if (s.awaitingReentry) g.humanReenter(s.entryScore <= g.CPU_REENTRY_MAX);   // seat 0 decides like a CPU
+    if (s.awaitingReentry) g.humanReenter(g.cpuWantsReentry());   // seat 0 decides like a CPU
     if (!s.gameOver) { g.nextRound(); g.clearQueue(); }
   }
   return { winner: s.gameOver ? s.winner : null, rounds };
@@ -89,6 +97,9 @@ function playGame(g, seat, seed) {
 function runShard([k, n]) {
   const g = loadGame();
   g.setDeckSize(Number(deck));
+  if (RESHUFFLES !== undefined) g.state.maxReshuffles = RESHUFFLES;
+  g.state.roundLimit = ROUND_LIMIT;
+  g.state.maxReentries = REENTRIES;
   const [labelA, labelB] = [registerSpec(g, specA), registerSpec(g, specB)];
   const result = { dealShares: [], winsA: 0, games: 0, rounds: 0, unfinished: 0 };
   const deals = Math.floor(Number(games) / NUM_PLAYERS);
@@ -133,7 +144,8 @@ function report(parts, seconds) {
   const verdict = Math.abs(mean - fair) > 2 * se + 1e-9 ? (mean > fair ? "A is better" : "B is better") : "no clear difference";
 
   console.log(`${all.games} games (${x.length} deals${CONTROL ? ", CONTROL: no pairing" : ", each played with A in every seat"}), ` +
-              `${NUM_PLAYERS} players, ${deck}-card deck, ${(all.rounds / all.games).toFixed(1)} rounds per game, ` +
+              `${NUM_PLAYERS} players, ${deck}-card deck, ` +
+              `reshuffles ${RESHUFFLES === undefined ? "default" : RESHUFFLES ?? "unlimited"}, round limit ${ROUND_LIMIT ?? "none"}, re-entries ${REENTRIES ?? "unlimited"}, ${(all.rounds / all.games).toFixed(1)} rounds per game, ` +
               `${all.unfinished} unfinished, ${seconds.toFixed(0)}s`);
   console.log(`  one A (${specA}) against ${NUM_PLAYERS - 1} x B (${specB}): A won ${all.winsA} games`);
   console.log(`  A's share of games won: ${(100 * mean).toFixed(1)}% (fair share ${(100 * fair).toFixed(1)}%), ` +

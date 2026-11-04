@@ -284,6 +284,12 @@ function renderPiles() {
   }
   document.getElementById("draw-label").textContent =
     t("pile.draw", { n: state.drawPile.length });
+  // How many more times the deck can be refilled (nothing shown when there is no limit),
+  // or, once it is used up, a warning that drawing from it ends the round
+  const left = reshufflesLeft();
+  document.getElementById("reshuffle-label").textContent =
+    deckIsFinished() ? t("pile.endsRound") : left === null ? "" : t("pile.reshuffles", { n: left });
+  document.getElementById("reshuffle-label").classList.toggle("warn", deckIsFinished());
 
   // Discard pile: show only the TOP card, face-up
   if (state.discardPile.length > 0) {
@@ -470,8 +476,13 @@ function renderScoreboard() {
            `<td>${t(state.inGame[p] ? "board.in" : "board.out")}</td></tr>`;
   }).join("");
 
+  // "Round 3", "Round 3 of 10", or "Round 11: tie-break" once past the round limit
+  const vars = { n: state.round, max: state.roundLimit, limit: SCORE_LIMIT };
+  const heading = state.roundLimit === null      ? t("board.round", vars)
+                : state.round > state.roundLimit ? t("board.tieBreak", vars)
+                :                                  t("board.roundOf", vars);
   document.getElementById("scoreboard").innerHTML =
-    `<b>${t("board.round", { n: state.round, limit: SCORE_LIMIT })}</b>` +
+    `<b>${heading}</b>` +
     `<table><tr><th>${t("board.player")}</th><th>${t("board.total")}</th>` +
     `<th>${t("board.last")}</th><th>${t("board.status")}</th></tr>${rows}</table>`;
 }
@@ -637,8 +648,13 @@ function renderStatus() {
 // "Capitalised meld name" for a meld type ("run" or "group")
 const meldName = type => t(`meld.${type}`);
 
-// "You are out of the game. Re-enter with 64 points?"
-const reentryText = () => plural("reentry.text", state.entryScore);
+// "You are out of the game. Re-enter with 64 points?", plus "(Re-entries left: 2.)"
+// when the re-entry setting has a limit (the count includes the one being offered)
+function reentryText() {
+  const question = plural("reentry.text", state.entryScore);
+  if (state.maxReentries === null) return question;
+  return `${question} ${t("reentry.left", { n: state.maxReentries - state.reentries[0] })}`;
+}
 
 /* ---------------------------------------------------------
    6. EVENT WIRING: connect clicks to functions.
@@ -689,11 +705,18 @@ document.getElementById("cpu-speed").addEventListener("change", (e) => {
 let pendingChange = null;
 let pendingQuestion = null;     // function giving the question text for the bar that is open
 
-// Put both dropdowns back to what the game is actually using
+// Put the dropdowns that start a new game back to what the game is actually using
 function syncSettingDropdowns() {
   document.getElementById("deck-size").value = String(DECK_SIZE);
   document.getElementById("cpu-count").value = String(state.numPlayers - 1);
+  document.getElementById("reshuffles").value = limitToOption(state.maxReshuffles);
+  document.getElementById("round-limit").value = limitToOption(state.roundLimit);
+  document.getElementById("reentries").value = limitToOption(state.maxReentries);
 }
+
+// The limit dropdowns use "none" for "no limit", which is null in state
+function limitToOption(limit) { return limit === null ? "none" : String(limit); }
+function optionToLimit(value) { return value === "none" ? null : Number(value); }
 
 function closeConfirm(accepted) {
   document.getElementById("deck-confirm").hidden = true;
@@ -724,6 +747,19 @@ document.getElementById("cpu-count").addEventListener("change", (e) => {
   const cpus = Number(e.target.value);
   askBeforeNewGame(() => plural("confirm.cpus", cpus),
                    () => newGame(cpus));
+});
+// The rule limits also start a new game, so a game is never played under mixed rules
+document.getElementById("reentries").addEventListener("change", (e) => {
+  const limit = optionToLimit(e.target.value);
+  askBeforeNewGame(() => t("confirm.rules"), () => { state.maxReentries = limit; newGame(); });
+});
+document.getElementById("reshuffles").addEventListener("change", (e) => {
+  const limit = optionToLimit(e.target.value);
+  askBeforeNewGame(() => t("confirm.rules"), () => { state.maxReshuffles = limit; newGame(); });
+});
+document.getElementById("round-limit").addEventListener("change", (e) => {
+  const limit = optionToLimit(e.target.value);
+  askBeforeNewGame(() => t("confirm.rules"), () => { state.roundLimit = limit; newGame(); });
 });
 document.getElementById("deck-yes").addEventListener("click", () => closeConfirm(true));
 document.getElementById("deck-no").addEventListener("click", () => closeConfirm(false));

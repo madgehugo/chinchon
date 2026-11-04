@@ -31,11 +31,12 @@ function loadGame() {
 function render() {}
 function setStatus(...messages) { state.status = messages; }
 globalThis.__game = {
-  state, STRATEGIES, AWARE, RISK, MAX_PLAYERS, SMART, CPU_MODES, SCORE_LIMIT, CPU_REENTRY_MAX,
+  state, STRATEGIES, AWARE, RISK, MC, FINISH, MAX_PLAYERS, SMART, CPU_MODES, SCORE_LIMIT, CPU_REENTRY_MAX,
   setRandom, setDecisionRandom, makeSeededRandom,
   setDeckSize, getDeckSize: () => DECK_SIZE,
   newGame, startRound, nextRound, humanDraw, humanDiscard, humanClose, humanReenter,
   drawCard, discardCard, endTurn, closeRound, closeOptions, findBestClose, moveCard, sortHand,
+  cpuWantsReentry,
   runSelfTests,
 };`;
   vm.runInNewContext(source, sandbox, { filename: "game-bundle.js" });
@@ -59,7 +60,7 @@ globalThis.__game = {
 function registerSpec(g, spec) {
   const [base, settings] = spec.split(":");
   if (!settings) return base;                               // plain level name
-  const targets = [g.SMART, g.AWARE, g.RISK];               // settings objects an override may name
+  const targets = [g.SMART, g.AWARE, g.RISK, g.MC, g.FINISH];   // settings objects an override may name
   const overrides = [];                                     // [object, key, value]
   for (const pair of settings.split(",")) {
     const [key, value] = pair.split("=");
