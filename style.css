@@ -75,9 +75,8 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
   gap: 6px;
 }
 /* Which grid area each seat uses is set by renderSeats() in ui.js, because it
-   depends on how many players there are. */
-.seat[hidden] { display: none; }   /* unused seats (the hidden attribute alone loses to display:flex above) */
-#centre { grid-area: center; }
+   depends on how many players there are. Unused seats get the hidden attribute
+   (see the [hidden] rule further down). */
 
 /* The transparent border and padding are always there, so the label does not move
    when it gets its highlight */
@@ -106,11 +105,13 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 .hand { display: flex; justify-content: center; }
 .hand .card + .card { margin-left: var(--card-overlap); }
 
-/* Side players: stack their cards vertically instead */
-.seat.side .hand { flex-direction: column; align-items: center; }
-/* Always reserve room for 8 cards (7 + the one just drawn), so the name label
-   and the stack do not jump when a CPU picks up a card. calc() does the sum. */
-.seat.side .hand { min-height: calc(var(--card-h) + 7 * (var(--card-h) + var(--side-overlap))); justify-content: flex-start; }
+/* Side players: stack their cards vertically instead. Always reserve room for 8 cards
+   (7 + the one just drawn), so the name label and the stack do not jump when a CPU
+   picks up a card. calc() does the sum. */
+.seat.side .hand {
+  flex-direction: column; align-items: center; justify-content: flex-start;
+  min-height: calc(var(--card-h) + 7 * (var(--card-h) + var(--side-overlap)));
+}
 .seat.side .hand .card + .card { margin-left: 0; margin-top: var(--side-overlap); }
 
 /* Human cards are a bit bigger and don't overlap as much */
@@ -250,7 +251,7 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 }
 .card.back > * { display: none; }
 
-/* Cards you can click (added by JS while you must discard) lift on hover */
+/* Cards you can click (added by JS while you must discard) */
 .card.clickable { cursor: pointer; }
 
 /* Gentle lift: your cards rise a little under the pointer (hover) and when pressed (tap).
@@ -273,14 +274,17 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 
 /* A pile you may click right now (class toggled by JS) gets a gold outline that
    gently pulses, so it is obvious that it is your turn to draw */
-.pile.can-pick .card { outline: 3px solid #ffd54a; cursor: pointer; animation: pick-pulse 1.6s ease-in-out infinite; }
-.pile.can-pick .pile-empty { outline: 3px solid #ffd54a; cursor: pointer; animation: pick-pulse 1.6s ease-in-out infinite; }   /* an empty deck can still be clicked */
+/* (.pile-empty too: an empty deck can still be clicked, to end the round) */
+.pile.can-pick .card, .pile.can-pick .pile-empty {
+  outline: 3px solid #ffd54a; cursor: pointer; animation: pick-pulse 1.6s ease-in-out infinite;
+}
 @keyframes pick-pulse {
   50% { outline-color: rgba(255, 213, 74, .35); }
 }
 
 /* ---------- Centre area: draw pile + discard pile ---------- */
 #centre {
+  grid-area: center;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -310,7 +314,6 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 
 #analysis {
   width: min(960px, 100%);
-  box-sizing: border-box;
   margin-bottom: 20px;
   padding: 10px 14px;
   background: rgba(255,255,255,.08);
@@ -327,19 +330,16 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 #actions select { font-size: .85rem; padding: 7px 8px; border-radius: 6px; border: 0; font-family: inherit; background: rgba(255, 255, 255, .85); color: #222; }
 button.active { background: #ffd54a; }
 
-/* Settings panel (the [hidden] rule keeps the hidden attribute working with display: flex) */
+/* Settings panel */
 #settings {
-  width: min(960px, 100%); box-sizing: border-box;
+  width: min(960px, 100%);
   display: flex; gap: 12px 16px; flex-wrap: wrap; align-items: center;
   margin: 10px 0; padding: 10px 14px;
   background: rgba(255,255,255,.08); border-radius: 8px;
 }
-#settings[hidden], #analysis[hidden] { display: none; }
 #settings button { margin: 0 0 0 auto; }
 .opt { font-size: .85rem; display: flex; align-items: center; gap: 6px; }
 .opt select { padding: 6px 8px; border-radius: 6px; border: 0; font: inherit; background: #fffaf0; color: #222; }
-/* Keyboard help: its own line at the bottom of the panel; hidden where there is no
-   mouse (hover: none is true on phones and tablets, which usually have no keyboard) */
 /* The 48-card suggestion: a full-width gold note inside the settings panel */
 #deck-tip {
   flex-basis: 100%; margin: 0; padding: 6px 10px;
@@ -348,6 +348,8 @@ button.active { background: #ffd54a; }
   background: rgba(255, 213, 74, .14); border-left: 3px solid #ffd54a; border-radius: 6px;
 }
 #settings #deck-tip button { margin: 0; padding: 4px 10px; font-size: .8rem; }
+/* Keyboard help: its own line at the bottom of the panel; hidden where there is no
+   mouse (hover: none is true on phones and tablets, which usually have no keyboard) */
 .keys-help { flex-basis: 100%; margin: 0; font-size: .75rem; opacity: .75; }
 @media (hover: none) { .keys-help { display: none; } }
 
@@ -361,7 +363,6 @@ button.active { background: #ffd54a; }
   background: rgba(255, 213, 74, .18);
   border-radius: 8px;
 }
-#reentry[hidden], #deck-confirm[hidden] { display: none; }          /* keep the hidden attribute working */
 #reentry button, #deck-confirm button { margin: 0; white-space: nowrap; }   /* long Spanish labels must not wrap inside the button */
 
 #scoreboard {
@@ -375,7 +376,6 @@ button.active { background: #ffd54a; }
 #scoreboard table { border-collapse: collapse; margin-top: 6px; width: 100%; }
 #scoreboard th, #scoreboard td { text-align: left; padding: 3px 10px 3px 0; }
 #scoreboard tr.out td { opacity: .5; }
-button:disabled { opacity: .4; cursor: not-allowed; }
 
 button {
   margin: 10px 0 16px;
@@ -386,6 +386,7 @@ button {
   font-weight: bold;
   cursor: pointer;
 }
+button:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ---------- Touch: dragging cards, and no accidental zoom ---------- */
 /* touch-action: none tells the browser "don't scroll or zoom when a finger
@@ -403,7 +404,8 @@ button, .pile, select { touch-action: manipulation; }   /* no double-tap zoom de
   box-shadow: 0 10px 20px rgba(0,0,0,.55);
 }
 
-/* The hidden attribute must win over any display: rule */
+/* The hidden attribute must win over any display: rule (an element with
+   display: flex would otherwise stay visible; !important beats every other rule) */
 [hidden] { display: none !important; }
 
 /* ---------- Round results panel ---------- */

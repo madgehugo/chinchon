@@ -20,8 +20,8 @@ const CPU_SPEEDS = {
 };
 
 /* ---------------------------------------------------------
-   2. GAME STATE: one object holding everything that changes.
-   Rendering functions below only READ this; game logic WRITES it.
+   1. GAME STATE: one object holding everything that changes.
+   The rendering functions in ui.js only READ this; game logic WRITES it.
    Keeping state separate from display is the key design idea.
    --------------------------------------------------------- */
 const state = {
@@ -42,7 +42,7 @@ const state = {
   roundResult: null, // { closer, chinchon, points[] } once the round ends
   timer: null,       // id of the pending CPU setTimeout (so we can cancel it)
   reshuffles: 0,     // how many times the draw pile has been refilled this round
-  turns: 0,          // turns completed so far this round (all players); the hard CPU uses it as a clock
+  turns: 0,          // turns completed so far this round (all players); see closingAllowed
   closing: false,    // true while you are choosing which card to close with
   lastDrawn: null,   // the card you drew this turn (your hand marks it until you discard)
   sortMode: "number",// how the Sort button orders your hand: "number" or "suit"
@@ -56,8 +56,8 @@ const state = {
   maxReentries: null, // times each player may re-enter after elimination (null = no limit); a setting
 
   // What every player can see: cards a player took from the discard pile are
-  // known to be in their hand until they discard them again. The medium and hard CPUs
-  // use this to work out which cards can still come from the draw pile.
+  // known to be in their hand until they discard them again. The smart-based CPUs
+  // use this to work out which cards can still come from the draw pile (unseenCards in ai.js).
   known: [[], [], [], []],
   // Which strategy each CPU uses (see STRATEGIES). Index 0 is the human.
   cpuLevels: [null, "hard", "hard", "hard"],
@@ -82,7 +82,7 @@ const state = {
 };
 
 /* ---------------------------------------------------------
-   4. GAME SETUP: shuffle, deal, flip first discard, set turn
+   2. GAME SETUP: shuffle, deal, flip first discard, set turn
    --------------------------------------------------------- */
 // Start a brand-new GAME: reset all scores, then start round 1.
 // `cpuCount` (1-3) optionally changes how many CPUs play; omitted, it keeps the current number.
@@ -117,7 +117,7 @@ function startRound() {
 
   // Deal one card at a time around the table (like a real dealer),
   // rather than 7 in a row to each player.
-  for (let round = 0; round < CARDS_PER_HAND; round++) {
+  for (let n = 0; n < CARDS_PER_HAND; n++) {
     for (let p = 0; p < state.numPlayers; p++) {
       if (state.inGame[p]) state.hands[p].push(state.drawPile.pop());   // skip eliminated players
     }
@@ -146,7 +146,7 @@ function startRound() {
 }
 
 /* ---------------------------------------------------------
-   4b. TURN LOGIC: what happens when players act
+   3. TURN LOGIC: what happens when players act
    ---------------------------------------------------------
    Pattern used everywhere below:
      1. check the action is allowed (right player, right phase)
@@ -426,7 +426,7 @@ function buildRoundDetail(closer, chinchon, points) {
 // `closer` discards their last card and the round ends. Everyone's hand is
 // evaluated: the closer gets their closing score (-10 bonus, or their
 // unmatched points); everyone else gets their own unmatched points.
-// (Adding these to running totals comes with the scoring step.)
+// scoreRound() then adds them to the running totals.
 function closeRound(closer, discardIndex) {
   state.closing = false;
   discardCard(closer, discardIndex);
@@ -450,7 +450,7 @@ function closeRound(closer, discardIndex) {
 }
 
 /* ---------------------------------------------------------
-   4c. SCORING: totals, elimination, re-entry, next round
+   4. SCORING: totals, elimination, re-entry, next round
    ---------------------------------------------------------
    After every round:
      1. each player's round points are added to their total

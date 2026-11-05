@@ -1,26 +1,26 @@
 // Browser test: mouse drag, touch drag, taps, results panel, phone layout (needs Playwright; see README)
 const { chromium } = require('playwright');
-const path = require('path');
-const os = require('os');
-const URL_ = 'file://' + path.join(__dirname, '..', '..', 'index.html');
-const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
-const url = URL_;
+const { GAME_URL, OUT, makeChecker, noCpuClose } = require('./helpers');
+
 const handNames = (page) => page.evaluate(() => state.hands[0].map(c => c.value + c.suit[0]).join(' '));
 const center = async (page, i) => { const b = await page.locator('#hand-0 .card').nth(i).boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
-const log = (...a) => console.log(...a);
-// The test waits for the 3 CPUs to play and hand the turn back to the human. In about 1 game in 8 a CPU is dealt a
-// hand it can close on its first turn, which ends the round, so the wait would time out. Stop CPUs from closing.
-// (`const STRATEGIES` only fixes the name; the objects inside it can still be changed, like a Python dict.)
-const noCpuClose = (page) => page.evaluate(() => { for (const s of Object.values(STRATEGIES)) s.chooseClose = () => null; });
+const turnState = (page) => page.evaluate(() => state.phase + '/' + state.currentPlayer + '/' + state.hands[0].length);
+
+// Give the human an 8-card hand that can close (runs 1-3 oros and 4-6 copas), mid-turn
+const closableHand = (page) => page.evaluate(() => {
+  const c = (value, suit) => ({ value, suit });
+  state.hands[0] = [c(1,'oros'),c(2,'oros'),c(3,'oros'),c(4,'copas'),c(5,'copas'),c(6,'copas'),c(12,'bastos'),c(2,'espadas')];
+  state.phase = 'discard'; state.currentPlayer = 0; render();
+});
 
 (async () => {
   const browser = await chromium.launch();
-  const errors = [];
+  const { errors, check, finish } = makeChecker();
 
   // ================= DESKTOP: mouse =================
   let page = await browser.newPage({ reducedMotion: 'reduce', viewport: { width: 1000, height: 1150 } });
   page.on('pageerror', e => errors.push('desktop: ' + e.message));
-  await page.goto(url);
+  await page.goto(GAME_URL);
   await page.evaluate(() => newGame(3));   // a full table, as these checks expect (the page starts with 1 CPU)
   await noCpuClose(page);
   await page.click('#settings-btn');            // settings live in a collapsible panel
@@ -34,53 +34,48 @@ const noCpuClose = (page) => page.evaluate(() => { for (const s of Object.values
   await page.mouse.move(b.x, b.y, { steps: 8 });
   await page.mouse.up();
   const after = await handNames(page);
-  log('MOUSE drag 0 -> 5:', before, ' => ', after,
-      '| moved ok:', after.split(' ')[5] === before.split(' ')[0], '| ghost shown during drag:', ghostWhileDragging === 1,
-      '| ghost removed:', (await page.locator('.card.ghost').count()) === 0);
+  check(after.split(' ')[5] === before.split(' ')[0], `MOUSE drag 0 -> 5 moves the card (${before} => ${after})`);
+  check(ghostWhileDragging === 1, 'MOUSE a ghost card follows the pointer');
+  check((await page.locator('.card.ghost').count()) === 0, 'MOUSE the ghost is removed on drop');
 
   // a plain click on the draw pile, then a plain click (tap) on a card discards it
   await page.click('#draw-pile .card');
-  const phase1 = await page.evaluate(() => state.phase + '/' + state.hands[0].length);
+  check((await page.evaluate(() => state.phase + '/' + state.hands[0].length)) === 'discard/8', 'MOUSE click the draw pile: 8 cards, discard phase');
   const c0 = await center(page, 2);
   await page.mouse.click(c0.x, c0.y);
-  const phase2 = await page.evaluate(() => state.phase + '/' + state.currentPlayer + '/' + state.hands[0].length);
-  log('MOUSE tap flow: after draw =', phase1, '| after tap-discard =', phase2);
+  check((await turnState(page)) === 'draw/1/7', 'MOUSE click a card: discarded, CPU 1 to play');
 
   // ---- results panel: force a close ----
   await page.waitForFunction(() => state.currentPlayer === 0 && state.phase === 'draw', null, { timeout: 15000 });
-  await page.evaluate(() => {
-    const c = (value, suit) => ({ value, suit });
-    state.hands[0] = [c(1,'oros'),c(2,'oros'),c(3,'oros'),c(4,'copas'),c(5,'copas'),c(6,'copas'),c(12,'bastos'),c(2,'espadas')];
-    state.phase = 'discard'; state.currentPlayer = 0; render();
-  });
+  await closableHand(page);
   await page.click('#close-btn');
-  const options = await page.locator('#hand-0 .card.close-option').count();
+  check((await page.locator('#hand-0 .card.close-option').count()) >= 1, 'RESULTS closing mode marks the closing cards');
   await page.locator('#hand-0 .card.close-option').first().click();
-  const panelVisible = await page.locator('#results').isVisible();
-  log('RESULTS: close options =', options, '| panel visible =', panelVisible,
-      '| title =', await page.textContent('#results-title'));
-  log('RESULTS rows:', await page.locator('.res-row').count(), '| melds shown:', await page.locator('.res-group.meld').count(),
-      '| leftovers:', await page.locator('.res-group.leftover').count());
+  check(await page.locator('#results').isVisible(), 'RESULTS panel opens when you close');
+  check((await page.evaluate(() => state.roundResult.closer)) === 0, 'RESULTS you are the closer');
+  check((await page.locator('.res-row').count()) === 4, 'RESULTS one row per player');
+  check((await page.locator('.res-group.meld').count()) >= 2, 'RESULTS your two melds are shown');
   await page.screenshot({ path: OUT + '/desktop_results.png' });
   await page.click('#res-hide');
-  log('RESULTS hide: panel visible =', await page.locator('#results').isVisible(), '| reopen button enabled =', await page.locator('#results-btn').isEnabled());
+  check(!(await page.locator('#results').isVisible()), 'RESULTS Hide closes the panel');
+  check(await page.locator('#results-btn').isEnabled(), 'RESULTS the Round results button is enabled');
   await page.click('#results-btn');
-  log('RESULTS reopen: visible =', await page.locator('#results').isVisible());
+  check(await page.locator('#results').isVisible(), 'RESULTS the button reopens the panel');
   await page.click('#res-next');
-  log('RESULTS next round: panel hidden =', !(await page.locator('#results').isVisible()), '| round =', await page.evaluate(() => state.round));
+  check(!(await page.locator('#results').isVisible()), 'RESULTS Next round closes the panel');
+  check((await page.evaluate(() => state.round)) === 2, 'RESULTS Next round starts round 2');
   await page.close();
 
   // ================= PHONE: touch =================
   const ctx = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   page = await ctx.newPage();
   page.on('pageerror', e => errors.push('phone: ' + e.message));
-  await page.goto(url);
-  await page.evaluate(() => newGame(3));   // a full table, as these checks expect (the page starts with 1 CPU)
+  await page.goto(GAME_URL);
+  await page.evaluate(() => newGame(3));
   await noCpuClose(page);
-  await page.click('#settings-btn');            // settings live in a collapsible panel
+  await page.click('#settings-btn');
   await page.selectOption('#cpu-speed', 'fast');
-  const overflow = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
-  log('PHONE horizontal overflow:', overflow.sw > overflow.cw, overflow);
+  check(!(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)), 'PHONE no horizontal overflow');
   await page.screenshot({ path: OUT + '/phone_table.png', fullPage: true });
 
   const cdp = await ctx.newCDPSession(page);
@@ -95,30 +90,26 @@ const noCpuClose = (page) => page.evaluate(() => { for (const s of Object.values
   await touch('touchEnd');
   await page.waitForTimeout(150);
   const tafter = await handNames(page);
-  log('TOUCH drag 0 -> 4:', tb, ' => ', tafter, '| moved ok:', tafter.split(' ')[4] === tb.split(' ')[0],
-      '| ghost shown:', ghostTouch === 1, '| page did not scroll:', (await page.evaluate(() => window.scrollY)) === scrollBefore);
+  check(tafter.split(' ')[4] === tb.split(' ')[0], `TOUCH drag 0 -> 4 moves the card (${tb} => ${tafter})`);
+  check(ghostTouch === 1, 'TOUCH a ghost card follows the finger');
+  check((await page.evaluate(() => window.scrollY)) === scrollBefore, 'TOUCH dragging does not scroll the page');
 
   // tap the draw pile, then tap a card to discard
   const dp = await page.locator('#draw-pile .card').boundingBox();
   await page.touchscreen.tap(dp.x + dp.width / 2, dp.y + dp.height / 2);
-  log('TOUCH tap draw pile -> phase/hand:', await page.evaluate(() => state.phase + '/' + state.hands[0].length));
+  check((await page.evaluate(() => state.phase + '/' + state.hands[0].length)) === 'discard/8', 'TOUCH tap the draw pile: 8 cards');
   const tcard = await center(page, 1);
   await page.touchscreen.tap(tcard.x, tcard.y);
-  log('TOUCH tap card -> phase/current/hand:', await page.evaluate(() => state.phase + '/' + state.currentPlayer + '/' + state.hands[0].length));
+  check((await turnState(page)) === 'draw/1/7', 'TOUCH tap a card: discarded, CPU 1 to play');
 
   // phone results panel
   await page.waitForFunction(() => state.currentPlayer === 0 && state.phase === 'draw', null, { timeout: 15000 });
-  await page.evaluate(() => {
-    const c = (value, suit) => ({ value, suit });
-    state.hands[0] = [c(1,'oros'),c(2,'oros'),c(3,'oros'),c(4,'copas'),c(5,'copas'),c(6,'copas'),c(12,'bastos'),c(2,'espadas')];
-    state.phase = 'discard'; state.currentPlayer = 0; render();
-  });
+  await closableHand(page);
   await page.screenshot({ path: OUT + '/phone_hand8.png' });
-  await page.evaluate(() => { humanClose(); });
-  await page.evaluate(() => { const o = closeOptions(state.hands[0])[0]; closeRound(0, o.index); });
+  await page.evaluate(() => { humanClose(); const o = closeOptions(state.hands[0])[0]; closeRound(0, o.index); });
   await page.screenshot({ path: OUT + '/phone_results.png' });
-  log('PHONE results visible:', await page.locator('#results').isVisible());
+  check(await page.locator('#results').isVisible(), 'PHONE results panel opens');
 
-  log('ERRORS:', errors.length ? errors.join(' | ') : 'none');
   await browser.close();
+  finish();
 })();

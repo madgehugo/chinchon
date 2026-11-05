@@ -4,8 +4,8 @@
    tools/gamebench.js: which CPU setting wins more GAMES?
    ---------------------------------------------------------
    Usage:  node tools/gamebench.js <games> <A> <B> [deck] [players] [--jobs N]
-     <A>, <B>   CPU levels or specs, exactly as in bench.js (e.g. hard, risk,
-                "risk:bustPenalty=30")
+     <A>, <B>   CPU levels or specs, exactly as in bench.js (e.g. hard, medium,
+                "hard:takeMargin=1.5")
      [deck]     40 (default) or 48
      [players]  2, 3 or 4 (default 4): ONE player A against the rest, all B
      --jobs N   split the games over N processes (one per CPU core) to save time
@@ -32,47 +32,27 @@
    "se" is the standard error from the per-deal shares; a difference from the fair
    share under about 2 x se is noise.
 
-   Example:  node tools/gamebench.js 4000 risk hard 40 4 --jobs 8
+   Example:  node tools/gamebench.js 4000 hard medium 40 4 --jobs 8
    ========================================================= */
-const { fork } = require("child_process");          // to start worker processes (for --jobs)
-const { loadGame, registerSpec } = require("./harness");
+const { loadGame, registerSpec, playTurns, parseArgs, parseLimit, runSharded } = require("./harness");
 
 const MAX_ROUNDS = 500;       // a game longer than this counts as unfinished (should not happen)
 const SEED = 54321;           // base seed: game k uses SEED + k (and others; see playGame)
 
 // ---- Command line ----
-const args = process.argv.slice(2);
-const CONTROL = args.includes("--control");
-// "--name N" options: the value is the argument after the name (undefined if absent)
-const option = name => { const at = args.indexOf(name); return at >= 0 ? args[at + 1] : undefined; };
-const JOBS = Number(option("--jobs") ?? 1);
-const limit = value => value === undefined ? undefined : value === "none" ? null : Number(value);
-const RESHUFFLES = limit(option("--reshuffles"));           // undefined = the game's default
-const ROUND_LIMIT = limit(option("--rounds")) ?? null;      // default: no round limit
-const REENTRIES = limit(option("--reentries")) ?? null;    // default: no re-entry limit
-const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1].startsWith("--") && args[i - 1] !== "--control"));
-const [games = "400", specA = "risk", specB = "hard", deck = "40", players = "4"] = positional;
+const args = parseArgs(process.argv.slice(2));
+const CONTROL = args.has("--control");
+const JOBS = Number(args.option("--jobs") ?? 1);
+const RESHUFFLES = parseLimit(args.option("--reshuffles"));            // undefined = the game's default
+const ROUND_LIMIT = parseLimit(args.option("--rounds")) ?? null;       // default: no round limit
+const REENTRIES = parseLimit(args.option("--reentries")) ?? null;      // default: no re-entry limit
+const [games = "400", specA = "hard", specB = "medium", deck = "40", players = "4"] = args.positional;
 const NUM_PLAYERS = Number(players);
 if (!(NUM_PLAYERS >= 2 && NUM_PLAYERS <= 4)) { console.error("players must be 2, 3 or 4"); process.exit(1); }
 
 /* ---------------------------------------------------------
    Playing games (what each worker process does)
    --------------------------------------------------------- */
-
-// Play one round to the end: every seat asks its strategy, as cpuTurn() does in the game
-function playRound(g, seat) {
-  const s = g.state;
-  for (let guard = 0; s.phase !== "roundOver" && guard < 3000; guard++) {
-    const p = s.currentPlayer;
-    const strategy = g.STRATEGIES[seat[p]];
-    if (!g.drawCard(p, strategy.chooseSource(p))) return;   // stalemate ended the round
-    const closeIndex = strategy.chooseClose(p);
-    if (closeIndex !== null) { g.closeRound(p, closeIndex); return; }
-    g.discardCard(p, strategy.chooseDiscard(p));
-    g.endTurn();
-    g.clearQueue();                    // drop the CPU timer endTurn() queued: we drive the turns
-  }
-}
 
 // Play a whole game with strategy names `seat` (one per seat). Returns the winner's seat
 // and the number of rounds, or winner null if the game did not finish.
@@ -86,7 +66,7 @@ function playGame(g, seat, seed) {
   let rounds = 0;
   while (!s.gameOver && rounds < MAX_ROUNDS) {
     rounds++;
-    playRound(g, seat);
+    playTurns(g, seat);
     if (s.awaitingReentry) g.humanReenter(g.cpuWantsReentry());   // seat 0 decides like a CPU
     if (!s.gameOver) { g.nextRound(); g.clearQueue(); }
   }
@@ -152,22 +132,4 @@ function report(parts, seconds) {
               `se ${(100 * se).toFixed(1)}  -> ${verdict}`);
 }
 
-const started = Date.now();
-if (process.env.GAMEBENCH_SHARD) {
-  // We are a worker started below: play our share and send the result to the parent
-  // (disconnecting afterwards closes the channel to the parent, which lets this process exit)
-  process.send(runShard(process.env.GAMEBENCH_SHARD.split("/").map(Number)), () => process.disconnect());
-} else if (JOBS > 1) {
-  // fork() starts this same file again as a child process; the children talk back with
-  // process.send(), and each "message" event below receives one child's result.
-  const parts = [];
-  for (let k = 0; k < JOBS; k++) {
-    const child = fork(__filename, process.argv.slice(2), { env: { ...process.env, GAMEBENCH_SHARD: `${k}/${JOBS}` } });
-    child.on("message", part => {
-      parts.push(part);
-      if (parts.length === JOBS) report(parts, (Date.now() - started) / 1000);
-    });
-  }
-} else {
-  report([runShard([0, 1])], (Date.now() - started) / 1000);
-}
+runSharded(JOBS, runShard, report);

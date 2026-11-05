@@ -1,16 +1,13 @@
 /* =========================================================
    tests.js: self-tests for the rules, run when the page loads
    ---------------------------------------------------------
-   Open the browser console (F12 > Console) to see the results. Nothing is
-   printed for a passing check; a failing check logs "TEST FAILED: ...".
+   Open the browser console (F12 > Console) to see the results. Each group
+   prints one "All ... tests passed" line; a failing check logs
+   "TEST FAILED: ...". tools/harness.js loads this file too.
    ========================================================= */
 
 "use strict";
 
-/* ---------------------------------------------------------
-   3c. SELF-TESTS: run on page load; results appear in the browser
-   console (F12 > Console). console.assert logs only if it FAILS.
-   --------------------------------------------------------- */
 function runSelfTests() {
   const originalDeck = DECK_SIZE;
   setDeckSize(40);                                // the tests below assume the 40-card deck
@@ -18,12 +15,23 @@ function runSelfTests() {
   finally { setDeckSize(originalDeck); }          // always restore the player's choice
 }
 
+// One test group's checker: check(condition, label) logs "TEST FAILED: label" when the
+// condition is false, and done() prints a summary line for the group.
+// (Returning an object of two functions that share `failures` is a "closure": each
+// function keeps access to the variable after makeChecker has returned.)
+function makeChecker(group) {
+  let failures = 0;
+  return {
+    check(ok, label) { if (!ok) { failures++; console.error("TEST FAILED:", label); } },
+    done() { console.log(failures === 0 ? `All ${group} tests passed.` : `${failures} ${group} test(s) failed.`); },
+  };
+}
+
 // 48-card deck: 8 and 9 exist, so 7-8-9-10 are consecutive
 function runTests48() {
   setDeckSize(48);
-  const c = (value, suit) => ({ value, suit });
-  let failures = 0;
-  const check = (ok, label) => { if (!ok) { failures++; console.error("TEST FAILED:", label); } };
+  const c = (value, suit) => ({ value, suit });   // shorthand card builder
+  const { check, done } = makeChecker("48-card");
 
   check(createDeck().length === 48, "48-card deck has 48 cards");
   let r = evaluateHand([c(7,"oros"), c(8,"oros"), c(9,"oros"), c(10,"oros")]);
@@ -33,15 +41,13 @@ function runTests48() {
   check(cardPoints(c(9,"oros")) === 9 && cardPoints(c(12,"oros")) === 10, "9 scores 9, figures score 10");
   const chin = [4,5,6,7,8,9,10].map(v => c(v, "espadas"));
   check(getCloseInfo(chin).chinchon, "Chinchón across the 7/8 boundary");
-  if (failures === 0) console.log("All 48-card tests passed.");
+  setDeckSize(40);                                // the groups after this one assume 40 cards
+  done();
 }
 
 function runTests40() {
-  const c = (value, suit) => ({ value, suit });   // shorthand card builder
-  let failures = 0;
-  const check = (condition, label) => {
-    if (!condition) { failures++; console.error("TEST FAILED:", label); }
-  };
+  const c = (value, suit) => ({ value, suit });
+  const { check, done } = makeChecker("hand-evaluation");
 
   // Run across the 7 -> 10 gap
   let r = getCloseInfo([c(7,"oros"), c(10,"oros"), c(11,"oros"), c(1,"copas")]);
@@ -93,33 +99,28 @@ function runTests40() {
   check(bc && eight[bc.discardIndex].value === 12 && bc.info.closerScore === -10,
         "findBestClose picks the 12 to discard");
 
-  console.log(failures === 0 ? "All hand-evaluation tests passed." : `${failures} test(s) failed.`);
+  done();
 }
 
 // The CPU's helper functions (ai.js)
 function runTestsAI() {
   const c = (value, suit) => ({ value, suit });
-  let failures = 0;
-  const check = (ok, label) => { if (!ok) { failures++; console.error("TEST FAILED:", label); } };
-  const savedKnown = state.known, savedIn = state.inGame, savedSettings = { ...SMART };
+  const { check, done } = makeChecker("CPU helper");
+  const savedKnown = state.known, savedIn = state.inGame, savedDiscards = state.discardPile;
   const savedHands = state.hands, savedTotals = state.totals, savedTurns = state.turns;
-
-  // denialRisk: opponent 1 is known to hold the 5 and 6 of oros
   state.inGame = [true, true, true, true];
-  state.known = [[], [c(5, "oros"), c(6, "oros")], [], []];
-  check(denialRisk(0, c(7, "oros")) === 2, "7 would complete 5-6-7 for the opponent");
-  check(denialRisk(0, c(4, "oros")) === 2, "4 would complete 4-5-6 for the opponent");
-  check(denialRisk(0, c(2, "oros")) === 0, "2 of oros is harmless");
-  check(denialRisk(0, c(7, "copas")) === 0, "same number, other suit: harmless");
-  state.known = [[], [c(6, "oros"), c(6, "copas")], [], []];
-  check(denialRisk(0, c(6, "bastos")) === 2, "a third 6 would complete a group");
 
-  // handCost options: all off by default, so cost is just the unmatched points
+  // handCost: the unmatched points, or a big reward for a Chinchón
   const closable = [c(1,"oros"), c(2,"oros"), c(3,"oros"), c(4,"copas"), c(2,"bastos")];   // 6 points
-  check(handCost(closable) === 6, "default cost is the unmatched points");
-  SMART.closeBonus = 5;
-  check(handCost(closable) === 1, "closeBonus rewards a hand that could close");
-  Object.assign(SMART, savedSettings);
+  check(handCost(closable) === 6, "hand cost is the unmatched points");
+  check(handCost([1,2,3,4,5,6,7].map(v => c(v, "copas"))) === -SMART.chinchonValue, "a Chinchón is worth SMART.chinchonValue");
+
+  // unseenCards: everything except my hand, the discard pile and cards others are known to hold
+  state.known = [[], [c(5, "oros")], [], []];
+  state.discardPile = [c(7, "copas")];
+  const unseen = unseenCards(0, closable).map(cardKey);
+  check(unseen.length === 40 - 5 - 1 - 1, "unseen = deck minus hand, discards and known cards");
+  check(!unseen.includes("o5") && !unseen.includes("c7") && unseen.includes("e12"), "unseen leaves out exactly the seen cards");
 
   // cpuBestClose: no closing in the first lap, and never a close that goes over SCORE_LIMIT.
   // The 8-card hand closes on 7 points at best (discard the 12, keep the 7).
@@ -136,18 +137,17 @@ function runTestsAI() {
   state.totals = [SCORE_LIMIT - 6, 0, 0, 0];
   check(cpuBestClose(0) === null, "a CPU does not close if it would go over the limit");
 
+  // leave the game state as we found it
   state.hands = savedHands; state.totals = savedTotals; state.turns = savedTurns;
-  state.known = savedKnown; state.inGame = savedIn;       // leave the game state as we found it
-  if (failures === 0) console.log("All CPU helper tests passed.");
+  state.known = savedKnown; state.inGame = savedIn; state.discardPile = savedDiscards;
+  done();
 }
 
 // The per-player breakdown shown on the round results screen (game.js)
 function runTestsRoundDetail() {
   const c = (value, suit) => ({ value, suit });
-  let failures = 0;
-  const check = (ok, label) => { if (!ok) { failures++; console.error("TEST FAILED:", label); } };
-  const savedHands = state.hands, savedIn = state.inGame, savedDeck = DECK_SIZE;
-  setDeckSize(40);
+  const { check, done } = makeChecker("round-detail");
+  const savedHands = state.hands, savedIn = state.inGame;
 
   const run = [1,2,3,4,5,6,7].map(v => c(v, "oros"));
   const mixed = [c(1,"oros"), c(2,"oros"), c(3,"oros"), c(5,"copas"), c(12,"bastos"), c(7,"espadas"), c(4,"copas")];
@@ -160,14 +160,13 @@ function runTestsRoundDetail() {
   check(d[1].melds.length === 1 && d[1].melds[0].type === "run" && d[1].unmatched.length === 4, "other hands split into meld + leftovers");
   check(d[1].points === 33 && !d[1].closer, "points come from the points array");
 
-  state.hands = savedHands; state.inGame = savedIn; setDeckSize(savedDeck);
-  if (failures === 0) console.log("All round-detail tests passed.");
+  state.hands = savedHands; state.inGame = savedIn;
+  done();
 }
 
 // The texts (i18n.js): both languages must be complete and agree with each other
 function runTestsI18n() {
-  let failures = 0;
-  const check = (ok, label) => { if (!ok) { failures++; console.error("TEST FAILED:", label); } };
+  const { check, done } = makeChecker("text (i18n)");
   const placeholders = text => (text.match(/\{\w+\}/g) || []).sort().join(",");
   const savedLang = currentLang;
   const reference = STRINGS.en;
@@ -193,5 +192,5 @@ function runTestsI18n() {
   check(t(whoKey("sum.closed", 1), { who: 1 }) === "CPU 1 cerró la ronda.", "who formatter + .cpu variant");
   currentLang = savedLang;
 
-  if (failures === 0) console.log("All text (i18n) tests passed.");
+  done();
 }

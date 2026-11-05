@@ -62,24 +62,24 @@ const SUIT_SPRITE = `
   </symbol>
   <!-- figures: 10 Sota (page), 11 Caballo (horse), 12 Rey (king, shown as a crown) -->
   <symbol id="sym-fig-10" viewBox="0 0 24 24">
-    <path d="M7.2 8C7.2 4.2 9.3 2 12 2s4.8 2.200 4.800 6z" fill="currentColor"/>
-    <path d="M16.200 4.500q4-1.500 5 2.500-2.500-.8-4.300 0z" fill="currentColor"/>
-    <circle cx="12" cy="10.500" r="3.600" fill="currentColor"/>
-    <path d="M3.500 22c0-5.200 3.700-8 8.500-8s8.500 2.800 8.500 8z" fill="currentColor"/>
-    <path d="M7.800 8.100h8.400" stroke="var(--cut,#fffaf0)" stroke-width="1"/>
-    <path d="M9.300 14.800L12 18l2.700-3.200" fill="none" stroke="var(--cut,#fffaf0)" stroke-width="1.200"/>
+    <path d="M7.2 8C7.2 4.2 9.3 2 12 2s4.8 2.2 4.8 6z" fill="currentColor"/>
+    <path d="M16.2 4.5q4-1.5 5 2.5-2.5-.8-4.3 0z" fill="currentColor"/>
+    <circle cx="12" cy="10.5" r="3.6" fill="currentColor"/>
+    <path d="M3.5 22c0-5.2 3.7-8 8.5-8s8.5 2.8 8.5 8z" fill="currentColor"/>
+    <path d="M7.8 8.1h8.4" stroke="var(--cut,#fffaf0)" stroke-width="1"/>
+    <path d="M9.3 14.8L12 18l2.7-3.2" fill="none" stroke="var(--cut,#fffaf0)" stroke-width="1.2"/>
   </symbol>
   <symbol id="sym-fig-11" viewBox="0 0 24 24">
-    <path d="M5 22c0-5.500 2.200-9.500 4.800-12.500L8.200 4.800l3.200 1.800C12.500 3.800 14.800 2 17.500 2.500L17 5c3 1 5 4.300 5 8l-2 1.800-3.800-1.500c-1.500.8-2.400 2.500-2.400 4.200 0 1.700.8 3.200 1.800 4.500z" fill="currentColor"/>
-    <circle cx="15.800" cy="7.800" r="1" fill="var(--cut,#fffaf0)"/>
-    <path d="M9.800 9.500q3 1.500 3.800 5" fill="none" stroke="var(--cut,#fffaf0)" stroke-width="1"/>
+    <path d="M5 22c0-5.5 2.2-9.5 4.8-12.5L8.2 4.8l3.2 1.8C12.5 3.8 14.8 2 17.5 2.5L17 5c3 1 5 4.3 5 8l-2 1.8-3.8-1.5c-1.5.8-2.4 2.5-2.4 4.2 0 1.7.8 3.2 1.8 4.5z" fill="currentColor"/>
+    <circle cx="15.8" cy="7.8" r="1" fill="var(--cut,#fffaf0)"/>
+    <path d="M9.8 9.5q3 1.5 3.8 5" fill="none" stroke="var(--cut,#fffaf0)" stroke-width="1"/>
   </symbol>
   <symbol id="sym-fig-12" viewBox="0 0 24 24">
-    <path d="M2.500 19.500L1.500 6.500l6 5L12 3.500l4.500 8 6-5-1 13z" fill="currentColor"/>
-    <rect x="2.500" y="19.500" width="19" height="2.800" rx="1" fill="currentColor"/>
-    <circle cx="12" cy="15.500" r="1.400" fill="var(--cut,#fffaf0)"/>
-    <circle cx="7" cy="15.500" r="1" fill="var(--cut,#fffaf0)"/>
-    <circle cx="17" cy="15.500" r="1" fill="var(--cut,#fffaf0)"/>
+    <path d="M2.5 19.5L1.5 6.5l6 5L12 3.5l4.5 8 6-5-1 13z" fill="currentColor"/>
+    <rect x="2.5" y="19.5" width="19" height="2.8" rx="1" fill="currentColor"/>
+    <circle cx="12" cy="15.5" r="1.4" fill="var(--cut,#fffaf0)"/>
+    <circle cx="7" cy="15.5" r="1" fill="var(--cut,#fffaf0)"/>
+    <circle cx="17" cy="15.5" r="1" fill="var(--cut,#fffaf0)"/>
   </symbol>
 </svg>`;
 
@@ -87,15 +87,17 @@ const SUIT_SPRITE = `
 const suitIcon = suit =>
   `<svg class="suit-icon" aria-label="${t(`suit.${suit}`)}" role="img"><use href="#sym-${suit}"/></svg>`;
 
-// Same idea for the figure cards (10 Sota, 11 Caballo, 12 Rey); coloured by the card's suit colour.
-const figureIcon = value =>
-  `<svg class="suit-icon" aria-hidden="true"><use href="#sym-fig-${value}"/></svg>`;
+// The same, for a purely decorative symbol that screen readers skip: the figure pictures
+// ("fig-10" Sota, "fig-11" Caballo, "fig-12" Rey; coloured by the card's suit colour) and the
+// celebration at the end of a game (a suit name).
+const decorIcon = name =>
+  `<svg class="suit-icon" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
 // Put the sprite into the page once, at load (it is invisible; it only holds the shapes).
 document.body.insertAdjacentHTML("afterbegin", SUIT_SPRITE);
 
 /* ---------------------------------------------------------
-   5. RENDERING: turn `state` into HTML elements.
+   RENDERING: turn `state` into HTML elements.
    Each render function rebuilds its container from scratch.
    Simple and fine for a small game.
    --------------------------------------------------------- */
@@ -111,7 +113,6 @@ function createCardElement(card, faceUp) {
   }
 
   el.classList.add(`suit-${card.suit}`);
-  const label  = card.value;   // the cards show 1-9 and 10, 11, 12 as numbers
   const symbol = suitIcon(card.suit);
 
   // Build the middle of the card.
@@ -128,16 +129,17 @@ function createCardElement(card, faceUp) {
     faceHTML = `
       <div class="face figure">
         <span class="fig-suit">${symbol}</span>
-        <span class="fig-icon">${figureIcon(card.value)}</span>
+        <span class="fig-icon">${decorIcon(`fig-${card.value}`)}</span>
         <span class="fig-name">${t(`card.fig.${card.value}`)}</span>
       </div>`;
   }
 
-  // innerHTML lets us write the card's insides as an HTML string
+  // innerHTML lets us write the card's insides as an HTML string.
+  // The corners show the number (the figures too: 10, 11, 12).
   el.innerHTML = `
-    <div class="corner">${label}</div>
+    <div class="corner">${card.value}</div>
     ${faceHTML}
-    <div class="corner bottom">${label}</div>
+    <div class="corner bottom">${card.value}</div>
   `;
   // Tooltip on hover, e.g. "12 de oros (Rey)"; {fig} is empty for the number cards
   el.title = t("card.title", { value: card.value, suit: card.suit, fig: card.value });
@@ -530,14 +532,13 @@ function renderControls() {
   document.getElementById("close-btn").textContent = closeButtonText(closeAllowed);
   document.getElementById("sort-btn").disabled = state.hands[0].length === 0;
   document.getElementById("next-btn").disabled =
-    !(state.phase === "roundOver" && !state.awaitingReentry && !state.gameOver);
+    !(roundOver && !state.awaitingReentry && !state.gameOver);
+  document.getElementById("results-btn").disabled = !(roundOver && state.roundDetail);
 
   // Re-entry question, shown only while the human is out and must choose
-  document.getElementById("results-btn").disabled = !(state.phase === "roundOver" && state.roundDetail);
   // (while the results panel is open, it asks the question itself)
   document.getElementById("reentry").hidden = !(state.awaitingReentry && !state.showResults);
-  document.getElementById("reentry-text").textContent =
-    reentryText();
+  document.getElementById("reentry-text").textContent = reentryText();
   document.getElementById("draw-pile").classList.toggle("can-pick", drawing);
   document.getElementById("discard-pile").classList.toggle(
     "can-pick", drawing && state.discardPile.length > 0);
@@ -553,8 +554,8 @@ function closeButtonText(closeAllowed) {
   return t("btn.closeBest", { n: Math.min(...options.map(o => o.info.closerScore)) });
 }
 
-// Debug panel under the table: shows how the evaluator sees YOUR hand.
-// (Useful while building; you can remove it later.)
+// The Hints panel under the table: how the evaluator sees YOUR hand (melds, leftover
+// points, and whether and how you could close)
 function renderAnalysis() {
   const box = document.getElementById("analysis");
   box.hidden = !state.showHints;               // the table is only shown when Hints is on
@@ -692,7 +693,7 @@ function renderGameOverBanner() {
     ? Array.from({ length: CELEBRATION_PIPS }, (_, i) =>
         `<span class="confetti suit-${SUITS[i % SUITS.length]}" ` +
         `style="left:${5 + i * 90 / CELEBRATION_PIPS}%;animation-delay:${i * 90}ms">` +
-        `<svg class="suit-icon" aria-hidden="true"><use href="#sym-${SUITS[i % SUITS.length]}"/></svg></span>`).join("")
+        `${decorIcon(SUITS[i % SUITS.length])}</span>`).join("")
     : "";
 
   banner.innerHTML =
@@ -738,7 +739,7 @@ function reentryText() {
 }
 
 /* ---------------------------------------------------------
-   6. EVENT WIRING: connect clicks to functions.
+   EVENT WIRING: connect clicks to functions.
    addEventListener("click", fn) means: "when this element is clicked,
    call fn". The human's cards get their own click handlers inside
    renderHand(), because those elements are rebuilt on every render.
@@ -926,6 +927,7 @@ document.getElementById("res-next").addEventListener("click", nextRound);
 document.getElementById("res-reenter").addEventListener("click", () => humanReenter(true));
 document.getElementById("res-stayout").addEventListener("click", () => humanReenter(false));
 document.getElementById("res-newgame").addEventListener("click", () => newGame());
+
 // Keyboard play (handy on a desktop). The keys call the same functions as the clicks:
 //   1-8 discard (or, in closing mode, close with) that card, counted from the left
 //   D draw pile, T take the top discard, C close (or cancel closing), S sort,
@@ -967,7 +969,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 /* ---------------------------------------------------------
-   7. START: run once when the page loads
+   START: run once when the page loads
    --------------------------------------------------------- */
 if (typeof runSelfTests === "function") runSelfTests();   // results in the console (F12)
 newGame(loadSettings());     // with last visit's settings (or the defaults written in index.html)

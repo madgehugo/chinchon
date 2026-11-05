@@ -1,17 +1,15 @@
 // Browser test: choosing 1, 2 or 3 CPUs (needs Playwright; see README)
 const { chromium } = require('playwright');
 const path = require('path');
-const os = require('os');
-const url = 'file://' + path.join(__dirname, '..', '..', 'index.html');
-const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
+const { GAME_URL, OUT, makeChecker } = require('./helpers');
 
 (async () => {
   const browser = await chromium.launch();
-  const errors = [];
+  const { errors, check, finish } = makeChecker();
   for (const [label, viewport] of [['desktop', { width: 1000, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
     const page = await browser.newPage({ reducedMotion: 'reduce', viewport });
     page.on('pageerror', e => errors.push(label + ': ' + e.message));
-    await page.goto(url);
+    await page.goto(GAME_URL);
     await page.click('#settings-btn');            // settings live in a collapsible panel
     await page.selectOption('#cpu-speed', 'fast');
     for (const cpus of [1, 2, 3]) {
@@ -29,13 +27,11 @@ const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
       }));
       const ok = info.players === cpus + 1 && info.shownSeats === cpus + 1 && info.hands === cpus + 1 &&
                  info.scoreRows === cpus + 1 && !info.overflow && info.dealt;
-      console.log(label.toUpperCase(), cpus, 'CPU(s):', JSON.stringify(info), ok ? 'ok' : 'FAIL');
-      if (!ok) errors.push(`${label} ${cpus} cpus`);
+      check(ok, `${label} ${cpus} CPU(s): ${JSON.stringify(info)}`);
       await page.screenshot({ path: path.join(OUT, `cpus-${label}-${cpus}.png`) });
     }
     await page.close();
   }
   await browser.close();
-  console.log(errors.length ? 'ERRORS: ' + errors.join('; ') : 'ERRORS: none');
-  process.exit(errors.length ? 1 : 0);
+  finish();
 })();

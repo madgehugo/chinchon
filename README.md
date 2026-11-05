@@ -67,12 +67,13 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 | `style.css` | How it looks, including the phone layout (`@media` block at the end). |
 | `rules.js` | The rules: deck, shuffling, runs and groups, scoring, closing. No display code. |
 | `i18n.js` | All the player-visible text in English and Spanish (`STRINGS`), `t(key, vars)`, `plural()`, `setLanguage()`, and the `msg()` helper for messages kept in `state`. |
-| `ai.js` | The CPU players (base strategies `greedy`, `smart` and `finish`, the easy/medium/hard levels built from them), experiments that were not kept, and the tunable `SMART` settings. |
+| `ai.js` | The CPU players: base strategies `greedy`, `smart` and `finish`, the easy/medium/hard levels built from them, and the tunable `SMART` settings. |
+| `CPU_EXPERIMENTS.md` | Ideas for a stronger CPU that were benchmarked and did not help, with their results. |
 | `game.js` | The game state (`state`), turns, rounds, scoring, elimination and re-entry. |
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the results panel, startup. |
-| `tools/` | Node scripts: `harness.js` (runs the engine without a browser), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch). |
+| `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt). |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch); `helpers.js` holds what they share. |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file. |
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
 
@@ -107,8 +108,8 @@ the game also works from `file://`, where browsers block modules.
 | Level | How it plays |
 | --- | --- |
 | Easy | `greedy` (looks only at points right now), with a 25% chance per decision of a mistake (`EASY_MISTAKE_CHANCE`). |
-| Medium | `smart` with a 16% chance of a mistake (`MEDIUM_MISTAKE_CHANCE`). |
-| Hard | `smart`, no mistakes. |
+| Medium | `finish` with a 16% chance of a mistake (`MEDIUM_MISTAKE_CHANCE`). |
+| Hard | `finish` (`smart`, the probability-based strategy, plus end-of-deck rules), no mistakes. |
 | Mixed | One CPU of each level: CPU 1 easy, CPU 2 medium, CPU 3 hard (with fewer CPUs, the first ones). |
 
 A mistake is drawing from the other pile or discarding a random card; CPUs never miss a legal close, except that no
@@ -127,17 +128,13 @@ Benchmark (`node tools/bench.js 3200 <A> <B>`, 2 CPUs of each level, seats and s
 ## Changing things
 
 All the rule numbers are named constants near the top of `rules.js` (`SCORE_LIMIT`, `MAX_UNMATCHED_TO_CLOSE`,
-`CLOSE_BONUS`, ...). CPU tuning lives in the `SMART` object in `ai.js`; its comments record which ideas were benchmarked
-and how they scored. Nine tuning ideas were tried (the ninth, round-length awareness, is the `aware` strategy) and none beat plain `smart`, so they are left off.
-Two later ideas did not beat it either: deeper search (results in the `SMART` comments) and game-risk awareness, the
-`risk` strategy (playing safe near the score limit and ending rounds on opponents near it; results above `STRATEGIES.risk`).
-Nor did combinations of the earlier ideas (results in the `SMART` comments) or Monte Carlo rollouts, the `mc` strategy
-(guess the hidden cards, play the round out many times for each candidate discard; results above `MC`).
+`CLOSE_BONUS`, ...). CPU tuning lives in the `SMART` and `FINISH` objects in `ai.js`.
 Hard and medium are built on `finish`: `smart` plus three rules for when the deck runs out under the reshuffle limit
 (take-or-stop when drawing would end the round, draw odds from the known discards when the pile is about to be refilled,
 and discarding for points once no draw is left). Results above `FINISH`: slightly better with few reshuffles, never worse.
-All of this was measured at 4 players; the tuning ideas were re-checked at 2 and 3 players (`bench.js --players`) and
-none helps there either (results in the `SMART` comments), so every table size uses the same CPU.
+Many other ideas for a stronger CPU were benchmarked (tuning settings, round-length and game-risk awareness, deeper
+search, Monte Carlo rollouts, at 2, 3 and 4 players) and none beat plain `smart`. `CPU_EXPERIMENTS.md` has the results
+and says where the code for them is in the git history.
 
 ## Testing
 
@@ -147,20 +144,21 @@ You need [Node.js](https://nodejs.org) for the tools. Run these from the repo ro
 node tools/stress.js 20           # play random games on both decks, check no card is lost; ~seconds
 node tools/bench.js 1600 smart greedy             # compare two CPU settings
 node tools/bench.js 3200 smart "smart:takeMargin=-1"   # try a SMART override against the default
-node tools/gamebench.js 4000 risk hard 40 4 --jobs 8   # whole games: one A against three B, on 8 CPU cores
+node tools/gamebench.js 4000 hard medium 40 4 --jobs 8   # whole games: one A against three B, on 8 CPU cores
 node tools/bench.js 3200 finish smart 48 --reshuffles 2   # 48-card deck, at most 2 reshuffles (gamebench: also --rounds, --reentries)
-node tools/bench.js 6400 "hard:denyWeight=1.5" hard --players 2 --jobs 8   # a 1v1 table (default 4 players)
+node tools/bench.js 6400 "hard:takeMargin=1.5" hard --players 2 --jobs 8   # a 1v1 table (default 4 players)
 npm install && npx playwright install chromium    # once, for the browser tests
 npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch
 ```
 
 * Unit tests in `tests.js` run every time the page loads; open the console (F12) and look for
-  "All ... tests passed" or "TEST FAILED: ...".
+  "All ... tests passed" or "TEST FAILED: ...". Each browser test prints `ok` or `FAIL` per check and exits
+  with an error if any check failed.
 * `bench.js` rotates seats and the starting player, and plays every deal twice from the same seeded shuffle with the two
   sides in swapped seats ("duplicate dealing"), so both sides get identical cards. `<rounds>` counts plays (3200 = 1600
   deals). It prints a standard error computed from the per-deal differences; differences under about two standard
   errors are noise. Use at least 1,600 rounds. `--jobs N` splits the deals over N processes, with exactly the same
-  result (useful for slow strategies such as `mc`).
+  result, only faster.
 * The shuffle uses `random` in `rules.js` and the easy/medium mistake rolls use a separate `decisionRandom`; both are
   `Math.random` in the browser. The benchmark swaps in two seeded generators (`makeSeededRandom`), so runs are exactly
   repeatable and a different decision can never change a later shuffle.

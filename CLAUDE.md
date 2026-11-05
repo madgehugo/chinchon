@@ -37,34 +37,32 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 
 ## CPU tuning: what was already tried
 
-`ai.js` has `greedy` ("simple") and `smart` (expected cost after the next draw). Eight tuning ideas (close bonus,
-perfect bonus, denial of known cards, take margins, waiting to close) were benchmarked and none beat plain `smart`;
-results are in the comments above `SMART`. Do not re-run those without a new idea. A real improvement probably needs
-deeper search or opponent modelling. Benchmark with `tools/bench.js`; the harness rotates seats and the starting
-player because an earlier version without that rotation gave a false advantage to whoever started. It also deals
-each hand twice with the two sides in swapped seats (seeded shuffle via `setRandom`; the browser keeps `Math.random`),
-which cuts the standard error by about a third. `smart smart` now always prints exactly 0; for a noise control use
-`node tools/bench.js 3200 smart smart --control` (independent deals, no pairing; se about 0.21). Both shuffles and CPU
-mistake rolls come from seeded streams in benchmarks, so runs are repeatable.
-A ninth idea, round-length awareness (`aware` in `ai.js`, uses `state.turns`), also did not beat `smart`; results are
-in the comment above `STRATEGIES.aware`. Hard (and medium, with mistakes) is `finish`: `smart` plus end-of-deck rules
-for the reshuffle limit, which only change moves when the deck runs out (results above `FINISH`).
-Also tried and not kept: deeper search (two-step lookahead for take-vs-draw and for the discard; results in the `SMART`
-comments) and game-risk awareness (`risk` in `ai.js`: bust avoidance near 100, close bonuses when someone is near it,
-re-entry aware; results above `STRATEGIES.risk`). Combinations of the earlier ideas (results in the `SMART` comments)
-and Monte Carlo rollouts with a greedy rollout policy (`mc` in `ai.js`, results above `MC`) did not beat it either; a
-rollout idea would need a rollout policy close to `smart`'s strength. `bench.js` takes `--jobs N` like `gamebench.js`,
-and both take `--reshuffles N`; `bench.js` also takes `--players N` (2-4; the ideas above were re-checked at 2 and 3
-players and none helped there either, results in the `SMART` comments); `gamebench.js` also takes `--rounds N` and `--reentries N` (the game settings).
-Benchmark on both decks (`48` after the two strategies) when a change could depend on deck size. Game-level ideas need
-`tools/gamebench.js` (whole games, one A against a field of B's), since `bench.js` plays single rounds with all totals at 0.
+`ai.js` has `greedy` ("simple"), `smart` (expected cost after the next draw) and `finish` (`smart` plus end-of-deck
+rules for the reshuffle limit, which only change moves when the deck runs out; results above `FINISH`). Hard is
+`finish`; medium is `finish` with mistakes. Many ideas were benchmarked and none beat plain `smart`: tuning settings
+(close bonus, perfect bonus, denial of known cards, take margins, waiting to close), combinations of them, round-length
+awareness, game-risk awareness, deeper search and Monte Carlo rollouts, at 2, 3 and 4 players. The results are in
+`CPU_EXPERIMENTS.md`, and the experiment code was removed from `ai.js` (it is in git history up to `e8550f9`). Do not
+re-run those without a new idea. A real improvement probably needs deeper search or opponent modelling; a rollout idea
+would need a rollout policy close to `smart`'s strength.
+
+Benchmark with `tools/bench.js`; the harness rotates seats and the starting player because an earlier version without
+that rotation gave a false advantage to whoever started. It also deals each hand twice with the two sides in swapped
+seats (seeded shuffle via `setRandom`; the browser keeps `Math.random`), which cuts the standard error by about a third.
+`smart smart` always prints exactly 0; for a noise control use `node tools/bench.js 3200 smart smart --control`
+(independent deals, no pairing; se about 0.21). Shuffles and CPU mistake rolls come from seeded streams in benchmarks,
+so runs are repeatable: a refactor that must not change CPU play should leave bench output byte-for-byte identical.
+`bench.js` and `gamebench.js` take `--jobs N` and `--reshuffles N`; `bench.js` also takes `--players N` (2-4);
+`gamebench.js` also takes `--rounds N` and `--reentries N` (the game settings). Benchmark on both decks (`48` after the
+two strategies) when a change could depend on deck size. Game-level ideas need `tools/gamebench.js` (whole games, one
+A against a field of B's), since `bench.js` plays single rounds with all totals at 0.
 
 ## How to check your work
 
 ```bash
 node tools/stress.js 20                      # engine: random games on both decks, card audit (must print "stress test passed")
 node tools/bench.js 1600 smart greedy        # CPU strength
-node tools/gamebench.js 4000 risk hard 40 4 --jobs 8   # CPU strength over whole games (~5 min)
+node tools/gamebench.js 4000 hard medium 40 4 --jobs 8   # CPU strength over whole games (~5 min)
 npm run test:browser                         # needs: npm install && npx playwright install chromium
 ```
 

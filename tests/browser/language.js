@@ -3,21 +3,18 @@
 // remembered choice, the default from the browser language, and no overflow at phone width.
 const { chromium } = require('playwright');
 const path = require('path');
-const os = require('os');
-const url = 'file://' + path.join(__dirname, '..', '..', 'index.html');
-const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
+const { GAME_URL, OUT, makeChecker, cpu1Closes } = require('./helpers');
 
 (async () => {
   const browser = await chromium.launch();
-  const errors = [];
-  const check = (ok, label) => { console.log(ok ? 'ok  ' : 'FAIL', label); if (!ok) errors.push(label); };
+  const { errors, check, finish } = makeChecker();
 
   // Browser language Spanish -> the game starts in Spanish
   const ctx = await browser.newContext({ locale: 'es-MX', reducedMotion: 'reduce', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'warning' || m.type() === 'error') errors.push('console: ' + m.text()); });
-  await page.goto(url);
+  await page.goto(GAME_URL);
   const text = sel => page.locator(sel).innerText();
   const overflow = () => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 
@@ -43,13 +40,9 @@ const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
   // End a round and check the results panel and its notice follow the language
   await page.evaluate(() => {
     newGame(3);   // a full table, as the totals below expect (the page starts with 1 CPU)
-    const c = (value, suit) => ({ value, suit });
     state.totals = [99, 10, 20, 30];
-    state.hands[1] = [c(1,'oros'),c(2,'oros'),c(3,'oros'),c(4,'copas'),c(5,'copas'),c(6,'copas'),c(2,'bastos'),c(12,'espadas')];
-    state.currentPlayer = 1; state.phase = 'discard'; render();
-    state.turns = 8;   // past the first lap, when closing is allowed
-    closeRound(1, closeOptions(state.hands[1])[0].index);
   });
+  await cpu1Closes(page);
   check((await text('#results-title')) === 'Round 1: CPU 1 closed the round', 'results title (English)');
   check((await text('#results-notice')).startsWith('You are out of the game. Re-enter with'), 'results notice (English)');
   await page.screenshot({ path: path.join(OUT, 'lang-results-en-390.png') });
@@ -72,10 +65,8 @@ const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
   // An unsupported browser language falls back to English
   const ctx2 = await browser.newContext({ locale: 'fr-FR' });
   const page2 = await ctx2.newPage();
-  await page2.goto(url);
+  await page2.goto(GAME_URL);
   check(await page2.evaluate(() => document.documentElement.lang) === 'en', 'unsupported language falls back to English');
   await browser.close();
-
-  console.log(errors.length ? 'ERRORS: ' + errors.join('; ') : 'ERRORS: none');
-  process.exit(errors.length ? 1 : 0);
+  finish();
 })();

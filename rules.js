@@ -47,10 +47,10 @@ const CARDS_PER_HAND = 7;
 // (player names are text, so they live in i18n.js: see playerName)
 
 /* ---------------------------------------------------------
-   3. DECK FUNCTIONS
+   2. DECK FUNCTIONS
    --------------------------------------------------------- */
 
-// Build an ordered 40-card deck. Each card is a small object.
+// Build an ordered deck (40 or 48 cards, see VALUES). Each card is a small object.
 function createDeck() {
   const deck = [];
   for (const suit of SUITS) {
@@ -98,7 +98,7 @@ function shuffle(deck) {
 }
 
 /* ---------------------------------------------------------
-   3b. HAND EVALUATION: melds, points, closing rules
+   3. HAND EVALUATION: melds, points, closing rules
    ---------------------------------------------------------
    Terminology:
      - Group: 3 or 4 cards of the SAME VALUE (any suits)
@@ -107,16 +107,9 @@ function shuffle(deck) {
      - Meld:  a group or a run
      - Unmatched cards: cards that are not part of any chosen meld
    A card can only belong to ONE meld at a time.
-
-   These functions are "pure": they take a hand (array of cards)
-   and return a result without touching `state` or the page.
-   That makes them easy to test in the browser console.
    --------------------------------------------------------- */
 
 // ---- Rule constants (change here if your house rules change) ----
-// Re-entry rule (to be implemented with round scoring): an eliminated player
-// may re-enter, starting with the same total as the highest-scoring player
-// who is still in the game.
 const SCORE_LIMIT            = 100;  // player is out when total goes over this
 const MAX_UNMATCHED_TO_CLOSE = 7;    // unmatched points allowed when closing
 const CLOSE_BONUS            = -10;  // score for closing with NO unmatched cards
@@ -127,6 +120,7 @@ const MAX_RESHUFFLES         = 5;    // default for state.maxReshuffles: if the 
                                      // than this many times in a round, the round ends with no closer
                                      // (the Node tools use it; the browser starts from the option marked
                                      // `selected` in index.html, which is 2)
+
 // Points an unmatched card costs. Traditional rule: figures (10, 11, 12)
 // are worth 10 points each; 1-7 are worth their face value.
 function cardPoints(card) {
@@ -268,7 +262,7 @@ function findBestClose(hand) {
 }
 
 /* ---------------------------------------------------------
-   Remembering evaluations
+   4. REMEMBERING EVALUATIONS
    ---------------------------------------------------------
    evaluateHand() is the slow part, and the same hands come up again and again
    (especially while the CPUs look ahead). So we remember the answers: a "cache"
@@ -290,4 +284,5 @@ function evalSummary(hand) {
   }
   return summary;
 }
+// Just the unmatched points of a hand (cached)
 function pointsOf(hand) { return evalSummary(hand).points; }

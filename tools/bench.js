@@ -4,15 +4,14 @@
    tools/bench.js: which CPU setting plays better?
    ---------------------------------------------------------
    Usage:  node tools/bench.js <rounds> <A> <B> [deck]
-     <A> and <B> are CPU levels (easy, medium, hard, greedy or smart), optionally with overrides
-     for the SMART or AWARE settings in ai.js, for example
+     <A> and <B> are strategies (easy, medium, hard, greedy, smart or finish), optionally with
+     overrides for the SMART or FINISH settings in ai.js, for example
          smart
-         "smart:closeBonus=5,perfectBonus=1"
+         "smart:takeMargin=-1,closeMax=5"
      Four CPUs play: A B A B (with --players 2: A B; with 3: A B A, then B A B). Seats AND
      the starting player rotate, so each side gets every position equally (use a multiple
-     of 16 rounds; 12 with 3 players). Without
-     that rotation the side that always starts has an advantage; an earlier
-     benchmark was fooled by exactly that.
+     of 16 rounds; 12 with 3 players). Without that rotation the side that always starts
+     has an advantage; an earlier benchmark was fooled by exactly that.
      DUPLICATE DEALING: every deal is played twice, with A and B in swapped
      seats, from the same seeded shuffle. Both sides therefore get identical
      cards, and luck of the deal cancels out of the A - B difference. <rounds>
@@ -29,7 +28,7 @@
    within a couple of standard errors. (With duplicate dealing, `smart smart` is exactly 0.)
 
    --jobs N splits the deals over N processes (one per CPU core), as in gamebench.js. The
-   result is exactly the same as without it, only faster (useful for slow strategies like mc).
+   result is exactly the same as without it, only faster.
    --reshuffles N plays with that reshuffle limit per round (0, 1, 2, ... or "none"; the
    default is the game's own, MAX_RESHUFFLES).
    --players N plays at a table of N (2, 3 or 4; default 4). The two sides each get half the
@@ -37,33 +36,28 @@
    side's points are averaged over its own seats.
 
    Example:  node tools/bench.js 3200 smart "smart:takeMargin=-1"
-             node tools/bench.js 3200 mc hard --jobs 8
              node tools/bench.js 3200 finish smart 48 --reshuffles 2 --jobs 8
-             node tools/bench.js 6400 "hard:denyWeight=1.5" hard --players 2 --jobs 8
+             node tools/bench.js 6400 "hard:takeMargin=1.5" hard --players 2 --jobs 8
    ========================================================= */
-const { fork } = require("child_process");          // to start worker processes (for --jobs)
-const { loadGame, registerSpec } = require("./harness");
+const { loadGame, registerSpec, playTurns, parseArgs, parseLimit, runSharded } = require("./harness");
 
-const args = process.argv.slice(2);
-const CONTROL = args.includes("--control");                 // see NOISE CONTROL above
-// "--name N" options: the value is the argument after the name (undefined if absent)
-const option = name => { const at = args.indexOf(name); return at >= 0 ? args[at + 1] : undefined; };
-const JOBS = Number(option("--jobs") ?? 1);
-const RESHUFFLES = option("--reshuffles");                  // "none" = no limit; absent = the game's default
-const PLAYERS = Number(option("--players") ?? 4);
+const args = parseArgs(process.argv.slice(2));
+const CONTROL = args.has("--control");                      // see NOISE CONTROL above
+const JOBS = Number(args.option("--jobs") ?? 1);
+const RESHUFFLES = parseLimit(args.option("--reshuffles")); // undefined = the game's default
+const PLAYERS = Number(args.option("--players") ?? 4);
 if (!(PLAYERS >= 2 && PLAYERS <= 4)) { console.error("--players must be 2, 3 or 4"); process.exit(1); }
-const [rounds = "1600", specA = "smart", specB = "greedy", deck = "40"] =
-  args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1].startsWith("--") && args[i - 1] !== "--control"));
+const [rounds = "1600", specA = "smart", specB = "greedy", deck = "40"] = args.positional;
 const g = loadGame();
 g.setDeckSize(Number(deck));
 g.newGame(PLAYERS - 1);       // sizes every per-player array in state for this table
 g.clearQueue();
-if (RESHUFFLES !== undefined) g.state.maxReshuffles = RESHUFFLES === "none" ? null : Number(RESHUFFLES);
+if (RESHUFFLES !== undefined) g.state.maxReshuffles = RESHUFFLES;
 
-// "smart:closeBonus=5" style specs become registered strategies (see registerSpec in harness.js)
+// "smart:takeMargin=-1" style specs become registered strategies (see registerSpec in harness.js)
 const labels = [registerSpec(g, specA), registerSpec(g, specB)];
 
-// Play one round with every seat run by its strategy (including seat 0).
+// Play one round from scratch (all totals 0) with every seat run by its strategy.
 function playRound(levels, start) {
   const s = g.state;
   s.inGame = Array(PLAYERS).fill(true);
@@ -73,17 +67,7 @@ function playRound(levels, start) {
   s.startPlayer = start;
   g.startRound();
   g.clearQueue();
-
-  for (let guard = 0; s.phase !== "roundOver" && guard < 3000; guard++) {
-    const p = s.currentPlayer;
-    const strategy = g.STRATEGIES[levels[p]];
-    if (!g.drawCard(p, strategy.chooseSource(p))) break;    // stalemate ended the round
-    const closeIndex = strategy.chooseClose(p);
-    if (closeIndex !== null) { g.closeRound(p, closeIndex); break; }
-    g.discardCard(p, strategy.chooseDiscard(p));
-    g.endTurn();
-    g.clearQueue();
-  }
+  playTurns(g, levels);
   return s.roundResult;
 }
 
@@ -174,20 +158,4 @@ function report(parts, seconds) {
               `  -> ${Math.abs(diff) > 2 * diffSe ? (diff < 0 ? "A is better" : "B is better") : "no clear difference"}`);
 }
 
-const started = Date.now();
-if (process.env.BENCH_SHARD) {
-  // We are a worker started below: play our share and send the result to the parent
-  process.send(runShard(process.env.BENCH_SHARD.split("/").map(Number)), () => process.disconnect());
-} else if (JOBS > 1) {
-  // Start this same file JOBS times as child processes (see gamebench.js for how this works)
-  const parts = [];
-  for (let k = 0; k < JOBS; k++) {
-    const child = fork(__filename, args, { env: { ...process.env, BENCH_SHARD: `${k}/${JOBS}` } });
-    child.on("message", part => {
-      parts.push(part);
-      if (parts.length === JOBS) report(parts, (Date.now() - started) / 1000);
-    });
-  }
-} else {
-  report([runShard([0, 1])], (Date.now() - started) / 1000);
-}
+runSharded(JOBS, runShard, report);
