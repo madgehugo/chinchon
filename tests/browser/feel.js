@@ -61,12 +61,16 @@ const { GAME_URL, makeChecker, noCpuClose, cpu1Closes } = require('./helpers');
   await page.waitForTimeout(1700);
   check((await page.locator('.score-pop').count()) === 0, 'the pop-ups remove themselves');
 
-  // The Sound setting is remembered
-  await page.click('#settings-btn');
-  await page.selectOption('#sound', 'off');
-  check(await page.evaluate(() => soundOn === false), 'Sound: Off turns sound off');
+  // The Sound button in the top bar mutes, shows it, and is remembered
+  const pressed = () => page.getAttribute('#sound-btn', 'aria-pressed');
+  check((await pressed()) === 'true', 'the Sound button starts pressed (sound on)');
+  await page.click('#sound-btn');
+  check(await page.evaluate(() => soundOn === false), 'the Sound button turns sound off');
+  check((await pressed()) === 'false' && (await page.getAttribute('#sound-btn use', 'href')) === '#ico-mute', 'muted: not pressed, crossed-out speaker');
   await page.reload();
-  check(await page.evaluate(() => soundOn === false && document.getElementById('sound').value === 'off'), 'Sound: Off is remembered after a reload');
+  check(await page.evaluate(() => soundOn === false) && (await pressed()) === 'false', 'muting is remembered after a reload');
+  await page.click('#sound-btn');
+  check(await page.evaluate(() => soundOn === true), 'a second press turns sound back on');
   await page.close();
 
   // Reduced motion: no pop-ups (sounds and toasts still work)

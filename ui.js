@@ -100,6 +100,12 @@ const ICON_SPRITE = `
     <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/>
     <circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>
   </symbol>
+  <symbol id="ico-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>
+  </symbol>
+  <symbol id="ico-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>
+  </symbol>
   <symbol id="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
     <path d="M6 6l12 12M18 6L6 18"/>
   </symbol>
@@ -596,6 +602,10 @@ function applyStaticText() {
 // toggle: aria-pressed tells screen readers (and style.css) whether it is on.
 function renderToggles() {
   document.getElementById("hints-btn").setAttribute("aria-pressed", String(state.showHints));
+  // Sound: pressed while sound is on, and a crossed-out speaker when it is off
+  const sound = document.getElementById("sound-btn");
+  sound.setAttribute("aria-pressed", String(soundOn));
+  sound.querySelector("use").setAttribute("href", soundOn ? "#ico-sound" : "#ico-mute");
   document.getElementById("settings-sheet").hidden = !state.showSettings;
   document.getElementById("settings-btn").setAttribute("aria-expanded", String(state.showSettings));
   document.getElementById("scores").hidden = !state.showScores;
@@ -956,10 +966,11 @@ document.getElementById("cpu-speed").addEventListener("change", (e) => {
   saveSettings();
 });
 
-// Sound on or off (sound.js); a card snap confirms that it is on
-document.getElementById("sound").addEventListener("change", (e) => {
-  setSoundOn(e.target.value === "on");
+// The Sound button turns sound on or off (sound.js); a card snap confirms that it is on
+document.getElementById("sound-btn").addEventListener("click", () => {
+  setSoundOn(!soundOn);
   saveSettings();
+  render();
   playSound("draw");
 });
 // Browsers allow sound only after the player has touched the page: wake the audio
@@ -981,7 +992,6 @@ function syncSettingDropdowns() {
   document.getElementById("sort-mode").value = state.sortMode;
   document.getElementById("cpu-mode").value = state.cpuMode;
   document.getElementById("cpu-speed").value = state.cpuSpeed;
-  document.getElementById("sound").value = soundOn ? "on" : "off";
   document.getElementById("deck-size").value = String(DECK_SIZE);
   document.getElementById("cpu-count").value = String(state.numPlayers - 1);
   document.getElementById("reshuffles").value = limitToOption(state.maxReshuffles);
@@ -1003,7 +1013,8 @@ function optionToLimit(value) { return value === "none" ? null : Number(value); 
    --------------------------------------------------------- */
 const SETTINGS_STORAGE_KEY = "chinchon-settings";   // localStorage key for the settings object
 
-// Save what the game is actually using (state), not what the dropdowns show:
+// Save what the game is actually using (state), not what the dropdowns show
+// (plus "sound", from the Sound button in the top bar):
 // a dropdown can be ahead of the game while its "start a new game?" bar is open
 function saveSettings() {
   const settings = {
@@ -1037,7 +1048,7 @@ function loadSettings() {
   state.cpuMode       = pick("cpu-mode");
   state.cpuLevels     = [...CPU_MODES[state.cpuMode]];
   state.cpuSpeed      = pick("cpu-speed");
-  setSoundOn(pick("sound") === "on");
+  setSoundOn(saved.sound !== "off");          // a button, not a dropdown, so not through pick()
   setDeckSize(Number(pick("deck-size")));
   state.maxReshuffles = optionToLimit(pick("reshuffles"));
   state.maxReentries  = optionToLimit(pick("reentries"));

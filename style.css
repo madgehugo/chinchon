@@ -110,15 +110,6 @@ body {
 }
 .tools { display: flex; align-items: center; gap: 6px; }
 .tools button { margin: 0; }
-/* The language dropdown in the top bar: a glass pill like the icon buttons */
-#lang {
-  min-height: 40px;
-  color: var(--text);
-  background-color: rgba(255, 255, 255, .1);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23ddd' stroke-width='2'/%3E%3C/svg%3E");
-  box-shadow: inset 0 0 0 1px var(--glass-line);
-}
-#lang option { color: var(--ink); }
 /* Button icons: line drawings (see ICON_SPRITE in ui.js), coloured by the button's text colour */
 .ui-icon { width: 20px; height: 20px; display: block; }
 
@@ -541,6 +532,9 @@ button.secondary.active, button.secondary[aria-pressed="true"] {
   box-shadow: inset 0 0 0 1px var(--gold-line);
 }
 button.icon { min-width: 40px; padding: 8px; }
+/* Sound is on by default, so "pressed" (on) keeps the plain look; muted, the button dims */
+#sound-btn[aria-pressed] { color: var(--text); background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px var(--glass-line); }
+#sound-btn[aria-pressed="false"] { color: var(--text-dim); }
 #help-btn { font-weight: 800; }
 
 /* Dropdowns: same pill shape. appearance: none drops the browser's own look, so the
@@ -811,7 +805,6 @@ button, .pile, select { touch-action: manipulation; }   /* no double-tap zoom de
   #round-chip { padding: 1px 8px; font-size: .65rem; }
   .tools { gap: 4px; }
   .tools button.icon { min-width: 40px; min-height: 40px; padding: 6px; }
-  #lang { min-height: 40px; padding-left: 10px; padding-right: 26px; background-position: right 9px center; }
   /* bottom sheet: full width, rounded only at the top, rising from the bottom edge */
   .overlay.sheet { align-items: flex-end; padding: 0; }
   .sheet .panel { width: 100%; max-height: 88vh; border-radius: var(--r-lg) var(--r-lg) 0 0; animation-name: sheet-in-up; }

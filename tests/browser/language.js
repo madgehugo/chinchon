@@ -16,6 +16,12 @@ const { GAME_URL, OUT, makeChecker, cpu1Closes } = require('./helpers');
   page.on('console', m => { if (m.type() === 'warning' || m.type() === 'error') errors.push('console: ' + m.text()); });
   await page.goto(GAME_URL);
   const text = sel => page.locator(sel).innerText();
+  // The language dropdown is in the Settings sheet: open it, choose, close it again
+  const chooseLanguage = async (code) => {
+    await page.click('#settings-btn');
+    await page.selectOption('#lang', code);
+    await page.keyboard.press('Escape');
+  };
   const overflow = () => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 
   check(await page.evaluate(() => document.documentElement.lang) === 'es', 'default from navigator.language: <html lang="es">');
@@ -25,7 +31,7 @@ const { GAME_URL, OUT, makeChecker, cpu1Closes } = require('./helpers');
   await page.screenshot({ path: path.join(OUT, 'lang-es-390.png') });
 
   // The status line was written in Spanish; switching must rewrite it, not just the buttons
-  await page.selectOption('#lang', 'en');
+  await chooseLanguage('en');
   check(await page.evaluate(() => document.documentElement.lang) === 'en', '<html lang> follows the dropdown');
   check((await text('#status')).startsWith('Your turn'), 'stored status message re-rendered in English');
   check((await text('#sort-btn')) === 'Sort hand', 'static button text in English');
@@ -46,7 +52,8 @@ const { GAME_URL, OUT, makeChecker, cpu1Closes } = require('./helpers');
   check((await text('#results-title')) === 'Round 1: CPU 1 closed the round', 'results title (English)');
   check((await text('#results-notice')).startsWith('You are out of the game. Re-enter with'), 'results notice (English)');
   await page.screenshot({ path: path.join(OUT, 'lang-results-en-390.png') });
-  await page.selectOption('#lang', 'es');
+  // The Settings button is behind the open results panel, so switch the way the dropdown does
+  await page.evaluate(() => setLanguage('es'));
   check((await text('#results-title')) === 'Ronda 1: CPU 1 cerró la ronda', 'results title switches to Spanish');
   check((await text('#results-notice')).startsWith('Estás eliminado. ¿Volver a entrar con'), 'results notice switches to Spanish');
   check((await text('#res-reenter')) === 'Volver a entrar', 'results buttons switch');

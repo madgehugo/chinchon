@@ -22,7 +22,7 @@
 </head>
 
 <body>
-<!-- Top bar: the title with the round under it, and the buttons that open panels.
+<!-- Top bar: the title with the round under it, the buttons that open panels, and Sound on/off.
      The icons are SVG symbols that ui.js puts into the page at load (ICON_SPRITE);
      <use href="#ico-..."> draws one. Icon buttons have no visible text, so their
      name comes from data-i18n-aria (read out by screen readers) and data-i18n-title
@@ -36,11 +36,9 @@
     <button id="scores-btn" class="secondary icon" aria-expanded="false" aria-controls="scores" data-i18n-title="btn.scores" data-i18n-aria="btn.scores" title="Scores" aria-label="Scores"><svg class="ui-icon" aria-hidden="true"><use href="#ico-scores"/></svg></button>
     <button id="hints-btn" class="secondary icon" aria-pressed="false" data-i18n-title="btn.hints" data-i18n-aria="btn.hints" title="Hints" aria-label="Hints"><svg class="ui-icon" aria-hidden="true"><use href="#ico-hints"/></svg></button>
     <button id="help-btn" class="secondary icon" aria-expanded="false" aria-controls="help" data-i18n-title="btn.help" data-i18n-aria="btn.help" title="Help" aria-label="Help"><svg class="ui-icon" aria-hidden="true"><use href="#ico-help"/></svg></button>
+    <!-- Sound on/off: aria-pressed says whether sound is on; renderToggles swaps the icon -->
+    <button id="sound-btn" class="secondary icon" aria-pressed="true" data-i18n-title="btn.sound" data-i18n-aria="btn.sound" title="Sound" aria-label="Sound"><svg class="ui-icon" aria-hidden="true"><use href="#ico-sound"/></svg></button>
     <button id="settings-btn" class="secondary icon" aria-expanded="false" aria-controls="settings-sheet" data-i18n-title="btn.settings" data-i18n-aria="btn.settings" title="Settings" aria-label="Settings"><svg class="ui-icon" aria-hidden="true"><use href="#ico-settings"/></svg></button>
-    <select id="lang" data-i18n-aria="lang.label" data-i18n-title="lang.label" aria-label="Language" title="Language">
-      <option value="en">EN</option>
-      <option value="es">ES</option>
-    </select>
   </div>
 </header>
 
@@ -132,6 +130,12 @@
       <button id="deck-no" class="secondary" data-i18n="confirm.no">Keep playing</button>
     </div>
     <div id="settings">
+      <label class="opt"><span data-i18n="lang.label">Language</span>
+        <select id="lang">
+          <option value="en">English</option>
+          <option value="es">Español</option>
+        </select>
+      </label>
       <label class="opt"><span data-i18n="set.sortBy">Sort by</span>
         <select id="sort-mode">
           <option value="number" data-i18n="set.sort.number">Number</option>
@@ -158,12 +162,6 @@
           <option value="slow" data-i18n="set.speed.slow">Slow</option>
           <option value="normal" data-i18n="set.speed.normal" selected>Normal</option>
           <option value="fast" data-i18n="set.speed.fast">Fast</option>
-        </select>
-      </label>
-      <label class="opt"><span data-i18n="set.sound">Sound</span>
-        <select id="sound">
-          <option value="on" data-i18n="set.sound.on" selected>On</option>
-          <option value="off" data-i18n="set.sound.off">Off</option>
         </select>
       </label>
       <label class="opt"><span data-i18n="set.deck">Deck</span>
@@ -293,11 +291,11 @@
     </details>
     <details><summary data-i18n="help.settings.h"></summary>
       <ul>
+        <li data-i18n="help.settings.li9"></li>
         <li data-i18n="help.settings.li1"></li>
         <li data-i18n="help.settings.li2"></li>
         <li data-i18n="help.settings.li3"></li>
         <li data-i18n="help.settings.li4"></li>
-        <li data-i18n="help.settings.li9"></li>
         <li data-i18n="help.settings.li5"></li>
         <li data-i18n="help.settings.li6"></li>
         <li data-i18n="help.settings.li7"></li>
@@ -312,6 +310,7 @@
         <li data-i18n="help.screen.li3"></li>
         <li data-i18n="help.screen.li4"></li>
         <li data-i18n="help.screen.li5"></li>
+        <li data-i18n="help.screen.li6"></li>
       </ul>
       <p class="keys-help" data-i18n="help.keys"></p>
     </details>

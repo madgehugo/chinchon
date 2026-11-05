@@ -8,10 +8,10 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 
 ## Features
 
-* **English and Spanish**, with a language dropdown (EN / ES) in the top bar. The first visit follows the browser's language (Spanish if it starts with `es`, else English); after that the choice is remembered in `localStorage`. All text lives in `i18n.js`.
-* A slim top bar holds the title, the current round and round icon buttons for Scores, Hints, Help and Settings.
+* **English and Spanish**, with a language dropdown at the top of the Settings sheet. The first visit follows the browser's language (Spanish if it starts with `es`, else English); after that the choice is remembered in `localStorage`. All text lives in `i18n.js`.
+* A slim top bar holds the title, the current round and round icon buttons for Scores, Hints, Help, Sound (on/off) and Settings.
   Settings and Scores open as sheets (from the side on a desktop, from the bottom on a phone) that close with their
-  X button, Escape or a tap on the background. Settings has the dropdowns (sort mode, CPUs, level, speed, deck,
+  X button, Escape or a tap on the background. Settings has the dropdowns (language, sort mode, CPUs, level, speed, deck,
   reshuffles per round, re-entries per player, rounds per game) and New game. Under your hand are only the play
   buttons: Sort and Close (Next round and Round results once a round is over). Hints (off by default) shows the hand
   analysis under your hand, a coloured bar under each meld, and the best closing score on the Close button.
@@ -25,7 +25,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
   each round every seat shows its score floating up ("+12", "−10") once the results panel is out of the way; with Hints
   on, the cards of a meld you just completed glow once. Sound effects (card snaps, a tick when your turn starts,
   jingles for a close, a Chinchón and a win) are made in code in `sound.js`, start after your first tap or click (browsers
-  require that), and can be turned off in Settings.
+  require that), and the speaker button in the top bar mutes them (remembered like the settings).
 * Short card animations (260 ms or less each): the deal, drawing from either pile, discarding, and a gentle lift when you hover or press one of your cards. They switch off when the system asks for reduced motion (`prefers-reduced-motion`).
 * Drag cards to rearrange your hand; one button sorts by number or by suit. Your hand spreads over the width
   available, so on a phone the cards overlap only as much as they must.
