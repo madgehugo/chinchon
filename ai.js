@@ -79,6 +79,21 @@ const SMART = {
   //   perfectBonus 1 + closeBonus 5 + denyWeight 1.5 + takeMargin -1   +0.18  se 0.05  WORSE
   //   all of the above together (on aware)                    +0.02  se 0.05  no gain
   // Monte Carlo rollouts (the "mc" strategy below) did not beat smart either.
+  // All of the above was measured at 4 players. Smaller tables were checked later in case a
+  // per-table-size setting would help (bench.js --players, 6,400 rounds, 40-card deck, 2
+  // reshuffles; A - B against plain hard, or aware against smart; negative = better):
+  //   setting                2 players         3 players
+  //   denyWeight 1.5         +0.01 se 0.02     +0.06 se 0.03   no gain
+  //   denyWeight 3           +0.07 se 0.03     +0.23 se 0.04   WORSE
+  //   takeMargin -1          +0.21 se 0.06     +0.10 se 0.06   WORSE / no gain
+  //   takeMargin +1.5        -0.01 se 0.06     +0.01 se 0.05   no gain
+  //   closeBonus 5           -0.06 se 0.04     -0.00 se 0.03   no gain
+  //   perfectBonus 1         -0.03 se 0.02     -0.02 se 0.02   no gain
+  //   waitProb 0.12          +0.23 se 0.03     +0.13 se 0.02   WORSE
+  //   aware (vs smart)       -0.02 se 0.05     -0.04 se 0.02*  no gain   (* 19,200 rounds)
+  // So one set of settings serves every table size. Even in 1v1, where every discard goes to
+  // the one opponent, holding back the cards they are known to want does not pay. (FINISH's
+  // end-of-deck rules never act at 2 players: the 25-card draw pile does not run out.)
   closeBonus:   0,     // reward a hand that could close right now (a meld and <= 7 points)
   perfectBonus: 0,     // 1 = value a hand with no unmatched cards at the real -10, not 0
   denyWeight:   0,     // penalty for discarding a card an opponent is known to need

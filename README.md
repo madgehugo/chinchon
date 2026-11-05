@@ -136,6 +136,8 @@ Nor did combinations of the earlier ideas (results in the `SMART` comments) or M
 Hard and medium are built on `finish`: `smart` plus three rules for when the deck runs out under the reshuffle limit
 (take-or-stop when drawing would end the round, draw odds from the known discards when the pile is about to be refilled,
 and discarding for points once no draw is left). Results above `FINISH`: slightly better with few reshuffles, never worse.
+All of this was measured at 4 players; the tuning ideas were re-checked at 2 and 3 players (`bench.js --players`) and
+none helps there either (results in the `SMART` comments), so every table size uses the same CPU.
 
 ## Testing
 
@@ -147,6 +149,7 @@ node tools/bench.js 1600 smart greedy             # compare two CPU settings
 node tools/bench.js 3200 smart "smart:takeMargin=-1"   # try a SMART override against the default
 node tools/gamebench.js 4000 risk hard 40 4 --jobs 8   # whole games: one A against three B, on 8 CPU cores
 node tools/bench.js 3200 finish smart 48 --reshuffles 2   # 48-card deck, at most 2 reshuffles (gamebench: also --rounds, --reentries)
+node tools/bench.js 6400 "hard:denyWeight=1.5" hard --players 2 --jobs 8   # a 1v1 table (default 4 players)
 npm install && npx playwright install chromium    # once, for the browser tests
 npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch
 ```

@@ -54,7 +54,8 @@ comments) and game-risk awareness (`risk` in `ai.js`: bust avoidance near 100, c
 re-entry aware; results above `STRATEGIES.risk`). Combinations of the earlier ideas (results in the `SMART` comments)
 and Monte Carlo rollouts with a greedy rollout policy (`mc` in `ai.js`, results above `MC`) did not beat it either; a
 rollout idea would need a rollout policy close to `smart`'s strength. `bench.js` takes `--jobs N` like `gamebench.js`,
-and both take `--reshuffles N`; `gamebench.js` also takes `--rounds N` and `--reentries N` (the game settings).
+and both take `--reshuffles N`; `bench.js` also takes `--players N` (2-4; the ideas above were re-checked at 2 and 3
+players and none helped there either, results in the `SMART` comments); `gamebench.js` also takes `--rounds N` and `--reentries N` (the game settings).
 Benchmark on both decks (`48` after the two strategies) when a change could depend on deck size. Game-level ideas need
 `tools/gamebench.js` (whole games, one A against a field of B's), since `bench.js` plays single rounds with all totals at 0.
 

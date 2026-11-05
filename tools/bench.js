@@ -8,8 +8,9 @@
      for the SMART or AWARE settings in ai.js, for example
          smart
          "smart:closeBonus=5,perfectBonus=1"
-     Four CPUs play: A B A B. Seats AND the starting player rotate, so each
-     side gets every position equally (use a multiple of 16 rounds). Without
+     Four CPUs play: A B A B (with --players 2: A B; with 3: A B A, then B A B). Seats AND
+     the starting player rotate, so each side gets every position equally (use a multiple
+     of 16 rounds; 12 with 3 players). Without
      that rotation the side that always starts has an advantage; an earlier
      benchmark was fooled by exactly that.
      DUPLICATE DEALING: every deal is played twice, with A and B in swapped
@@ -31,10 +32,14 @@
    result is exactly the same as without it, only faster (useful for slow strategies like mc).
    --reshuffles N plays with that reshuffle limit per round (0, 1, 2, ... or "none"; the
    default is the game's own, MAX_RESHUFFLES).
+   --players N plays at a table of N (2, 3 or 4; default 4). The two sides each get half the
+   seats; with 3 players a side has two seats in one play and one in the other, and each
+   side's points are averaged over its own seats.
 
    Example:  node tools/bench.js 3200 smart "smart:takeMargin=-1"
              node tools/bench.js 3200 mc hard --jobs 8
              node tools/bench.js 3200 finish smart 48 --reshuffles 2 --jobs 8
+             node tools/bench.js 6400 "hard:denyWeight=1.5" hard --players 2 --jobs 8
    ========================================================= */
 const { fork } = require("child_process");          // to start worker processes (for --jobs)
 const { loadGame, registerSpec } = require("./harness");
@@ -45,10 +50,14 @@ const CONTROL = args.includes("--control");                 // see NOISE CONTROL
 const option = name => { const at = args.indexOf(name); return at >= 0 ? args[at + 1] : undefined; };
 const JOBS = Number(option("--jobs") ?? 1);
 const RESHUFFLES = option("--reshuffles");                  // "none" = no limit; absent = the game's default
+const PLAYERS = Number(option("--players") ?? 4);
+if (!(PLAYERS >= 2 && PLAYERS <= 4)) { console.error("--players must be 2, 3 or 4"); process.exit(1); }
 const [rounds = "1600", specA = "smart", specB = "greedy", deck = "40"] =
   args.filter((a, i) => !a.startsWith("--") && !(i > 0 && args[i - 1].startsWith("--") && args[i - 1] !== "--control"));
 const g = loadGame();
 g.setDeckSize(Number(deck));
+g.newGame(PLAYERS - 1);       // sizes every per-player array in state for this table
+g.clearQueue();
 if (RESHUFFLES !== undefined) g.state.maxReshuffles = RESHUFFLES === "none" ? null : Number(RESHUFFLES);
 
 // "smart:closeBonus=5" style specs become registered strategies (see registerSpec in harness.js)
@@ -57,8 +66,8 @@ const labels = [registerSpec(g, specA), registerSpec(g, specB)];
 // Play one round with every seat run by its strategy (including seat 0).
 function playRound(levels, start) {
   const s = g.state;
-  s.inGame = [true, true, true, true];
-  s.totals = [0, 0, 0, 0];
+  s.inGame = Array(PLAYERS).fill(true);
+  s.totals = Array(PLAYERS).fill(0);
   s.gameOver = false;
   s.awaitingReentry = false;
   s.startPlayer = start;
@@ -91,7 +100,9 @@ function playDeal(deal, rotation, start, shuffleSeed = deal) {
   // mistake rolls. A different decision in one play can then never change a later shuffle.
   g.setRandom(g.makeSeededRandom(SEED + shuffleSeed));
   g.setDecisionRandom(g.makeSeededRandom(SEED + 1e6 + shuffleSeed));
-  const seat = [0, 1, 2, 3].map(s => labels[(s + rotation) % 2]);   // A B A B, shifted
+  // side[s] is 0 (A) or 1 (B) for seat s: A B A B, shifted by the rotation
+  const side = Array.from({ length: PLAYERS }, (_, s) => (s + rotation) % 2);
+  const seat = side.map(x => labels[x]);
   const result = playRound(seat, start);
   if (!result) return null;
   if (result.closer === null) stalemates++;
@@ -99,15 +110,16 @@ function playDeal(deal, rotation, start, shuffleSeed = deal) {
   const scores = result.points.map((pts, p) =>
     (result.chinchon && p === result.closer) ? CHINCHON_SCORE : pts);
   const best = Math.min(...scores);
-  const sumOf = [0, 0];                                     // points of A's two seats, of B's two seats
+  const sumOf = [0, 0], seats = [0, 0];                     // points of A's seats and of B's seats, and how many
   scores.forEach((score, p) => {
     const st = stats[seat[p]];
     st.n++; st.sum += score; st.sumSq += score * score;
     if (score === best) st.wins++;
     if (result.closer === p) st.closes++;
-    sumOf[(p + rotation) % 2] += score;      // side 0 = A, 1 = B (by seat, since A and B may be the same spec)
+    sumOf[side[p]] += score;      // by side, not by label, since A and B may be the same spec
+    seats[side[p]]++;
   });
-  return (sumOf[0] - sumOf[1]) / 2;
+  return sumOf[0] / seats[0] - sumOf[1] / seats[1];
 }
 
 const deals = Math.floor(Number(rounds) / 2);
@@ -118,7 +130,7 @@ function runShard([k, n]) {
   const dealDiffs = [];                                     // A - B for each deal, averaged over its two plays
   for (let d = k; d < deals; d += n) {
     const rotation = d % 4;                                 // who sits where (swapped for the second play)
-    const start = Math.floor(d / 4) % 4;                    // who starts (independent of seating)
+    const start = Math.floor(d / 4) % PLAYERS;              // who starts (independent of seating)
     const first = playDeal(d, rotation, start);
     // A and B swap seats with identical cards (in --control mode: a different, independent deal)
     const second = playDeal(d, rotation + 1, start, CONTROL ? d + deals : d);
@@ -142,7 +154,7 @@ function report(parts, seconds) {
   }
 
   const limit = g.state.maxReshuffles === null ? "no reshuffle limit" : `at most ${g.state.maxReshuffles} reshuffles`;
-  console.log(`${deals * 2} rounds (${deals} deals, each played ${CONTROL ? "on two independent deals: CONTROL, no pairing" : "twice, same cards"}), ${deck}-card deck, ${limit}, ${seconds.toFixed(0)}s, ${stalemateCount} stalemates`);
+  console.log(`${deals * 2} rounds (${deals} deals, each played ${CONTROL ? "on two independent deals: CONTROL, no pairing" : "twice, same cards"}), ${PLAYERS} players, ${deck}-card deck, ${limit}, ${seconds.toFixed(0)}s, ${stalemateCount} stalemates`);
   const summary = labels.map(label => {
     const st = all[label];
     const mean = st.sum / st.n;
