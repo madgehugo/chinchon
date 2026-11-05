@@ -42,6 +42,7 @@ const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
 
   // End a round and check the results panel and its notice follow the language
   await page.evaluate(() => {
+    newGame(3);   // a full table, as the totals below expect (the page starts with 1 CPU)
     const c = (value, suit) => ({ value, suit });
     state.totals = [99, 10, 20, 30];
     state.hands[1] = [c(1,'oros'),c(2,'oros'),c(3,'oros'),c(4,'copas'),c(5,'copas'),c(6,'copas'),c(2,'bastos'),c(12,'espadas')];

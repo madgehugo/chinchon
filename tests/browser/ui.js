@@ -21,6 +21,7 @@ const noCpuClose = (page) => page.evaluate(() => { for (const s of Object.values
   let page = await browser.newPage({ reducedMotion: 'reduce', viewport: { width: 1000, height: 1150 } });
   page.on('pageerror', e => errors.push('desktop: ' + e.message));
   await page.goto(url);
+  await page.evaluate(() => newGame(3));   // a full table, as these checks expect (the page starts with 1 CPU)
   await noCpuClose(page);
   await page.click('#settings-btn');            // settings live in a collapsible panel
   await page.selectOption('#cpu-speed', 'fast');
@@ -74,6 +75,7 @@ const noCpuClose = (page) => page.evaluate(() => { for (const s of Object.values
   page = await ctx.newPage();
   page.on('pageerror', e => errors.push('phone: ' + e.message));
   await page.goto(url);
+  await page.evaluate(() => newGame(3));   // a full table, as these checks expect (the page starts with 1 CPU)
   await noCpuClose(page);
   await page.click('#settings-btn');            // settings live in a collapsible panel
   await page.selectOption('#cpu-speed', 'fast');

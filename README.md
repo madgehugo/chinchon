@@ -11,11 +11,11 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 * **English and Spanish**, with a language dropdown next to the Settings button. The first visit follows the browser's language (Spanish if it starts with `es`, else English); after that the choice is remembered in `localStorage`. All text lives in `i18n.js`.
 * Sort and Close sit under your hand (Next round and Round results take their place once a round is over); the dropdowns (sort mode, CPUs, level, speed, deck, reshuffles per round, re-entries per player, rounds per game) and New game are in a panel behind the Settings button, and the Hints toggle (off by default) shows the hand analysis table, a coloured bar under each meld in your hand,
   and the best closing score on the Close button.
-* 1 human vs 1, 2 or 3 CPUs (the "CPUs" dropdown starts a new game), with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
+* 1 human vs 1, 2 or 3 CPUs (1 by default; the "CPUs" dropdown starts a new game). With 3 CPUs on the 40-card deck, the Settings panel suggests the 48-card deck (one button switches), since four players empty the 40-card draw pile quickly, with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
 * 40-card Spanish deck (1-7, 10-12) or 48-card deck (adds the 8s and 9s), which suits bigger groups.
-* Adjustable rules: how often the draw pile may be reshuffled in a round (0, 1, 2, 3, 5 or no limit; the board
+* Adjustable rules: how often the draw pile may be reshuffled in a round (0, 1, 2, 3, 5 or no limit, default 2; the board
   shows how many reshuffles are left), how many times each player may re-enter after elimination (0, 1, 2 or
-  no limit) and how many rounds a game lasts (no limit, 5, 10, 15 or 20). Changing any of them starts a new game.
+  no limit, default 1) and how many rounds a game lasts (no limit, 5, 10, 15 or 20). Changing any of them starts a new game.
 * Cards show their number of suit symbols (the 4 of swords has four swords), drawn as inline SVG shapes defined once in `ui.js` (`SUIT_SPRITE`) so they look the same on every device.
 * Short card animations (260 ms or less each): the deal, drawing from either pile, discarding, and a gentle lift when you hover or press one of your cards. They switch off when the system asks for reduced motion (`prefers-reduced-motion`).
 * Drag cards to rearrange your hand; one button sorts by number or by suit. Your hand spreads over the width
@@ -50,7 +50,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
   re-enter, since a player who stays out cannot win). The re-entry setting limits how many times each player may
   come back in one game; with none left, an eliminated player stays out.
 * **Stalemate:** when the draw pile runs out it is refilled from the discard pile, up to the reshuffle limit
-  (default 5, a setting). After that, the next player to draw from the empty pile ends the round with no closer,
+  (a setting; 2 by default). After that, the next player to draw from the empty pile ends the round with no closer,
   and everyone scores the unmatched points in their hand. Taking the top discard instead keeps the round going.
   The board warns about this under the draw pile and in the status line.
 * **Round limit** (optional setting): after the last round the player still in with the lowest total wins.

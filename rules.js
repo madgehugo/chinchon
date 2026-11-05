@@ -125,6 +125,8 @@ const CHINCHON_ENDS_GAME     = true; // traditional rule: Chinchón wins the who
 const CPU_REENTRY_MAX        = 70;   // a CPU re-enters only if the entry score is <= this
 const MAX_RESHUFFLES         = 5;    // default for state.maxReshuffles: if the deck runs out more
                                      // than this many times in a round, the round ends with no closer
+                                     // (the Node tools use it; the browser starts from the option marked
+                                     // `selected` in index.html, which is 2)
 // Points an unmatched card costs. Traditional rule: figures (10, 11, 12)
 // are worth 10 points each; 1-7 are worth their face value.
 function cardPoints(card) {

@@ -63,6 +63,8 @@ const STRINGS = {
     "set.rounds": "Rounds per game",
     "set.reentries": "Re-entries per player",
     "set.noLimit": "No limit",
+    "set.deckTip": "With 4 players the 40-card deck runs out quickly. The 48-card deck means fewer reshuffles.",
+    "set.deckTipBtn": "Use 48 cards",
     "set.keys": "Keys: 1-8 discard · D draw pile · T take discard · C close · S sort · Enter next round · H help",
     "level.easy": "Easy",
     "level.medium": "Medium",
@@ -270,6 +272,8 @@ const STRINGS = {
     "set.rounds": "Rondas por partida",   // TODO review
     "set.reentries": "Reenganches por jugador",   // TODO review
     "set.noLimit": "Sin límite",   // TODO review
+    "set.deckTip": "Con 4 jugadores la baraja de 40 cartas se agota enseguida. Con la de 48 hay que barajar menos veces.",   // TODO review
+    "set.deckTipBtn": "Usar 48 cartas",   // TODO review
     "set.keys": "Teclado: 1-8 descartar · D mazo · T coger descarte · C cerrar · S ordenar · Intro siguiente ronda · H ayuda",   // TODO review
     "level.easy": "Fácil",
     "level.medium": "Medio",

@@ -29,6 +29,8 @@ const state = {
   discardPile: [],   // same convention
   hands:       [],   // hands[0] = human's cards, hands[1..] = CPUs
   numPlayers:  MAX_PLAYERS,   // seats in use this game (2-4): you plus 1-3 CPUs. All per-player arrays have this length.
+                             // (the browser's first-visit defaults for this and the other settings are the
+                             // `selected` options in index.html: 1 CPU, 2 reshuffles, 1 re-entry)
   currentPlayer: 0,  // index of whose turn it is
 
   // Where we are inside a turn. Every turn is: draw -> (close, or discard).

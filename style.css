@@ -340,6 +340,14 @@ button.active { background: #ffd54a; }
 .opt select { padding: 6px 8px; border-radius: 6px; border: 0; font: inherit; background: #fffaf0; color: #222; }
 /* Keyboard help: its own line at the bottom of the panel; hidden where there is no
    mouse (hover: none is true on phones and tablets, which usually have no keyboard) */
+/* The 48-card suggestion: a full-width gold note inside the settings panel */
+#deck-tip {
+  flex-basis: 100%; margin: 0; padding: 6px 10px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  font-size: .85rem;
+  background: rgba(255, 213, 74, .14); border-left: 3px solid #ffd54a; border-radius: 6px;
+}
+#settings #deck-tip button { margin: 0; padding: 4px 10px; font-size: .8rem; }
 .keys-help { flex-basis: 100%; margin: 0; font-size: .75rem; opacity: .75; }
 @media (hover: none) { .keys-help { display: none; } }
 

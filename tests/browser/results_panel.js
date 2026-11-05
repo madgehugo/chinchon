@@ -10,6 +10,7 @@ const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
   const errs = [];
   page.on('pageerror', e => errs.push(e.message));
   await page.goto(URL_);
+  await page.evaluate(() => newGame(3));   // a full table, as these checks expect (the page starts with 1 CPU)
   const vis = (id) => page.locator(id).isVisible();
 
   // --- A: the human is eliminated by CPU 1 closing, and gets a re-entry choice ---

@@ -484,6 +484,8 @@ function renderToggles() {
   const settings = document.getElementById("settings-btn");
   settings.setAttribute("aria-expanded", String(state.showSettings));
   settings.classList.toggle("active", state.showSettings);
+  // The tip is in the settings panel, so it shows up right where you picked 3 CPUs
+  document.getElementById("deck-tip").hidden = !(state.numPlayers === MAX_PLAYERS && DECK_SIZE === 40);
   document.getElementById("help").hidden = !state.showHelp;
   document.getElementById("help-btn").setAttribute("aria-expanded", String(state.showHelp));
 }
@@ -886,11 +888,14 @@ function askBeforeNewGame(question, change) {
   document.getElementById("deck-confirm").hidden = false;
 }
 
-document.getElementById("deck-size").addEventListener("change", (e) => {
-  const size = Number(e.target.value);
+// Switching deck starts a new game; the dropdown and the 48-card tip's button both come here.
+// syncSettingDropdowns: after the tip's button the Deck dropdown must show the new size too.
+function chooseDeckSize(size) {
   askBeforeNewGame(() => t("confirm.deck", { n: size }),
-                   () => { setDeckSize(size); newGame(); });
-});
+                   () => { setDeckSize(size); newGame(); syncSettingDropdowns(); });
+}
+document.getElementById("deck-size").addEventListener("change", (e) => chooseDeckSize(Number(e.target.value)));
+document.getElementById("deck-tip-btn").addEventListener("click", () => chooseDeckSize(48));
 document.getElementById("cpu-count").addEventListener("change", (e) => {
   const cpus = Number(e.target.value);
   askBeforeNewGame(() => plural("confirm.cpus", cpus),

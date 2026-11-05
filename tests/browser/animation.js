@@ -26,6 +26,7 @@ const slidesDone = () => document.getAnimations().every(a => a.constructor.name 
     const page = await browser.newPage({ viewport: { width: 1000, height: 1150 }, reducedMotion: reduced ? 'reduce' : 'no-preference' });
     page.on('pageerror', e => errors.push((reduced ? 'reduced: ' : 'normal: ') + e.message));
     await page.goto(url);
+      await page.evaluate(() => newGame(3));   // a full table, as these checks expect (the page starts with 1 CPU)
     await page.evaluate(() => { for (const s of Object.values(STRATEGIES)) s.chooseClose = () => null; });
     await page.click('#settings-btn');
     await page.selectOption('#cpu-speed', 'fast');
