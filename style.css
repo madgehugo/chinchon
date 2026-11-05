@@ -15,7 +15,9 @@
 
   /* Sizes that differ by seat. The phone layout (see the @media block at
      the end) just gives these smaller values. */
-  --human-w: 78px;   --human-h: 116px;  --human-overlap: -6px;   /* your hand   */
+  /* your hand. --human-spread is the overlap when there is room (cards overlap more when
+     there is not, see #seat-0 below); --human-overlap is the fixed fallback for old browsers */
+  --human-w: 78px;   --human-h: 116px;  --human-overlap: -6px;  --human-spread: -6px;
   --pile-w: 78px;    --pile-h: 116px;                              /* the piles   */
   --side-overlap: -62px;                                           /* CPU 1 and 3 stacks */
 }
@@ -77,8 +79,28 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 .seat[hidden] { display: none; }   /* unused seats (the hidden attribute alone loses to display:flex above) */
 #centre { grid-area: center; }
 
-.seat-name { font-size: .9rem; opacity: .85; }
-.seat.active .seat-name { color: #ffd54a; font-weight: bold; } /* whose turn */
+/* The transparent border and padding are always there, so the label does not move
+   when it gets its highlight */
+.seat-name { font-size: .9rem; opacity: .85; padding: 1px 8px; border: 1px solid transparent; border-radius: 10px; }
+/* Whose turn: gold text in a soft gold pill */
+.seat.active .seat-name {
+  color: #ffd54a; font-weight: bold; opacity: 1;
+  background: rgba(255, 213, 74, .14); border-color: rgba(255, 213, 74, .55);
+}
+
+/* A CPU taking its turn: three dots after its name that appear one by one.
+   ::after is a "pseudo-element", an extra bit of content CSS adds after the element's
+   own text. clip-path hides part of it; steps(4, jump-none) jumps through 4 fixed
+   positions (0, 1, 2, 3 dots shown) instead of sliding smoothly. */
+.seat.thinking .seat-name::after {
+  content: "...";
+  display: inline-block;
+  animation: thinking-dots 1.2s steps(4, jump-none) infinite;
+}
+@keyframes thinking-dots {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
 
 /* Cards in a hand sit in a row and overlap slightly */
 .hand { display: flex; justify-content: center; }
@@ -94,6 +116,34 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 /* Human cards are a bit bigger and don't overlap as much */
 #seat-0 .hand .card { --card-w: var(--human-w); --card-h: var(--human-h); }
 #seat-0 .hand .card + .card { margin-left: var(--human-overlap); }
+
+/* Spread your hand over the width there is. #seat-0 is a "size container", so
+   100cqw means "100% of #seat-0's width". renderHand() in ui.js sets --hand-n to the
+   number of cards. The gap between cards is then (width - n cards) / (n - 1) gaps;
+   clamp(low, value, high) keeps it between "cards overlap by 3/4" and the normal
+   overlap. max(1, ...) avoids dividing by zero for a one-card hand.
+   @supports: only in browsers that understand cqw (others keep the fixed overlap). */
+@supports (width: 1cqw) {
+  #seat-0 { container-type: inline-size; }
+  #seat-0 .hand .card + .card {
+    margin-left: clamp(calc(var(--human-w) * -0.75),
+                       calc((100cqw - var(--hand-n, 7) * var(--human-w)) / max(1, var(--hand-n, 7) - 1)),
+                       var(--human-spread));
+  }
+}
+
+/* The card you just drew: a gold dot just above its top edge (stays visible when the
+   cards overlap). Removed when you discard (see state.lastDrawn in game.js). */
+#seat-0 .card.just-drawn::after {
+  content: "";
+  position: absolute;
+  top: -9px; left: 50%;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #ffd54a;
+  box-shadow: 0 0 4px rgba(255, 213, 74, .8);
+  transform: translateX(-50%);
+}
 
 /* ---------- A single card ---------- */
 .card {
@@ -194,11 +244,17 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 @media (prefers-reduced-motion: reduce) {
   #seat-0 .card { transition: none; }
   #seat-0 .card:hover, #seat-0 .card:active, #seat-0 .card.clickable:hover { transform: none; }
+  /* no pulsing outline or appearing dots either: the dots just stay shown */
+  .pile.can-pick .card, .pile.can-pick .pile-empty, .seat.thinking .seat-name::after { animation: none; }
 }
 
-/* A pile you may click right now (class toggled by JS) gets a gold outline */
-.pile.can-pick .card { outline: 3px solid #ffd54a; cursor: pointer; }
-.pile.can-pick .pile-empty { outline: 3px solid #ffd54a; cursor: pointer; }   /* an empty deck can still be clicked */
+/* A pile you may click right now (class toggled by JS) gets a gold outline that
+   gently pulses, so it is obvious that it is your turn to draw */
+.pile.can-pick .card { outline: 3px solid #ffd54a; cursor: pointer; animation: pick-pulse 1.6s ease-in-out infinite; }
+.pile.can-pick .pile-empty { outline: 3px solid #ffd54a; cursor: pointer; animation: pick-pulse 1.6s ease-in-out infinite; }   /* an empty deck can still be clicked */
+@keyframes pick-pulse {
+  50% { outline-color: rgba(255, 213, 74, .35); }
+}
 
 /* ---------- Centre area: draw pile + discard pile ---------- */
 #centre {
@@ -373,7 +429,7 @@ button.secondary { background: rgba(255, 255, 255, .85); }
 @media (max-width: 720px) {
   :root {
     --card-w: 38px;   --card-h: 57px;   --card-overlap: -22px;
-    --human-w: 54px;  --human-h: 81px;  --human-overlap: -20px;
+    --human-w: 54px;  --human-h: 81px;  --human-overlap: -20px;  --human-spread: -4px;
     --pile-w: 56px;   --pile-h: 84px;
     --side-overlap: -38px;
   }
@@ -388,7 +444,7 @@ button.secondary { background: rgba(255, 255, 255, .85); }
     min-height: 470px;
   }
   #table[data-players="2"] { grid-template-columns: 0 1fr 0; }
-  .seat-name { font-size: .68rem; text-align: center; line-height: 1.25; }
+  .seat-name { font-size: .68rem; text-align: center; line-height: 1.25; padding: 1px 4px; }
   #piles { gap: 14px; }
   .pile-label { font-size: .65rem; text-align: center; }
   #status { font-size: .8rem; padding: 5px 10px; text-align: center; }

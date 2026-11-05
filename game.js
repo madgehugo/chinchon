@@ -42,6 +42,7 @@ const state = {
   reshuffles: 0,     // how many times the draw pile has been refilled this round
   turns: 0,          // turns completed so far this round (all players); the hard CPU uses it as a clock
   closing: false,    // true while you are choosing which card to close with
+  lastDrawn: null,   // the card you drew this turn (your hand marks it until you discard)
   sortMode: "number",// how the Sort button orders your hand: "number" or "suit"
   cpuMode: "hard",   // "easy" | "medium" | "hard" | "mixed" (see CPU_MODES)
   cpuSpeed: "normal",// "slow" | "normal" | "fast" (see CPU_SPEEDS)
@@ -127,6 +128,7 @@ function startRound() {
   state.deals++;
   state.reshuffles = 0;
   state.turns = 0;
+  state.lastDrawn = null;
   state.known = Array.from({ length: state.numPlayers }, () => []);
   state.currentPlayer = state.inGame[state.startPlayer]
     ? state.startPlayer
@@ -271,6 +273,7 @@ function sortHand() {
 // (Eliminated players are skipped.)
 function endTurn() {
   state.turns++;
+  state.lastDrawn = null;
   state.currentPlayer = nextActivePlayer(state.currentPlayer);
   state.phase = "draw";
   beginTurn();
@@ -309,7 +312,9 @@ function humanDraw(source) {
   if (state.currentPlayer !== 0 || state.phase !== "draw") return;   // not allowed now
   if (source === "discard" && state.discardPile.length === 0) return;
 
-  if (!drawCard(0, source)) return;      // null = stalemate already ended the round
+  const card = drawCard(0, source);
+  if (!card) return;                     // null = stalemate already ended the round
+  state.lastDrawn = card;                // objects compare by identity, so this marks exactly this card
   state.phase = "discard";
   render();
   setStatus(msg("msg.pickDiscard"));

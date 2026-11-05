@@ -11,6 +11,11 @@ const running = (page) => page.evaluate(() => {
   return { count: anims.length, longest: Math.max(0, ...anims.map(a => a.effect.getTiming().duration)) };
 });
 
+// True once no card slide (Web Animations API, constructor "Animation") is running. CSS
+// animations (constructor "CSSAnimation": the pulsing pile outline, the thinking dots)
+// loop forever on purpose, so they are left out.
+const slidesDone = () => document.getAnimations().every(a => a.constructor.name !== 'Animation');
+
 (async () => {
   const browser = await chromium.launch();
   const errors = [];
@@ -33,14 +38,14 @@ const running = (page) => page.evaluate(() => {
     else check(tag + ' deal: 28 cards animated, each <= 300 ms (' + deal.count + ', ' + deal.longest + ' ms)', deal.count === 28 && deal.longest <= 300);
 
     // 2. drawing: wait for the dealing to end, then take a card from the draw pile
-    await page.waitForFunction(() => document.getAnimations().length === 0, null, { timeout: 5000 });
+    await page.waitForFunction(slidesDone, null, { timeout: 5000 });
     await page.click('#draw-pile .card');
     const draw = await running(page);
     if (reduced) check(tag + ' draw: no card animations', draw.count === 0);
     else check(tag + ' draw: your new card slides in (' + draw.count + ', ' + draw.longest + ' ms)', draw.count === 1 && draw.longest <= 300);
 
     // 3. discarding: tap a card; the new top of the discard pile slides from where it was
-    await page.waitForFunction(() => document.getAnimations().length === 0, null, { timeout: 5000 });
+    await page.waitForFunction(slidesDone, null, { timeout: 5000 });
     await page.locator('#hand-0 .card').nth(2).click();
     const disc = await running(page);
     if (reduced) check(tag + ' discard: no card animations', disc.count === 0);

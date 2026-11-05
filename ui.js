@@ -158,8 +158,14 @@ function renderHand(playerIndex) {
     ? new Map(closeOptions(state.hands[0]).map(o => [o.index, o.info]))
     : null;
 
+  // How many cards are in the hand: style.css uses it to spread your hand over the
+  // available width (less overlap when there is room, more when there is not)
+  container.style.setProperty("--hand-n", state.hands[playerIndex].length);
+
   state.hands[playerIndex].forEach((card, index) => {
     const el = createCardElement(card, faceUp);
+    // The card you drew this turn gets a small gold dot until you discard
+    if (canDiscard && card === state.lastDrawn) el.classList.add("just-drawn");
     let onTap = null;                                        // what a plain tap or click does
     if (closable) {
       if (closable.has(index)) {
@@ -333,7 +339,9 @@ function renderSeats() {
 function renderTurnIndicator() {
   for (let p = 0; p < state.numPlayers; p++) {
     const seat = document.getElementById(`seat-${p}`);
-    seat.classList.toggle("active", p === state.currentPlayer && state.phase !== "roundOver");
+    const active = p === state.currentPlayer && state.phase !== "roundOver";
+    seat.classList.toggle("active", active);
+    seat.classList.toggle("thinking", active && p !== 0);   // CSS adds animated dots to a CPU's name
 
     // Seat label: name, running total, and OUT if eliminated
     const name = p === 0 ? t("seat.you")
@@ -496,6 +504,14 @@ function renderControls() {
   const drawing = myTurn && state.phase === "draw";
   const closeAllowed = myTurn && state.phase === "discard" &&
                        closeOptions(state.hands[0]).length > 0;
+
+  // Buttons that only make sense at one moment are hidden the rest of the time, so the
+  // button bar stays short (on a phone it would otherwise wrap onto three rows):
+  // Close round during the play, Next round and Round results once the round is over.
+  const roundOver = state.phase === "roundOver";
+  document.getElementById("close-btn").hidden = roundOver;
+  document.getElementById("next-btn").hidden = !roundOver;
+  document.getElementById("results-btn").hidden = !roundOver;
 
   document.getElementById("close-btn").disabled = !closeAllowed;
   document.getElementById("close-btn").textContent =
@@ -688,6 +704,7 @@ document.getElementById("lang").addEventListener("change", (e) => setLanguage(e.
 // Choosing a sort method also sorts straight away
 document.getElementById("sort-mode").addEventListener("change", (e) => {
   state.sortMode = e.target.value;
+  saveSettings();
   sortHand();
 });
 
@@ -695,12 +712,14 @@ document.getElementById("sort-mode").addEventListener("change", (e) => {
 document.getElementById("cpu-mode").addEventListener("change", (e) => {
   state.cpuMode = e.target.value;
   state.cpuLevels = [...CPU_MODES[state.cpuMode]];
+  saveSettings();
   render();                                   // refresh the seat labels
 });
 
 // CPU speed: also takes effect immediately
 document.getElementById("cpu-speed").addEventListener("change", (e) => {
   state.cpuSpeed = e.target.value;
+  saveSettings();
 });
 
 // Changing the deck or the number of CPUs starts a new game. If a game is under way,
@@ -712,6 +731,9 @@ let pendingQuestion = null;     // function giving the question text for the bar
 
 // Put the dropdowns that start a new game back to what the game is actually using
 function syncSettingDropdowns() {
+  document.getElementById("sort-mode").value = state.sortMode;
+  document.getElementById("cpu-mode").value = state.cpuMode;
+  document.getElementById("cpu-speed").value = state.cpuSpeed;
   document.getElementById("deck-size").value = String(DECK_SIZE);
   document.getElementById("cpu-count").value = String(state.numPlayers - 1);
   document.getElementById("reshuffles").value = limitToOption(state.maxReshuffles);
@@ -723,12 +745,62 @@ function syncSettingDropdowns() {
 function limitToOption(limit) { return limit === null ? "none" : String(limit); }
 function optionToLimit(value) { return value === "none" ? null : Number(value); }
 
+/* ---------------------------------------------------------
+   Remembering the settings between visits. They are stored in localStorage
+   (the browser's small per-site key/value store) as one JSON object whose keys
+   are the dropdown ids and whose values are dropdown values, e.g.
+   {"cpu-count": "2", "reshuffles": "none"}. The language is stored separately
+   by setLanguage() in i18n.js. localStorage can throw (private windows, blocked
+   site data), so both functions use try/catch and the game works without it.
+   --------------------------------------------------------- */
+const SETTINGS_STORAGE_KEY = "chinchon-settings";   // localStorage key for the settings object
+
+// Save what the game is actually using (state), not what the dropdowns show:
+// a dropdown can be ahead of the game while its "start a new game?" bar is open
+function saveSettings() {
+  const settings = {
+    "sort-mode":   state.sortMode,
+    "cpu-count":   String(state.numPlayers - 1),
+    "cpu-mode":    state.cpuMode,
+    "cpu-speed":   state.cpuSpeed,
+    "deck-size":   String(DECK_SIZE),
+    "reshuffles":  limitToOption(state.maxReshuffles),
+    "reentries":   limitToOption(state.maxReentries),
+    "round-limit": limitToOption(state.roundLimit),
+  };
+  try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings)); } catch (err) { /* not remembered; fine */ }
+}
+
+// Put the saved settings into `state` (before the first game starts). A value is only
+// used if its dropdown has that option, so an old or edited entry cannot break the game.
+// Returns the number of CPUs to start with.
+function loadSettings() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)) || {}; } catch (err) { /* none saved */ }
+  // The saved value for dropdown `id` if it is one of its options, else the dropdown's current value.
+  // (`[...select.options]` turns the HTML option list into a real array so .some() works.)
+  const pick = id => {
+    const select = document.getElementById(id);
+    const ok = [...select.options].some(o => o.value === saved[id]);
+    return ok ? saved[id] : select.value;
+  };
+  state.sortMode      = pick("sort-mode");
+  state.cpuMode       = pick("cpu-mode");
+  state.cpuLevels     = [...CPU_MODES[state.cpuMode]];
+  state.cpuSpeed      = pick("cpu-speed");
+  setDeckSize(Number(pick("deck-size")));
+  state.maxReshuffles = optionToLimit(pick("reshuffles"));
+  state.maxReentries  = optionToLimit(pick("reentries"));
+  state.roundLimit    = optionToLimit(pick("round-limit"));
+  return Number(pick("cpu-count"));
+}
+
 function closeConfirm(accepted) {
   document.getElementById("deck-confirm").hidden = true;
   const change = pendingChange;
   pendingChange = null;
   pendingQuestion = null;
-  if (accepted && change) change(); else syncSettingDropdowns();
+  if (accepted && change) { change(); saveSettings(); } else syncSettingDropdowns();
 }
 
 // `question` is a function returning the text, so the bar can be written again if the
@@ -736,7 +808,7 @@ function closeConfirm(accepted) {
 function askBeforeNewGame(question, change) {
   const inProgress = state.round > 1 || state.totals.some(t => t !== 0) ||
                      state.hands[0].length > CARDS_PER_HAND;
-  if (!inProgress) { change(); return; }
+  if (!inProgress) { change(); saveSettings(); return; }
   pendingChange = change;
   pendingQuestion = question;
   document.getElementById("deck-confirm-text").textContent = question();
@@ -786,4 +858,5 @@ document.addEventListener("keydown", (e) => {
    7. START: run once when the page loads
    --------------------------------------------------------- */
 if (typeof runSelfTests === "function") runSelfTests();   // results in the console (F12)
-newGame();
+newGame(loadSettings());     // with last visit's settings (or the defaults written in index.html)
+syncSettingDropdowns();      // after newGame, which sets the number of players
