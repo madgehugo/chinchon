@@ -10,8 +10,9 @@
 const MOVE_MS          = 260;   // how long one card takes to slide (kept under 300 ms)
 const DEAL_STAGGER_MS  = 30;    // delay between one dealt card and the next
 
-// Where to put each pip on a 1-7 card. Each pair is [x%, y%] inside the
-// card's face area: x = 0 (left) .. 100 (right), y = 0 (top) .. 100 (bottom).
+// Where to put each pip on a 1-9 card (8 and 9 only exist in the 48-card deck).
+// Each pair is [x%, y%] inside the card's face area:
+// x = 0 (left) .. 100 (right), y = 0 (top) .. 100 (bottom).
 // The number of pairs equals the card's value, so a 4 shows 4 symbols.
 const PIP_LAYOUTS = {
   1: [[50, 50]],
@@ -21,6 +22,8 @@ const PIP_LAYOUTS = {
   5: [[28, 22], [72, 22], [50, 50], [28, 78], [72, 78]],
   6: [[28, 12], [72, 12], [28, 50], [72, 50], [28, 88], [72, 88]],
   7: [[28, 12], [72, 12], [50, 31], [28, 50], [72, 50], [28, 88], [72, 88]],
+  8: [[28, 12], [72, 12], [28, 37], [72, 37], [28, 63], [72, 63], [28, 88], [72, 88]],
+  9: [[22, 12], [78, 12], [22, 37], [78, 37], [50, 50], [22, 63], [78, 63], [22, 88], [78, 88]],
 };
 
 // Suit symbols, drawn as inline SVG (vector graphics written as text, so they stay sharp at any
@@ -108,15 +111,15 @@ function createCardElement(card, faceUp) {
   }
 
   el.classList.add(`suit-${card.suit}`);
-  const label  = card.value;   // the cards show 1-7 and 10, 11, 12 as numbers
+  const label  = card.value;   // the cards show 1-9 and 10, 11, 12 as numbers
   const symbol = suitIcon(card.suit);
 
   // Build the middle of the card.
-  //  - values 1-7: that many suit symbols, positioned from PIP_LAYOUTS
+  //  - values 1-9: that many suit symbols, positioned from PIP_LAYOUTS
   //  - values 10-12: a framed figure with its name (Sota / Caballo / Rey)
   let faceHTML;
-  if (card.value <= 7) {
-    const size = card.value === 1 ? "big" : card.value === 7 ? "xs" : (card.value >= 5 ? "sm" : "");
+  if (card.value <= 9) {
+    const size = card.value === 1 ? "big" : card.value >= 7 ? "xs" : (card.value >= 5 ? "sm" : "");
     const pips = PIP_LAYOUTS[card.value]
       .map(([x, y]) => `<span class="pip ${size}" style="left:${x}%;top:${y}%">${symbol}</span>`)
       .join("");

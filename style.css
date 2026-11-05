@@ -134,7 +134,7 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
   line-height: 1;
 }
 .card .pip.sm  { font-size: calc(var(--card-w) * 0.2); }   /* 5 and 6: a bit smaller */
-.card .pip.xs  { font-size: calc(var(--card-w) * 0.17); }  /* 7: smallest, 7 symbols to fit */
+.card .pip.xs  { font-size: calc(var(--card-w) * 0.17); }  /* 7-9: smallest, so all the symbols fit */
 .card .pip.big { font-size: calc(var(--card-w) * 0.55); }  /* the 1 (ace) */
 
 /* Figure cards (10 = Sota, 11 = Caballo, 12 = Rey) */
