@@ -434,11 +434,15 @@ STRATEGIES.risk = {
 // It closed and won rounds more often but lost more points when it did not: the quick
 // rollout policy is weaker than smart, so the rollouts reward hands that suit a fast
 // greedy finish. It is also about 20x slower than smart (about 0.5 s per round).
+// That explanation did not hold up: with selfSmart 1 (p's own discards in the rollouts
+// use smart's lookahead) the result was the same, +0.30 se 0.19 (1,600 rounds), again
+// closing more often (26% vs 23%) but losing more points. About 0.5 s per discard.
 const MC = {
   candidates: 3,     // roll out only smart's best few discards (the others are rarely right)
   rollouts:   48,    // guessed deals per candidate
   maxTurns:   40,    // a rollout this long ends as a stalemate (everyone scores their points)
   margin:     0,     // keep smart's own pick unless another candidate's rollouts beat it by this many points
+  selfSmart:  0,     // 1 = inside the rollouts, p's own discards use smart's lookahead (slower, stronger)
 };
 
 // A cheap discard rule for inside the rollouts: the card that leaves the fewest unmatched
@@ -474,7 +478,9 @@ function determinize(p, hand8) {
 // Play the round on from player p's discard of `top` (p keeps `hand7`), every player
 // using the quick policy: take the discard if it lowers your points, close as soon as
 // you can. Returns the points p ends the round with. `guess` is not changed.
-function rollout(p, hand7, top, guess) {
+// With MC.selfSmart, p's own discards (when p cannot close) instead use smart's
+// one-draw lookahead over `unseen` (the cards p could not see when the rollout began).
+function rollout(p, hand7, top, guess, unseen) {
   const hands = guess.hands.map(hand => [...hand]);
   hands[p] = [...hand7];
   const draw = [...guess.draw];
@@ -489,14 +495,29 @@ function rollout(p, hand7, top, guess) {
       hand.push(draw.pop());
     }
     const d = quickDiscard(hand);
-    [top] = hand.splice(d.index, 1);
+    const closes = d.melds >= 1 && d.points <= MAX_UNMATCHED_TO_CLOSE;
+    const index = (q === p && MC.selfSmart && !closes) ? lookaheadDiscard(hand, unseen) : d.index;
+    [top] = hand.splice(index, 1);
     if (isSingleSuitRun(hand)) return q === p ? -SMART.chinchonValue : evalSummary(hands[p]).points;
-    if (d.melds >= 1 && d.points <= MAX_UNMATCHED_TO_CLOSE) {
+    if (closes) {
       if (q !== p) return evalSummary(hands[p]).points;
       return d.points === 0 ? CLOSE_BONUS : d.points;
     }
   }
   return evalSummary(hands[p]).points;
+}
+
+// smart's discard rule for an 8-card hand inside a rollout: the card whose removal gives
+// the best average after one more draw from `unseen` (minus the cards now in the hand)
+function lookaheadDiscard(hand, unseen) {
+  const inHand = new Set(hand.map(cardKey));
+  const pool = unseen.filter(card => !inHand.has(cardKey(card)));
+  let best = null;
+  for (let i = 0; i < hand.length; i++) {
+    const cost = expectedCostAfterDraw(hand.filter((c, j) => j !== i), pool);
+    if (best === null || cost < best.cost) best = { cost, index: i };
+  }
+  return best.index;
 }
 
 // MC: smart, except that the discard is chosen among smart's best MC.candidates by
@@ -515,7 +536,7 @@ STRATEGIES.mc = {
     let best = null;
     for (const { i } of shortlist) {
       const rest = hand.filter((card, j) => j !== i);
-      let mean = guesses.reduce((sum, g) => sum + rollout(p, rest, hand[i], g), 0) / guesses.length;
+      let mean = guesses.reduce((sum, g) => sum + rollout(p, rest, hand[i], g, unseen), 0) / guesses.length;
       if (i === shortlist[0].i) mean -= MC.margin;              // smart's pick gets a head start
       if (best === null || mean < best.mean) best = { i, mean };
     }
