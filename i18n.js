@@ -39,7 +39,7 @@ const STRINGS = {
     "btn.next": "Next round",
     "btn.results": "Round results",
     "btn.hints": "Hints",
-    "btn.hintsOn": "Hints: on",
+    "btn.scores": "Scores",
     "btn.settings": "Settings",
     "btn.newGame": "New game",
     "btn.reenter": "Re-enter",
@@ -96,6 +96,10 @@ const STRINGS = {
 
     // ---- Scoreboard ----
     "board.round": "Round {n} (out above {limit} points)",
+    // the short round label in the top bar
+    "top.round": "Round {n}",
+    "top.roundOf": "Round {n} of {max}",
+    "top.tieBreak": "Round {n} · tie-break",
     "board.roundOf": "Round {n} of {max} (out above {limit} points)",
     "board.tieBreak": "Round {n}: tie-break (out above {limit} points)",
     "board.player": "Player",
@@ -214,7 +218,7 @@ const STRINGS = {
     "help.scores.li3": "The game ends with a Chinchón, when only one player is left in, or after the last round when there is a round limit (the lowest total wins; a tie means one more round).",
     "help.deck.h": "When the draw pile runs out",
     "help.deck.p": "The discard pile, all but its top card, is shuffled into a new draw pile. The reshuffles setting limits how often this can happen in a round, and the number left is shown under the pile. Once none are left, drawing from the empty pile ends the round with no closer and everyone scores their unmatched cards. Taking the top discard instead keeps the round going.",
-    "help.settings.h": "Settings (the ⚙ button)",
+    "help.settings.h": "Settings (the sliders button at the top)",
     "help.settings.li1": "Sort by: whether Sort hand orders your cards by number or by suit.",
     "help.settings.li2": "CPUs: play against 1, 2 or 3 CPU players. Starts a new game.",
     "help.settings.li3": "CPU level: Easy makes many mistakes, Medium a few, Hard none. Mixed gives one CPU of each level. Takes effect straight away.",
@@ -225,10 +229,11 @@ const STRINGS = {
     "help.settings.li8": "Rounds per game: with no limit you play until one player is left; otherwise the lowest total after the last round wins. Starts a new game.",
     "help.settings.p": "Your settings and language are remembered on this device.",
     "help.screen.h": "Hints, results and other help",
-    "help.screen.li1": "Hints: shows the melds in your hand, your unmatched points and whether you can close (and with which discard). Your melds get coloured bars and the Close button shows your best score. Leave it off for the full challenge.",
+    "help.screen.li1": "Hints (the light-bulb button at the top): shows the melds in your hand, your unmatched points and whether you can close (and with which discard). Your melds get coloured bars and the Close button shows your best score. Leave it off for the full challenge.",
     "help.screen.li2": "Round results: after each round, every hand is shown split into melds and leftover cards. Hide it to look at the table; the Round results button opens it again.",
     "help.screen.li3": "Turn cues: the player whose turn it is has a gold name, and dots show while a CPU is thinking. The card you just drew has a small gold dot.",
     "help.screen.li4": "New game, at the bottom of the Settings panel, starts over at any time. When you are out, a bar under the table asks whether you want to re-enter.",
+    "help.screen.li5": "Scores (the podium button at the top): every total, the points of the last round, and who is still in.",
     "help.keys": "Keyboard: 1-8 discard that card · D draw pile · T take the discard · C close · S sort · Enter next round · H help · Escape close this panel.",
   },
 
@@ -245,7 +250,7 @@ const STRINGS = {
     "btn.next": "Siguiente ronda",
     "btn.results": "Resultados de la ronda",
     "btn.hints": "Pistas",
-    "btn.hintsOn": "Pistas: activadas",
+    "btn.scores": "Puntuaciones",   // TODO review
     "btn.settings": "Configuración",
     "btn.newGame": "Nueva partida",
     "btn.reenter": "Volver a entrar",
@@ -302,6 +307,9 @@ const STRINGS = {
 
     // ---- Scoreboard ----
     "board.round": "Ronda {n} (eliminado al superar {limit} puntos)",
+    "top.round": "Ronda {n}",   // TODO review
+    "top.roundOf": "Ronda {n} de {max}",   // TODO review
+    "top.tieBreak": "Ronda {n} · desempate",   // TODO review
     "board.roundOf": "Ronda {n} de {max} (eliminado al superar {limit} puntos)",   // TODO review
     "board.tieBreak": "Ronda {n}: desempate (eliminado al superar {limit} puntos)",   // TODO review
     "board.player": "Jugador",
@@ -420,7 +428,7 @@ const STRINGS = {
     "help.scores.li3": "La partida termina con un Chinchón, cuando solo queda un jugador en juego o, si hay límite de rondas, tras la última ronda (gana el total más bajo; si hay empate, se juega una ronda más).",   // TODO review
     "help.deck.h": "Cuando se acaba el mazo",   // TODO review
     "help.deck.p": "Los descartes, menos la carta de arriba, se barajan para formar un mazo nuevo. La opción de barajadas limita cuántas veces puede pasar en una ronda, y las que quedan se muestran bajo el mazo. Cuando no quedan, robar del mazo vacío termina la ronda sin que nadie cierre y cada uno anota sus cartas sueltas. Coger la carta de arriba de los descartes mantiene la ronda en marcha.",   // TODO review
-    "help.settings.h": "Configuración (el botón ⚙)",   // TODO review
+    "help.settings.h": "Configuración (el botón de controles, arriba)",   // TODO review
     "help.settings.li1": "Ordenar por: si Ordenar mano ordena tus cartas por número o por palo.",   // TODO review
     "help.settings.li2": "CPU: juega contra 1, 2 o 3 jugadores de la CPU. Empieza una partida nueva.",   // TODO review
     "help.settings.li3": "Dificultad: Fácil comete muchos errores, Medio algunos y Difícil ninguno. Mixto pone una CPU de cada nivel. Se aplica al momento.",   // TODO review
@@ -431,10 +439,11 @@ const STRINGS = {
     "help.settings.li8": "Rondas por partida: sin límite se juega hasta que queda un solo jugador; si no, gana el total más bajo tras la última ronda. Empieza una partida nueva.",   // TODO review
     "help.settings.p": "Tu configuración y tu idioma se guardan en este dispositivo.",   // TODO review
     "help.screen.h": "Pistas, resultados y otras ayudas",   // TODO review
-    "help.screen.li1": "Pistas: muestra las combinaciones de tu mano, tus puntos sueltos y si puedes cerrar (y con qué descarte). Tus combinaciones llevan barras de color y el botón Cerrar muestra tu mejor puntuación. Déjalo apagado para el reto completo.",   // TODO review
+    "help.screen.li1": "Pistas (el botón de la bombilla, arriba): muestra las combinaciones de tu mano, tus puntos sueltos y si puedes cerrar (y con qué descarte). Tus combinaciones llevan barras de color y el botón Cerrar muestra tu mejor puntuación. Déjalo apagado para el reto completo.",   // TODO review
     "help.screen.li2": "Resultados de la ronda: tras cada ronda se muestra cada mano separada en combinaciones y cartas sueltas. Ocúltalos para ver la mesa; el botón Resultados de la ronda los vuelve a abrir.",   // TODO review
     "help.screen.li3": "Avisos de turno: el jugador al que le toca tiene el nombre en dorado, y unos puntos aparecen mientras una CPU piensa. La carta que acabas de robar lleva un puntito dorado.",   // TODO review
     "help.screen.li4": "Nueva partida, al final del panel de Configuración, empieza de nuevo en cualquier momento. Cuando estás eliminado, una barra bajo la mesa te pregunta si quieres volver a entrar.",   // TODO review
+    "help.screen.li5": "Puntuaciones (el botón del podio, arriba): todos los totales, los puntos de la última ronda y quién sigue en juego.",   // TODO review
     "help.keys": "Teclado: 1-8 descartar esa carta · D mazo · T coger descarte · C cerrar · S ordenar · Intro siguiente ronda · H ayuda · Esc cerrar este panel.",   // TODO review
   },
 };

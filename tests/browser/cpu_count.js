@@ -13,8 +13,11 @@ const { GAME_URL, OUT, makeChecker } = require('./helpers');
     await page.click('#settings-btn');            // settings live in a collapsible panel
     await page.selectOption('#cpu-speed', 'fast');
     for (const cpus of [1, 2, 3]) {
+      if (!(await page.locator('#settings-sheet').isVisible())) await page.click('#settings-btn');
       await page.selectOption('#cpu-count', String(cpus));   // asks first once a game is under way
       if (await page.locator('#deck-confirm').isVisible()) await page.click('#deck-yes');
+      await page.keyboard.press('Escape');                   // close the settings sheet
+      check(!(await page.locator('#settings-sheet').isVisible()), `${label} Escape closes the settings sheet`);
       // let the CPUs play until it is your turn (or the round ends)
       await page.waitForFunction(() => state.currentPlayer === 0 || state.phase === 'roundOver', null, { timeout: 15000 });
       const info = await page.evaluate(() => ({

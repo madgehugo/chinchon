@@ -25,6 +25,7 @@ const closableHand = (page) => page.evaluate(() => {
   await noCpuClose(page);
   await page.click('#settings-btn');            // settings live in a collapsible panel
   await page.selectOption('#cpu-speed', 'fast');
+  await page.keyboard.press('Escape');          // close the settings sheet, which covers the table
 
   const before = await handNames(page);
   const a = await center(page, 0), b = await center(page, 5);
@@ -75,6 +76,7 @@ const closableHand = (page) => page.evaluate(() => {
   await noCpuClose(page);
   await page.click('#settings-btn');
   await page.selectOption('#cpu-speed', 'fast');
+  await page.keyboard.press('Escape');          // close the settings sheet, which covers the table
   check(!(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)), 'PHONE no horizontal overflow');
   await page.screenshot({ path: OUT + '/phone_table.png', fullPage: true });
 

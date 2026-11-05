@@ -26,13 +26,13 @@ const PIP_LAYOUTS = {
   9: [[22, 12], [78, 12], [22, 37], [78, 37], [50, 50], [22, 63], [78, 63], [22, 88], [78, 88]],
 };
 
-// Suit symbols, drawn as inline SVG (vector graphics written as text, so they stay sharp at any
-// size and need no image files). Each <symbol> is drawn once on a 24x24 grid in the hidden sprite
-// below; every use of a suit is then a tiny <svg><use href="#sym-oros"/></svg> pointing at it
-// (see suitIcon). `fill="currentColor"` means "use the text colour of the surroundings", so the
+// Suit symbols and button icons, drawn as inline SVG (vector graphics written as text, so they
+// stay sharp at any size and need no image files). Each <symbol> is drawn once on a 24x24 grid in
+// the hidden sprite below; every use is then a tiny <svg><use href="#sym-oros"/></svg> pointing
+// at it (see suitIcon; index.html uses the #ico-... button icons the same way). `fill="currentColor"` means "use the text colour of the surroundings", so the
 // CSS colours .suit-oros, .suit-copas, ... colour the symbols too. `--cut` is the card-paper
 // colour, used for the details cut out of each shape (coin ring, cup bowl, blade groove, knots).
-const SUIT_SPRITE = `
+const ICON_SPRITE = `
 <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <symbol id="sym-oros" viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="11" fill="currentColor"/>
@@ -81,6 +81,25 @@ const SUIT_SPRITE = `
     <circle cx="7" cy="15.5" r="1" fill="var(--cut,#fffaf0)"/>
     <circle cx="17" cy="15.5" r="1" fill="var(--cut,#fffaf0)"/>
   </symbol>
+  <!-- button icons: lines rather than filled shapes (stroke = the line colour) -->
+  <symbol id="ico-scores" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+    <path d="M3 20h18M5 20v-6h4v6M10 20V8h4v12M15 20v-9h4v9"/>
+  </symbol>
+  <symbol id="ico-hints" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.8 10.6c.6.5.8 1.3.8 2.4h6c0-1.1.2-1.9.8-2.4A6 6 0 0 0 12 3z"/>
+  </symbol>
+  <symbol id="ico-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6"/>
+    <circle cx="12" cy="17" r=".6" fill="currentColor"/>
+  </symbol>
+  <symbol id="ico-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+    <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/>
+    <circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>
+  </symbol>
+  <symbol id="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+    <path d="M6 6l12 12M18 6L6 18"/>
+  </symbol>
 </svg>`;
 
 // HTML for one suit symbol. Its size is 1em, so it scales with the font-size of whatever holds it.
@@ -94,7 +113,7 @@ const decorIcon = name =>
   `<svg class="suit-icon" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
 // Put the sprite into the page once, at load (it is invisible; it only holds the shapes).
-document.body.insertAdjacentHTML("afterbegin", SUIT_SPRITE);
+document.body.insertAdjacentHTML("afterbegin", ICON_SPRITE);
 
 /* ---------------------------------------------------------
    RENDERING: turn `state` into HTML elements.
@@ -486,15 +505,14 @@ function applyStaticText() {
   }
 }
 
-// Hints / Settings / Help buttons and their panels follow state
+// The top bar's buttons and the panels they open follow state. The Hints button is a
+// toggle: aria-pressed tells screen readers (and style.css) whether it is on.
 function renderToggles() {
-  document.getElementById("settings").hidden = !state.showSettings;
-  const hints = document.getElementById("hints-btn");
-  hints.setAttribute("aria-pressed", String(state.showHints));
-  hints.textContent = t(state.showHints ? "btn.hintsOn" : "btn.hints");
-  const settings = document.getElementById("settings-btn");
-  settings.setAttribute("aria-expanded", String(state.showSettings));
-  settings.classList.toggle("active", state.showSettings);
+  document.getElementById("hints-btn").setAttribute("aria-pressed", String(state.showHints));
+  document.getElementById("settings-sheet").hidden = !state.showSettings;
+  document.getElementById("settings-btn").setAttribute("aria-expanded", String(state.showSettings));
+  document.getElementById("scores").hidden = !state.showScores;
+  document.getElementById("scores-btn").setAttribute("aria-expanded", String(state.showScores));
   // The tip is in the settings panel, so it shows up right where you picked 3 CPUs
   document.getElementById("deck-tip").hidden = !(state.numPlayers === MAX_PLAYERS && DECK_SIZE === 40);
   document.getElementById("help").hidden = !state.showHelp;
@@ -511,11 +529,14 @@ function renderScoreboard() {
            `<td class="col-status">${t(state.inGame[p] ? "board.in" : "board.out")}</td></tr>`;
   }).join("");
 
-  // "Round 3", "Round 3 of 10", or "Round 11: tie-break" once past the round limit
+  // "Round 3", "Round 3 of 10", or "Round 11: tie-break" once past the round limit:
+  // in full above the table, and the short form in the top bar
   const vars = { n: state.round, max: state.roundLimit, limit: SCORE_LIMIT };
-  const heading = state.roundLimit === null      ? t("board.round", vars)
-                : state.round > state.roundLimit ? t("board.tieBreak", vars)
-                :                                  t("board.roundOf", vars);
+  const kind = state.roundLimit === null      ? "round"
+             : state.round > state.roundLimit ? "tieBreak"
+             :                                  "roundOf";
+  const heading = t(`board.${kind}`, vars);
+  document.getElementById("round-chip").textContent = t(`top.${kind}`, vars);
   document.getElementById("scoreboard").innerHTML =
     `<b>${heading}</b>` +
     `<table><tr><th>${t("board.player")}</th><th>${t("board.total")}</th>` +
@@ -763,23 +784,37 @@ document.getElementById("hints-btn").addEventListener("click", () => {
   state.showHints = !state.showHints;
   render();
 });
-document.getElementById("settings-btn").addEventListener("click", () => {
-  state.showSettings = !state.showSettings;
-  render();
-});
 
-// Help panel: the ? button (or H) opens it; its Close button, Escape, or a click on the
-// dark background around the panel closes it
+// The panels opened from the top bar: Help (also the H key), Settings and Scores. Each
+// closes with its own button, Escape (see the keyboard handler), or a click on the dark
+// background around it.
 function setHelpOpen(open) {
   state.showHelp = open;
   render();
 }
-document.getElementById("help-btn").addEventListener("click", () => setHelpOpen(!state.showHelp));
-document.getElementById("help-close").addEventListener("click", () => setHelpOpen(false));
-document.getElementById("help").addEventListener("click", (e) => {
-  // e.target is the element actually clicked: the overlay itself only outside the panel
-  if (e.target === e.currentTarget) setHelpOpen(false);
-});
+// Closing Settings with a "start a new game?" question still open counts as "no"
+// (closeConfirm puts the dropdowns back to what the game is using)
+function setSettingsOpen(open) {
+  if (!open && pendingChange) closeConfirm(false);
+  state.showSettings = open;
+  render();
+}
+function setScoresOpen(open) {
+  state.showScores = open;
+  render();
+}
+// Wire one panel: its top-bar button toggles it, its close button and its background close it
+function wirePanel(buttonId, closeId, overlayId, setOpen, isOpen) {
+  document.getElementById(buttonId).addEventListener("click", () => setOpen(!isOpen()));
+  document.getElementById(closeId).addEventListener("click", () => setOpen(false));
+  document.getElementById(overlayId).addEventListener("click", (e) => {
+    // e.target is the element actually clicked: the overlay itself only outside the panel
+    if (e.target === e.currentTarget) setOpen(false);
+  });
+}
+wirePanel("help-btn", "help-close", "help", setHelpOpen, () => state.showHelp);
+wirePanel("settings-btn", "settings-close", "settings-sheet", setSettingsOpen, () => state.showSettings);
+wirePanel("scores-btn", "scores-close", "scores", setScoresOpen, () => state.showScores);
 
 // Language: setLanguage (i18n.js) remembers the choice and calls render()
 document.getElementById("lang").addEventListener("change", (e) => setLanguage(e.target.value));
@@ -940,20 +975,25 @@ document.getElementById("res-newgame").addEventListener("click", () => newGame()
 // Keyboard play (handy on a desktop). The keys call the same functions as the clicks:
 //   1-8 discard (or, in closing mode, close with) that card, counted from the left
 //   D draw pile, T take the top discard, C close (or cancel closing), S sort,
-//   Enter next round, H help, Escape close the help or hide the results panel.
-// While the help is open, only H and Escape work (no moves behind the panel).
+//   Enter next round, H help, Escape close the open panel or hide the results panel.
+// While a panel (help, settings, scores) is open, only H and Escape work: no moves behind it.
 // Keys are ignored while a dropdown has the focus or Ctrl/Cmd/Alt is held (browser shortcuts).
 // On a focused button (the one you clicked last) Enter and Space press that button, as usual.
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && state.showHelp) { setHelpOpen(false); return; }
-  if (e.key === "Escape" && state.showResults) { setResultsOpen(false); return; }
+  if (e.key === "Escape") {
+    if (state.showHelp) setHelpOpen(false);             // the help opens on top of the others
+    else if (state.showSettings) setSettingsOpen(false);
+    else if (state.showScores) setScoresOpen(false);
+    else if (state.showResults) setResultsOpen(false);
+    return;
+  }
   if (e.ctrlKey || e.metaKey || e.altKey || dragFrom !== null) return;
   if (["SELECT", "INPUT"].includes(e.target.tagName)) return;
 
   const key = e.key.toLowerCase();
   if (e.target.tagName === "BUTTON" && (key === "enter" || key === " ")) return;
   if (key === "h") { setHelpOpen(!state.showHelp); e.preventDefault(); return; }
-  if (state.showHelp) return;
+  if (state.showHelp || state.showSettings || state.showScores) return;
   if (key >= "1" && key <= "9" && key.length === 1) {
     const index = Number(key) - 1;
     const el = document.querySelectorAll("#hand-0 .card")[index];

@@ -55,11 +55,16 @@ const { GAME_URL, OUT, makeChecker, cpu1Closes } = require('./helpers');
 
   // Settings panel and hints in Spanish at phone width
   await page.click('#res-hide');
-  await page.click('#settings-btn');
   await page.click('#hints-btn');
-  check(!(await overflow()), 'no horizontal overflow (settings + hints, Spanish, 390px)');
   check((await text('#analysis')).includes('Análisis de tu mano'), 'hints panel in Spanish');
+  check(!(await overflow()), 'no horizontal overflow (hints, Spanish, 390px)');
+  await page.screenshot({ path: path.join(OUT, 'lang-hints-es-390.png'), fullPage: true });
+  await page.click('#settings-btn');
+  check(!(await overflow()), 'no horizontal overflow (settings sheet, Spanish, 390px)');
   await page.screenshot({ path: path.join(OUT, 'lang-settings-es-390.png') });
+  // the backdrop above the sheet closes it
+  await page.mouse.click(195, 20);
+  check(!(await page.locator('#settings-sheet').isVisible()), 'a tap on the background closes the settings sheet');
   await ctx.close();
 
   // An unsupported browser language falls back to English

@@ -21,7 +21,27 @@
 </head>
 
 <body>
-<h1 data-i18n="app.title">Chinchón</h1>
+<!-- Top bar: the title with the round under it, and the buttons that open panels.
+     The icons are SVG symbols that ui.js puts into the page at load (ICON_SPRITE);
+     <use href="#ico-..."> draws one. Icon buttons have no visible text, so their
+     name comes from data-i18n-aria (read out by screen readers) and data-i18n-title
+     (the tooltip). -->
+<header id="topbar">
+  <div class="brand">
+    <h1 data-i18n="app.title">Chinchón</h1>
+    <span id="round-chip"></span>
+  </div>
+  <div class="tools">
+    <button id="scores-btn" class="secondary icon" aria-expanded="false" aria-controls="scores" data-i18n-title="btn.scores" data-i18n-aria="btn.scores" title="Scores" aria-label="Scores"><svg class="ui-icon" aria-hidden="true"><use href="#ico-scores"/></svg></button>
+    <button id="hints-btn" class="secondary icon" aria-pressed="false" data-i18n-title="btn.hints" data-i18n-aria="btn.hints" title="Hints" aria-label="Hints"><svg class="ui-icon" aria-hidden="true"><use href="#ico-hints"/></svg></button>
+    <button id="help-btn" class="secondary icon" aria-expanded="false" aria-controls="help" data-i18n-title="btn.help" data-i18n-aria="btn.help" title="Help" aria-label="Help"><svg class="ui-icon" aria-hidden="true"><use href="#ico-help"/></svg></button>
+    <button id="settings-btn" class="secondary icon" aria-expanded="false" aria-controls="settings-sheet" data-i18n-title="btn.settings" data-i18n-aria="btn.settings" title="Settings" aria-label="Settings"><svg class="ui-icon" aria-hidden="true"><use href="#ico-settings"/></svg></button>
+    <select id="lang" data-i18n-aria="lang.label" data-i18n-title="lang.label" aria-label="Language" title="Language">
+      <option value="en">EN</option>
+      <option value="es">ES</option>
+    </select>
+  </div>
+</header>
 
 <!-- =========================================================
      HTML: the skeleton. It contains EMPTY containers; JavaScript
@@ -69,103 +89,13 @@
   </div>
 </div>
 
-<!-- Main actions, right under your hand. Hints and Settings are toggles. -->
+<!-- The play buttons, right under your hand. renderControls (ui.js) shows Close round
+     during play and Next round / Round results once the round is over. -->
 <div id="actions">
-  <button id="sort-btn" data-i18n="btn.sort">Sort hand</button>
+  <button id="sort-btn" class="secondary" data-i18n="btn.sort">Sort hand</button>
   <button id="close-btn" data-i18n="btn.close" disabled>Close round</button>
   <button id="next-btn" data-i18n="btn.next" disabled>Next round</button>
-  <button id="results-btn" data-i18n="btn.results" disabled>Round results</button>
-  <span class="spacer"></span>
-  <button id="hints-btn" class="secondary" data-i18n="btn.hints" aria-pressed="false">Hints</button>
-  <button id="help-btn" class="secondary icon" aria-expanded="false" aria-controls="help" data-i18n-title="btn.help" data-i18n-aria="btn.help" title="Help" aria-label="Help">?</button>
-  <button id="settings-btn" class="secondary" aria-expanded="false" aria-controls="settings" data-i18n-title="btn.settings" title="Settings"><span aria-hidden="true">&#9881;</span> <span data-i18n="btn.settings">Settings</span></button>
-  <select id="lang" data-i18n-aria="lang.label" data-i18n-title="lang.label" aria-label="Language" title="Language">
-    <option value="en">English</option>
-    <option value="es">Español</option>
-  </select>
-</div>
-
-<!-- Settings panel: hidden until the Settings button is pressed.
-     The option marked `selected` in each dropdown is the default on a first visit
-     (loadSettings in ui.js falls back to it when nothing is saved). -->
-<div id="settings" hidden>
-  <label class="opt"><span data-i18n="set.sortBy">Sort by</span>
-    <select id="sort-mode">
-      <option value="number" data-i18n="set.sort.number">Number</option>
-      <option value="suit" data-i18n="set.sort.suit">Suit</option>
-    </select>
-  </label>
-  <label class="opt"><span data-i18n="set.cpus">CPUs</span>
-    <select id="cpu-count">
-      <option value="1" selected>1</option>
-      <option value="2">2</option>
-      <option value="3">3</option>
-    </select>
-  </label>
-  <label class="opt"><span data-i18n="set.level">CPU level</span>
-    <select id="cpu-mode">
-      <option value="hard" data-i18n="level.hard">Hard</option>
-      <option value="medium" data-i18n="level.medium">Medium</option>
-      <option value="easy" data-i18n="level.easy">Easy</option>
-      <option value="mixed" data-i18n="level.mixed">Mixed</option>
-    </select>
-  </label>
-  <label class="opt"><span data-i18n="set.speed">CPU speed</span>
-    <select id="cpu-speed">
-      <option value="slow" data-i18n="set.speed.slow">Slow</option>
-      <option value="normal" data-i18n="set.speed.normal" selected>Normal</option>
-      <option value="fast" data-i18n="set.speed.fast">Fast</option>
-    </select>
-  </label>
-  <label class="opt"><span data-i18n="set.deck">Deck</span>
-    <select id="deck-size">
-      <option value="40" data-i18n="set.deck.40">40 cards</option>
-      <option value="48" data-i18n="set.deck.48">48 cards (with 8s and 9s)</option>
-    </select>
-  </label>
-  <!-- With 3 CPUs on the 40-card deck the draw pile runs out often: suggest the 48-card deck.
-       Shown by renderToggles in ui.js; the button switches the deck like the dropdown does. -->
-  <p id="deck-tip" hidden><span data-i18n="set.deckTip">With 4 players the 40-card deck runs out quickly. The 48-card deck means fewer reshuffles.</span>
-    <button id="deck-tip-btn" class="secondary" data-i18n="set.deckTipBtn">Use 48 cards</button></p>
-  <!-- "none" stands for no limit (null in state.maxReshuffles / state.maxReentries / state.roundLimit) -->
-  <label class="opt"><span data-i18n="set.reshuffles">Reshuffles per round</span>
-    <select id="reshuffles">
-      <option value="0">0</option>
-      <option value="1">1</option>
-      <option value="2" selected>2</option>
-      <option value="3">3</option>
-      <option value="5">5</option>
-      <option value="none" data-i18n="set.noLimit">No limit</option>
-    </select>
-  </label>
-  <label class="opt"><span data-i18n="set.reentries">Re-entries per player</span>
-    <select id="reentries">
-      <option value="0">0</option>
-      <option value="1" selected>1</option>
-      <option value="2">2</option>
-      <option value="none" data-i18n="set.noLimit">No limit</option>
-    </select>
-  </label>
-  <label class="opt"><span data-i18n="set.rounds">Rounds per game</span>
-    <select id="round-limit">
-      <option value="none" data-i18n="set.noLimit" selected>No limit</option>
-      <option value="5">5</option>
-      <option value="10">10</option>
-      <option value="15">15</option>
-      <option value="20">20</option>
-    </select>
-  </label>
-  <button id="new-game" data-i18n="btn.newGame">New game</button>
-  <!-- Keyboard help: style.css hides it on touch-only devices -->
-  <p class="keys-help" data-i18n="set.keys">Keys: 1-8 discard · D draw pile · T take discard · C close · S sort · Enter next round · H help</p>
-</div>
-
-<!-- Asks before a deck change throws away a game in progress (browser pop-up
-     dialogs are blocked in some places, so this is built into the page) -->
-<div id="deck-confirm" hidden>
-  <span id="deck-confirm-text"></span>
-  <button id="deck-yes" data-i18n="confirm.yes">Start new game</button>
-  <button id="deck-no" class="secondary" data-i18n="confirm.no">Keep playing</button>
+  <button id="results-btn" class="secondary" data-i18n="btn.results" disabled>Round results</button>
 </div>
 
 <!-- Only visible while you are eliminated and must choose (see renderControls) -->
@@ -175,8 +105,112 @@
   <button id="reenter-no" data-i18n="btn.stayOut">Stay out</button>
 </div>
 
-<div id="scoreboard"></div>
+<!-- Hints: how the evaluator sees your hand (see renderAnalysis) -->
 <div id="analysis"></div>
+
+<!-- Settings: a sheet that slides in from the side (from the bottom on a phone), opened by
+     the settings button in the top bar. It closes with its X button, Escape, or a click on
+     the dark background (see setSettingsOpen in ui.js).
+     The option marked `selected` in each dropdown is the default on a first visit
+     (loadSettings in ui.js falls back to it when nothing is saved). -->
+<div id="settings-sheet" class="overlay sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="sheet-head">
+      <h2 id="settings-title" data-i18n="btn.settings">Settings</h2>
+      <button id="settings-close" class="secondary icon" data-i18n-aria="btn.closeHelp" data-i18n-title="btn.closeHelp" aria-label="Close" title="Close"><svg class="ui-icon" aria-hidden="true"><use href="#ico-close"/></svg></button>
+    </div>
+    <!-- Asks before a change throws away a game in progress (browser pop-up dialogs are
+         blocked in some places, so this is built into the page). It sits in the sheet
+         because only the settings below can start a new game. -->
+    <div id="deck-confirm" hidden>
+      <span id="deck-confirm-text"></span>
+      <button id="deck-yes" data-i18n="confirm.yes">Start new game</button>
+      <button id="deck-no" class="secondary" data-i18n="confirm.no">Keep playing</button>
+    </div>
+    <div id="settings">
+      <label class="opt"><span data-i18n="set.sortBy">Sort by</span>
+        <select id="sort-mode">
+          <option value="number" data-i18n="set.sort.number">Number</option>
+          <option value="suit" data-i18n="set.sort.suit">Suit</option>
+        </select>
+      </label>
+      <label class="opt"><span data-i18n="set.cpus">CPUs</span>
+        <select id="cpu-count">
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+      </label>
+      <label class="opt"><span data-i18n="set.level">CPU level</span>
+        <select id="cpu-mode">
+          <option value="hard" data-i18n="level.hard">Hard</option>
+          <option value="medium" data-i18n="level.medium">Medium</option>
+          <option value="easy" data-i18n="level.easy">Easy</option>
+          <option value="mixed" data-i18n="level.mixed">Mixed</option>
+        </select>
+      </label>
+      <label class="opt"><span data-i18n="set.speed">CPU speed</span>
+        <select id="cpu-speed">
+          <option value="slow" data-i18n="set.speed.slow">Slow</option>
+          <option value="normal" data-i18n="set.speed.normal" selected>Normal</option>
+          <option value="fast" data-i18n="set.speed.fast">Fast</option>
+        </select>
+      </label>
+      <label class="opt"><span data-i18n="set.deck">Deck</span>
+        <select id="deck-size">
+          <option value="40" data-i18n="set.deck.40">40 cards</option>
+          <option value="48" data-i18n="set.deck.48">48 cards (with 8s and 9s)</option>
+        </select>
+      </label>
+      <!-- With 3 CPUs on the 40-card deck the draw pile runs out often: suggest the 48-card deck.
+           Shown by renderToggles in ui.js; the button switches the deck like the dropdown does. -->
+      <p id="deck-tip" hidden><span data-i18n="set.deckTip">With 4 players the 40-card deck runs out quickly. The 48-card deck means fewer reshuffles.</span>
+        <button id="deck-tip-btn" class="secondary" data-i18n="set.deckTipBtn">Use 48 cards</button></p>
+      <!-- "none" stands for no limit (null in state.maxReshuffles / state.maxReentries / state.roundLimit) -->
+      <label class="opt"><span data-i18n="set.reshuffles">Reshuffles per round</span>
+        <select id="reshuffles">
+          <option value="0">0</option>
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="3">3</option>
+          <option value="5">5</option>
+          <option value="none" data-i18n="set.noLimit">No limit</option>
+        </select>
+      </label>
+      <label class="opt"><span data-i18n="set.reentries">Re-entries per player</span>
+        <select id="reentries">
+          <option value="0">0</option>
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+          <option value="none" data-i18n="set.noLimit">No limit</option>
+        </select>
+      </label>
+      <label class="opt"><span data-i18n="set.rounds">Rounds per game</span>
+        <select id="round-limit">
+          <option value="none" data-i18n="set.noLimit" selected>No limit</option>
+          <option value="5">5</option>
+          <option value="10">10</option>
+          <option value="15">15</option>
+          <option value="20">20</option>
+        </select>
+      </label>
+      <button id="new-game" data-i18n="btn.newGame">New game</button>
+      <!-- Keyboard help: style.css hides it on touch-only devices -->
+      <p class="keys-help" data-i18n="set.keys">Keys: 1-8 discard · D draw pile · T take discard · C close · S sort · Enter next round · H help</p>
+    </div>
+  </div>
+</div>
+
+<!-- Scores: the scoreboard table, in a sheet opened by the scores button in the top bar -->
+<div id="scores" class="overlay sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="scores-title">
+    <div class="sheet-head">
+      <h2 id="scores-title" data-i18n="btn.scores">Scores</h2>
+      <button id="scores-close" class="secondary icon" data-i18n-aria="btn.closeHelp" data-i18n-title="btn.closeHelp" aria-label="Close" title="Close"><svg class="ui-icon" aria-hidden="true"><use href="#ico-close"/></svg></button>
+    </div>
+    <div id="scoreboard"></div>
+  </div>
+</div>
 
 <!-- Round results: opens automatically when a round ends (see renderResults in ui.js) -->
 <div id="results" class="overlay" hidden>
@@ -266,6 +300,7 @@
         <li data-i18n="help.screen.li2"></li>
         <li data-i18n="help.screen.li3"></li>
         <li data-i18n="help.screen.li4"></li>
+        <li data-i18n="help.screen.li5"></li>
       </ul>
       <p class="keys-help" data-i18n="help.keys"></p>
     </details>

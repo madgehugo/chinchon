@@ -34,6 +34,8 @@ const slidesDone = () => document.getAnimations().every(a => a.constructor.name 
     if (reduced) check(deal.count === 0, tag + ' deal: no card animations');
     else check(deal.count === 28 && deal.longest <= 300, tag + ' deal: 28 cards animated, each <= 300 ms (' + deal.count + ', ' + deal.longest + ' ms)');
 
+    await page.keyboard.press('Escape');          // close the settings sheet, which covers the table
+
     // 2. drawing: wait for the dealing to end, then take a card from the draw pile
     await page.waitForFunction(slidesDone, null, { timeout: 5000 });
     await page.click('#draw-pile .card');
