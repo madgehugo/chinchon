@@ -21,8 +21,7 @@
    ---------------------------------------------------------
    Keys are "area.name". {braces} are placeholders filled in by t(). A key that
    exists in two forms, key.one and key.other, is a plural (see plural() below).
-   The Spanish has been reviewed by a native speaker; mark any NEW Spanish line with
-   "// TODO review" until one has checked it. Both languages must have exactly the same keys and placeholders;
+   Both languages must have exactly the same keys and placeholders;
    runTestsI18n() in tests.js checks that on every page load.
    --------------------------------------------------------- */
 const STRINGS = {
@@ -249,12 +248,12 @@ const STRINGS = {
     "btn.sort": "Ordenar mano",
     "btn.close": "Cerrar ronda",
     "btn.closeCancel": "Cancelar cierre",
-    "btn.closeBest": "Cerrar ronda ({n} pts)",   // TODO review
-    "btn.closeChinchon": "Cerrar: ¡CHINCHÓN!",   // TODO review
+    "btn.closeBest": "Cerrar ronda ({n} pts)",
+    "btn.closeChinchon": "Cerrar: ¡CHINCHÓN!",
     "btn.next": "Siguiente ronda",
     "btn.results": "Resultados de la ronda",
     "btn.hints": "Pistas",
-    "btn.scores": "Puntuaciones",   // TODO review
+    "btn.scores": "Puntuaciones",
     "btn.settings": "Configuración",
     "btn.newGame": "Nueva partida",
     "btn.reenter": "Volver a entrar",
@@ -271,19 +270,19 @@ const STRINGS = {
     "set.speed.slow": "Lenta",
     "set.speed.normal": "Normal",
     "set.speed.fast": "Rápida",
-    "set.sound": "Sonido",   // TODO review
-    "set.sound.on": "Activado",   // TODO review
-    "set.sound.off": "Desactivado",   // TODO review
+    "set.sound": "Sonido",
+    "set.sound.on": "Activado",
+    "set.sound.off": "Desactivado",
     "set.deck": "Baraja",
     "set.deck.40": "40 cartas",
     "set.deck.48": "48 cartas (con 8 y 9)",
-    "set.reshuffles": "Barajadas por ronda",   // TODO review
-    "set.rounds": "Rondas por partida",   // TODO review
-    "set.reentries": "Reenganches por jugador",   // TODO review
-    "set.noLimit": "Sin límite",   // TODO review
-    "set.deckTip": "Con 4 jugadores la baraja de 40 cartas se agota enseguida. Con la de 48 hay que barajar menos veces.",   // TODO review
-    "set.deckTipBtn": "Usar 48 cartas",   // TODO review
-    "set.keys": "Teclado: 1-8 descartar · D mazo · T coger descarte · C cerrar · S ordenar · Intro siguiente ronda · H ayuda",   // TODO review
+    "set.reshuffles": "Barajadas por ronda",
+    "set.rounds": "Rondas por partida",
+    "set.reentries": "Reenganches por jugador",
+    "set.noLimit": "Sin límite",
+    "set.deckTip": "Con 4 jugadores la baraja de 40 cartas se agota enseguida. Con la de 48 hay que barajar menos veces.",
+    "set.deckTipBtn": "Usar 48 cartas",
+    "set.keys": "Teclado: 1-8 descartar · D mazo · T coger descarte · C cerrar · S ordenar · Intro siguiente ronda · H ayuda",
     "level.easy": "Fácil",
     "level.medium": "Medio",
     "level.hard": "Difícil",
@@ -294,8 +293,8 @@ const STRINGS = {
     "player.cpu": "CPU {n}",
     "pile.draw": "Mazo ({n})",
     "pile.discard": "Descartes ({n})",
-    "pile.reshuffles": "Barajadas restantes: {n}",   // TODO review
-    "pile.endsRound": "Robar aquí termina la ronda",   // TODO review
+    "pile.reshuffles": "Barajadas restantes: {n}",
+    "pile.endsRound": "Robar aquí termina la ronda",
     "seat.score": "{name} · {n} pts",
 
     // ---- Cards ----
@@ -314,11 +313,11 @@ const STRINGS = {
 
     // ---- Scoreboard ----
     "board.round": "Ronda {n} (eliminado al superar {limit} puntos)",
-    "top.round": "Ronda {n}",   // TODO review
-    "top.roundOf": "Ronda {n} de {max}",   // TODO review
-    "top.tieBreak": "Ronda {n} · desempate",   // TODO review
-    "board.roundOf": "Ronda {n} de {max} (eliminado al superar {limit} puntos)",   // TODO review
-    "board.tieBreak": "Ronda {n}: desempate (eliminado al superar {limit} puntos)",   // TODO review
+    "top.round": "Ronda {n}",
+    "top.roundOf": "Ronda {n} de {max}",
+    "top.tieBreak": "Ronda {n} · desempate",
+    "board.roundOf": "Ronda {n} de {max} (eliminado al superar {limit} puntos)",
+    "board.tieBreak": "Ronda {n}: desempate (eliminado al superar {limit} puntos)",
     "board.player": "Jugador",
     "board.total": "Total",
     "board.last": "Última ronda",
@@ -328,17 +327,17 @@ const STRINGS = {
 
     // ---- Status line ----
     "msg.yourTurn": "Tu turno: haz clic en el mazo o en la carta superior de los descartes para coger una carta.",
-    "msg.yourTurnDeckDone": "Tu turno: el mazo se agotó. Coge la carta superior de los descartes para seguir, o haz clic en el mazo vacío para terminar la ronda (cada uno anota su mano).",   // TODO review
+    "msg.yourTurnDeckDone": "Tu turno: el mazo se agotó. Coge la carta superior de los descartes para seguir, o haz clic en el mazo vacío para terminar la ronda (cada uno anota su mano).",
     "msg.playing": "{who} está jugando...",
     "msg.tookDiscard": "{who} tomó {card} de los descartes...",
     "msg.drewDeck": "{who} tomó una carta del mazo...",
     "msg.pickDiscard": "Haz clic en una carta de tu mano para descartarla, o presiona Cerrar ronda si puedes.",
     "msg.closing": "Cerrando: haz clic en la carta resaltada que quieres descartar. (Presiona el botón otra vez para cancelar.)",
     // .touch: the same prompts for touch screens ("tap" instead of "click"; see statusText in ui.js)
-    "msg.yourTurn.touch": "Tu turno: toca el mazo o la carta superior de los descartes para coger una carta.",   // TODO review
-    "msg.yourTurnDeckDone.touch": "Tu turno: el mazo se agotó. Coge la carta superior de los descartes para seguir, o toca el mazo vacío para terminar la ronda (cada uno anota su mano).",   // TODO review
-    "msg.pickDiscard.touch": "Toca una carta de tu mano para descartarla, o pulsa Cerrar ronda si puedes.",   // TODO review
-    "msg.closing.touch": "Cerrando: toca la carta resaltada que quieres descartar. (Pulsa el botón otra vez para cancelar.)",   // TODO review
+    "msg.yourTurn.touch": "Tu turno: toca el mazo o la carta superior de los descartes para coger una carta.",
+    "msg.yourTurnDeckDone.touch": "Tu turno: el mazo se agotó. Coge la carta superior de los descartes para seguir, o toca el mazo vacío para terminar la ronda (cada uno anota su mano).",
+    "msg.pickDiscard.touch": "Toca una carta de tu mano para descartarla, o pulsa Cerrar ronda si puedes.",
+    "msg.closing.touch": "Cerrando: toca la carta resaltada que quieres descartar. (Pulsa el botón otra vez para cancelar.)",
     "msg.mayReenter": "Puedes volver a entrar más abajo.",
     "msg.pressNext": "Presiona Siguiente ronda.",
     "msg.gameOver": "¡Fin de la partida! {winner} ({reason}).",
@@ -353,24 +352,24 @@ const STRINGS = {
     "sum.chinchonWord": "Chinchón",
     "notice.out": "Eliminados (más de {limit}): {names}.",
     "notice.reentered": "Volvieron a entrar con {score}: {names}.",
-    "notice.tieBreak": "Empate en el total más bajo ({score}): {names}. Una ronda más decide.",   // TODO review
+    "notice.tieBreak": "Empate en el total más bajo ({score}): {names}. Una ronda más decide.",
     "win.you": "Ganaste",
     "win.cpu": "{who} ganó",
     "reason.chinchon": "¡Chinchón!",
     "reason.allOut": "todos superaron el límite; gana el total más bajo",
     "reason.lastStanding": "último jugador en pie",
-    "reason.roundLimit": "total más bajo tras la última ronda",   // TODO review
+    "reason.roundLimit": "total más bajo tras la última ronda",
 
     // ---- Confirmation bars ----
     "confirm.deck": "¿Cambiar a la baraja de {n} cartas? Esto inicia una nueva partida.",
-    "confirm.rules": "¿Cambiar esta regla? Esto inicia una nueva partida.",   // TODO review
+    "confirm.rules": "¿Cambiar esta regla? Esto inicia una nueva partida.",
     "confirm.cpus.one": "¿Jugar contra {n} CPU? Esto inicia una nueva partida.",
     "confirm.cpus.other": "¿Jugar contra {n} CPU? Esto inicia una nueva partida.",
     "confirm.yes": "Iniciar nueva partida",
     "confirm.no": "Seguir jugando",
     "reentry.text.one": "Estás eliminado. ¿Volver a entrar con {n} punto?",
     "reentry.text.other": "Estás eliminado. ¿Volver a entrar con {n} puntos?",
-    "reentry.left": "(Reenganches restantes: {n}.)",   // TODO review
+    "reentry.left": "(Reenganches restantes: {n}.)",
 
     // ---- Hints panel ----
     "hint.title": "Análisis de tu mano",
@@ -379,7 +378,7 @@ const STRINGS = {
     "hint.canClose": "Puedes cerrar",
     "hint.none": "ninguna",
     "hint.no": "No",
-    "hint.notYet": "Todavía no (primero todos juegan un turno)",   // TODO review
+    "hint.notYet": "Todavía no (primero todos juegan un turno)",
     "hint.notPlaying": "No juegas esta ronda.",
     "hint.yes": "Sí (anotarías {n})",
     "hint.yesChinchon": "Sí: ¡CHINCHÓN!",
@@ -400,59 +399,59 @@ const STRINGS = {
     "res.leftover": "Sueltas: {n} pts",
     "res.noticeWin.you": "¡Ganaste la partida!",
     "res.noticeWin.cpu": "¡{who} ganó la partida!",
-    "res.gameOver": "Partida terminada",   // TODO review
-    "res.standings": "Clasificación final",   // TODO review
+    "res.gameOver": "Partida terminada",
+    "res.standings": "Clasificación final",
 
     // ---- Help panel (the ? button) ----
-    "btn.help": "Ayuda",   // TODO review
-    "btn.closeHelp": "Cerrar",   // TODO review
-    "help.title": "Cómo se juega",   // TODO review
-    "help.aim.h": "El objetivo",   // TODO review
-    "help.aim.p": "El Chinchón se juega por rondas. En cada ronda intentas combinar tus cartas y deshacerte de las que no encajan. Al terminar la ronda, cada jugador suma a su total los puntos de sus cartas sueltas. Quien supera los 100 puntos queda eliminado. Gana el último jugador que sigue en juego (o, con un límite de rondas, el total más bajo).",   // TODO review
-    "help.cards.h": "Las cartas",   // TODO review
-    "help.cards.p1": "La baraja española tiene cuatro palos: oros, copas, espadas y bastos. Cada palo tiene los números del 1 al 7 y las figuras 10 (sota), 11 (caballo) y 12 (rey): 40 cartas. La baraja de 48 cartas añade los 8 y los 9.",   // TODO review
-    "help.cards.p2": "Puntos: cada carta vale su número y las figuras valen 10. Cuantos menos puntos, mejor.",   // TODO review
-    "help.turn.h": "Tu turno",   // TODO review
-    "help.turn.li1": "Coge una carta: la de arriba del mazo (boca abajo) o la de arriba de los descartes (boca arriba). El montón del que puedes coger se ilumina.",   // TODO review
-    "help.turn.li2": "Después descarta una carta tocándola o haciendo clic en ella, o cierra la ronda (ver Cerrar).",   // TODO review
-    "help.turn.li3": "Arrastra una carta para moverla dentro de tu mano. Ordenar mano ordena las cartas por número o por palo.",   // TODO review
-    "help.turn.li4": "Cada jugador empieza con siete cartas. Las CPU juegan por turnos después de ti: fíjate en lo que cogen y en lo que descartan.",   // TODO review
-    "help.melds.h": "Combinaciones",   // TODO review
-    "help.melds.li1": "Grupo: 3 o 4 cartas del mismo número, por ejemplo tres 5.",   // TODO review
-    "help.melds.li2": "Escalera: 3 o más cartas seguidas del mismo palo, por ejemplo 4-5-6 de copas. Las escaleras siguen la baraja: con 40 cartas, 7-10-11 es escalera (no hay 8 ni 9); con 48 cartas, lo es 7-8-9. El 12 no enlaza con el 1.",   // TODO review
-    "help.melds.li3": "Cada carta solo puede formar parte de una combinación. No hay comodines.",   // TODO review
-    "help.close.h": "Cerrar",   // TODO review
-    "help.close.p": "En lugar de un descarte normal puedes cerrar la ronda, si las cartas que te quedan tienen al menos una combinación y no más de 7 puntos en cartas sueltas.",   // TODO review
-    "help.close.li1": "Pulsa Cerrar ronda y elige la carta resaltada que quieres descartar. Pulsa el botón otra vez para cancelar.",   // TODO review
-    "help.close.li2": "Nadie puede cerrar en la primera vuelta de una ronda: todos los jugadores en juego deben haber jugado un turno antes.",   // TODO review
-    "help.close.li3": "Cuando alguien cierra, cada jugador anota los puntos de sus cartas sueltas, también quien cierra.",   // TODO review
-    "help.close.li4": "Si cierras sin ninguna carta suelta, anotas -10 en esa ronda.",   // TODO review
-    "help.chinchon.h": "Chinchón",   // TODO review
-    "help.chinchon.p": "Un Chinchón son tus siete cartas en una sola escalera del mismo palo, por ejemplo del 1 al 7 de oros. Cerrar con Chinchón gana la partida entera de golpe.",   // TODO review
-    "help.scores.h": "Puntuación, eliminación y reenganche",   // TODO review
-    "help.scores.li1": "Los totales se acumulan de una ronda a otra. Quien supera los 100 puntos queda eliminado.",   // TODO review
-    "help.scores.li2": "Un jugador eliminado puede volver a entrar con el total más alto de los jugadores que siguen en juego. La opción de reenganches limita cuántas veces.",   // TODO review
-    "help.scores.li3": "La partida termina con un Chinchón, cuando solo queda un jugador en juego o, si hay límite de rondas, tras la última ronda (gana el total más bajo; si hay empate, se juega una ronda más).",   // TODO review
-    "help.deck.h": "Cuando se acaba el mazo",   // TODO review
-    "help.deck.p": "Los descartes, menos la carta de arriba, se barajan para formar un mazo nuevo. La opción de barajadas limita cuántas veces puede pasar en una ronda, y las que quedan se muestran bajo el mazo. Cuando no quedan, robar del mazo vacío termina la ronda sin que nadie cierre y cada uno anota sus cartas sueltas. Coger la carta de arriba de los descartes mantiene la ronda en marcha.",   // TODO review
-    "help.settings.h": "Configuración (el botón de controles, arriba)",   // TODO review
-    "help.settings.li1": "Ordenar por: si Ordenar mano ordena tus cartas por número o por palo.",   // TODO review
-    "help.settings.li2": "CPU: juega contra 1, 2 o 3 jugadores de la CPU. Empieza una partida nueva.",   // TODO review
-    "help.settings.li3": "Dificultad: Fácil comete muchos errores, Medio algunos y Difícil ninguno. Mixto pone una CPU de cada nivel. Se aplica al momento.",   // TODO review
-    "help.settings.li4": "Velocidad de la CPU: cuánto se detienen las CPU en cada jugada, para que puedas seguir lo que hacen.",   // TODO review
-    "help.settings.li5": "Baraja: 40 cartas, o 48 con los 8 y los 9 (útil con más jugadores). Empieza una partida nueva.",   // TODO review
-    "help.settings.li6": "Barajadas por ronda: cuántas veces se puede rehacer el mazo en una ronda. Empieza una partida nueva.",   // TODO review
-    "help.settings.li7": "Reenganches por jugador: cuántas veces puede volver cada jugador tras ser eliminado. Empieza una partida nueva.",   // TODO review
-    "help.settings.li8": "Rondas por partida: sin límite se juega hasta que queda un solo jugador; si no, gana el total más bajo tras la última ronda. Empieza una partida nueva.",   // TODO review
-    "help.settings.li9": "Sonido: breves sonidos de cartas y melodías. Empiezan tras tu primer toque o clic.",   // TODO review
-    "help.settings.p": "Tu configuración y tu idioma se guardan en este dispositivo.",   // TODO review
-    "help.screen.h": "Pistas, resultados y otras ayudas",   // TODO review
-    "help.screen.li1": "Pistas (el botón de la bombilla, arriba): muestra las combinaciones de tu mano, tus puntos sueltos y si puedes cerrar (y con qué descarte). Tus combinaciones llevan barras de color y el botón Cerrar muestra tu mejor puntuación. Déjalo apagado para el reto completo.",   // TODO review
-    "help.screen.li2": "Resultados de la ronda: tras cada ronda se muestra cada mano separada en combinaciones y cartas sueltas. Ocúltalos para ver la mesa; el botón Resultados de la ronda los vuelve a abrir.",   // TODO review
-    "help.screen.li3": "Avisos de turno: el jugador al que le toca tiene el nombre en dorado, y unos puntos aparecen mientras una CPU piensa. La carta que acabas de robar lleva un puntito dorado.",   // TODO review
-    "help.screen.li4": "Nueva partida, al final del panel de Configuración, empieza de nuevo en cualquier momento. Cuando estás eliminado, una barra bajo la mesa te pregunta si quieres volver a entrar.",   // TODO review
-    "help.screen.li5": "Puntuaciones (el botón del podio, arriba): todos los totales, los puntos de la última ronda y quién sigue en juego.",   // TODO review
-    "help.keys": "Teclado: 1-8 descartar esa carta · D mazo · T coger descarte · C cerrar · S ordenar · Intro siguiente ronda · H ayuda · Esc cerrar este panel.",   // TODO review
+    "btn.help": "Ayuda",
+    "btn.closeHelp": "Cerrar",
+    "help.title": "Cómo se juega",
+    "help.aim.h": "El objetivo",
+    "help.aim.p": "El Chinchón se juega por rondas. En cada ronda intentas combinar tus cartas y deshacerte de las que no encajan. Al terminar la ronda, cada jugador suma a su total los puntos de sus cartas sueltas. Quien supera los 100 puntos queda eliminado. Gana el último jugador que sigue en juego (o, con un límite de rondas, el total más bajo).",
+    "help.cards.h": "Las cartas",
+    "help.cards.p1": "La baraja española tiene cuatro palos: oros, copas, espadas y bastos. Cada palo tiene los números del 1 al 7 y las figuras 10 (sota), 11 (caballo) y 12 (rey): 40 cartas. La baraja de 48 cartas añade los 8 y los 9.",
+    "help.cards.p2": "Puntos: cada carta vale su número y las figuras valen 10. Cuantos menos puntos, mejor.",
+    "help.turn.h": "Tu turno",
+    "help.turn.li1": "Coge una carta: la de arriba del mazo (boca abajo) o la de arriba de los descartes (boca arriba). El montón del que puedes coger se ilumina.",
+    "help.turn.li2": "Después descarta una carta tocándola o haciendo clic en ella, o cierra la ronda (ver Cerrar).",
+    "help.turn.li3": "Arrastra una carta para moverla dentro de tu mano. Ordenar mano ordena las cartas por número o por palo.",
+    "help.turn.li4": "Cada jugador empieza con siete cartas. Las CPU juegan por turnos después de ti: fíjate en lo que cogen y en lo que descartan.",
+    "help.melds.h": "Combinaciones",
+    "help.melds.li1": "Grupo: 3 o 4 cartas del mismo número, por ejemplo tres 5.",
+    "help.melds.li2": "Escalera: 3 o más cartas seguidas del mismo palo, por ejemplo 4-5-6 de copas. Las escaleras siguen la baraja: con 40 cartas, 7-10-11 es escalera (no hay 8 ni 9); con 48 cartas, lo es 7-8-9. El 12 no enlaza con el 1.",
+    "help.melds.li3": "Cada carta solo puede formar parte de una combinación. No hay comodines.",
+    "help.close.h": "Cerrar",
+    "help.close.p": "En lugar de un descarte normal puedes cerrar la ronda, si las cartas que te quedan tienen al menos una combinación y no más de 7 puntos en cartas sueltas.",
+    "help.close.li1": "Pulsa Cerrar ronda y elige la carta resaltada que quieres descartar. Pulsa el botón otra vez para cancelar.",
+    "help.close.li2": "Nadie puede cerrar en la primera vuelta de una ronda: todos los jugadores en juego deben haber jugado un turno antes.",
+    "help.close.li3": "Cuando alguien cierra, cada jugador anota los puntos de sus cartas sueltas, también quien cierra.",
+    "help.close.li4": "Si cierras sin ninguna carta suelta, anotas -10 en esa ronda.",
+    "help.chinchon.h": "Chinchón",
+    "help.chinchon.p": "Un Chinchón son tus siete cartas en una sola escalera del mismo palo, por ejemplo del 1 al 7 de oros. Cerrar con Chinchón gana la partida entera de golpe.",
+    "help.scores.h": "Puntuación, eliminación y reenganche",
+    "help.scores.li1": "Los totales se acumulan de una ronda a otra. Quien supera los 100 puntos queda eliminado.",
+    "help.scores.li2": "Un jugador eliminado puede volver a entrar con el total más alto de los jugadores que siguen en juego. La opción de reenganches limita cuántas veces.",
+    "help.scores.li3": "La partida termina con un Chinchón, cuando solo queda un jugador en juego o, si hay límite de rondas, tras la última ronda (gana el total más bajo; si hay empate, se juega una ronda más).",
+    "help.deck.h": "Cuando se acaba el mazo",
+    "help.deck.p": "Los descartes, menos la carta de arriba, se barajan para formar un mazo nuevo. La opción de barajadas limita cuántas veces puede pasar en una ronda, y las que quedan se muestran bajo el mazo. Cuando no quedan, robar del mazo vacío termina la ronda sin que nadie cierre y cada uno anota sus cartas sueltas. Coger la carta de arriba de los descartes mantiene la ronda en marcha.",
+    "help.settings.h": "Configuración (el botón de controles, arriba)",
+    "help.settings.li1": "Ordenar por: si Ordenar mano ordena tus cartas por número o por palo.",
+    "help.settings.li2": "CPU: juega contra 1, 2 o 3 jugadores de la CPU. Empieza una partida nueva.",
+    "help.settings.li3": "Dificultad: Fácil comete muchos errores, Medio algunos y Difícil ninguno. Mixto pone una CPU de cada nivel. Se aplica al momento.",
+    "help.settings.li4": "Velocidad de la CPU: cuánto se detienen las CPU en cada jugada, para que puedas seguir lo que hacen.",
+    "help.settings.li5": "Baraja: 40 cartas, o 48 con los 8 y los 9 (útil con más jugadores). Empieza una partida nueva.",
+    "help.settings.li6": "Barajadas por ronda: cuántas veces se puede rehacer el mazo en una ronda. Empieza una partida nueva.",
+    "help.settings.li7": "Reenganches por jugador: cuántas veces puede volver cada jugador tras ser eliminado. Empieza una partida nueva.",
+    "help.settings.li8": "Rondas por partida: sin límite se juega hasta que queda un solo jugador; si no, gana el total más bajo tras la última ronda. Empieza una partida nueva.",
+    "help.settings.li9": "Sonido: breves sonidos de cartas y melodías. Empiezan tras tu primer toque o clic.",
+    "help.settings.p": "Tu configuración y tu idioma se guardan en este dispositivo.",
+    "help.screen.h": "Pistas, resultados y otras ayudas",
+    "help.screen.li1": "Pistas (el botón de la bombilla, arriba): muestra las combinaciones de tu mano, tus puntos sueltos y si puedes cerrar (y con qué descarte). Tus combinaciones llevan barras de color y el botón Cerrar muestra tu mejor puntuación. Déjalo apagado para el reto completo.",
+    "help.screen.li2": "Resultados de la ronda: tras cada ronda se muestra cada mano separada en combinaciones y cartas sueltas. Ocúltalos para ver la mesa; el botón Resultados de la ronda los vuelve a abrir.",
+    "help.screen.li3": "Avisos de turno: el jugador al que le toca tiene el nombre en dorado, y unos puntos aparecen mientras una CPU piensa. La carta que acabas de robar lleva un puntito dorado.",
+    "help.screen.li4": "Nueva partida, al final del panel de Configuración, empieza de nuevo en cualquier momento. Cuando estás eliminado, una barra bajo la mesa te pregunta si quieres volver a entrar.",
+    "help.screen.li5": "Puntuaciones (el botón del podio, arriba): todos los totales, los puntos de la última ronda y quién sigue en juego.",
+    "help.keys": "Teclado: 1-8 descartar esa carta · D mazo · T coger descarte · C cerrar · S ordenar · Intro siguiente ronda · H ayuda · Esc cerrar este panel.",
   },
 };
 

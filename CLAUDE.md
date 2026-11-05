@@ -16,8 +16,7 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 * **Text and languages (English + Spanish):** no player-visible string in JS or `state`. Look text up with
   `t("key", vars)` / `plural()` from `i18n.js`; static HTML uses `data-i18n`. `state` stores messages as
   `msg(key, data)` (never finished sentences, never player names) so `setLanguage()` + `render()` redraws everything.
-  `setStatus()` takes messages, not strings. Every new key goes into BOTH `en` and `es` (Spanish lines carry
-  `// TODO review` until a native speaker checks them). Tools and tests must not match on text: read `state`
+  `setStatus()` takes messages, not strings. Every new key goes into BOTH `en` and `es`. Tools and tests must not match on text: read `state`
   (e.g. `state.roundResult`). Console messages in `tests.js` and `tools/` stay English.
 * **Logic vs display:** `rules.js`, `ai.js`, `game.js` never touch the DOM except through `render()` and `setStatus()`
   (defined in `ui.js`; stubbed in `tools/harness.js`). Keep it that way, because the Node tools rely on it.

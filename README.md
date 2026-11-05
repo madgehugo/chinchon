@@ -106,8 +106,7 @@ the game also works from `file://`, where browsers block modules.
   Messages whose verb changes with the subject come as `key.you` and `key.cpu` (see `whoKey`); counts use
   `key.one` / `key.other` (see `plural`). Static HTML text carries `data-i18n="key"` (or `data-i18n-title`,
   `data-i18n-aria` for attributes), and `applyStaticText()` in `ui.js` fills it in.
-* **To add or change a text:** add the key to BOTH `en` and `es` in `STRINGS` (the Spanish line gets a `// TODO review`
-  comment until a native speaker has checked it). The unit test `runTestsI18n` fails if the two languages differ in keys
+* **To add or change a text:** add the key to BOTH `en` and `es` in `STRINGS`. The unit test `runTestsI18n` fails if the two languages differ in keys
   or `{placeholders}`. **To add a language:** add an entry to `STRINGS` and an `<option>` to `#lang` in `index.html`.
 * CPU turns have two timed beats (draw, then discard) so you can follow them. Decisions come from a **strategy** object in
   `ai.js` with three functions: `chooseSource`, `chooseClose`, `chooseDiscard`. A new level is an entry in `STRATEGIES`
