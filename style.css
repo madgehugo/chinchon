@@ -3,12 +3,64 @@
    ---------------------------------------------------------
    Think of CSS as a set of rules: "selector { property: value; }".
    A selector like .card targets every HTML element whose
-   class="card". Variables (--name) work like constants.
+   class="card". Variables (--name) work like constants, and
+   var(--name) reads one.
    ========================================================= */
 
+/* ---------- Design tokens ----------
+   Every colour, radius, shadow and text size is named once here and used by name
+   below, so the whole look can be retuned in one place. */
 :root {
-  --table-green: #1f6b3a;
-  --table-dark:  #144d29;
+  /* Colours: the table */
+  --felt-hi:    #2b8150;   /* felt under the lamp (centre of the table) */
+  --felt:       #1d6339;
+  --felt-lo:    #0f3b22;   /* felt at the edges */
+  --rim:        #4b2d14;   /* the wooden rim */
+  --rim-hi:     #82552c;
+  --room:       #08170e;   /* the page around the table */
+  --room-hi:    #163a26;
+
+  /* Colours: text, accents and panels */
+  --text:       #f6f2e7;
+  --text-dim:   rgba(246, 242, 231, .72);
+  --gold:       #f5c84c;   /* the accent: your turn, highlights, main buttons */
+  --gold-deep:  #d9a62a;
+  --gold-soft:  rgba(245, 200, 76, .16);
+  --gold-line:  rgba(245, 200, 76, .6);
+  --good:       #5fd88a;   /* melds, negative (good) scores */
+  --good-soft:  rgba(95, 216, 138, .22);
+  --info:       #5ec8f0;   /* the second meld colour */
+  --bad:        #d9434c;   /* eliminated, leftover cards */
+  --bad-soft:   rgba(217, 67, 76, .28);
+  --glass:      rgba(16, 38, 26, .78);         /* panels: dark, slightly see-through */
+  --glass-soft: rgba(255, 255, 255, .07);      /* boxes inside panels, chips on the felt */
+  --glass-line: rgba(255, 255, 255, .13);
+  --panel:      #13301f;                       /* solid fallback where blur is not supported */
+
+  /* Colours: the cards */
+  --paper:      #fffaf0;
+  --paper-lo:   #f1e7d3;
+  --ink:        #1e1e1e;
+  --oros:       #b8860b;
+  --copas:      #c0262d;
+  --espadas:    #1b4f9c;
+  --bastos:     #2e7d32;
+  --back:       #7a1f2b;   /* card back */
+  --back-gold:  #e8c66a;
+
+  /* Shapes and depth */
+  --r-sm: 8px;  --r-md: 12px;  --r-lg: 18px;  --r-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .18);     /* resting cards */
+  --shadow-2: 0 4px 10px rgba(0, 0, 0, .28), 0 12px 24px rgba(0, 0, 0, .22);  /* lifted cards, buttons */
+  --shadow-3: 0 18px 50px rgba(0, 0, 0, .55);                                 /* panels, the table */
+  --ease: cubic-bezier(.2, .8, .2, 1);   /* fast start, soft landing */
+
+  /* Text. No web fonts (the game makes no external requests): the first font in this
+     list that the device has is used. ui-rounded is the rounded system font on Apple devices. */
+  --font: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fs-xs: .72rem;  --fs-sm: .85rem;  --fs-md: 1rem;  --fs-lg: 1.2rem;  --fs-xl: 1.6rem;
+
+  /* Card sizes */
   --card-w: 64px;          /* card size lives in one place, so   */
   --card-h: 96px;          /* resizing the whole game is easy    */
   --card-overlap: -30px;   /* negative margin = cards fan out    */
@@ -26,18 +78,28 @@
 
 body {
   margin: 0;
+  min-height: 100vh;
   /* side gutter of at least 16px, and more where a phone has a notch */
   padding-left:  max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  font-family: system-ui, sans-serif;
-  background: #0d2b18;
-  color: #fff;
+  font-family: var(--font);
+  color: var(--text);
+  /* a soft pool of light at the top of a dark room */
+  background: radial-gradient(ellipse 120% 70% at 50% 0%, var(--room-hi), var(--room) 70%) fixed, var(--room);
   display: flex;
   flex-direction: column;
   align-items: center;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
+h1 {
+  margin: 14px 0 8px;
+  font-size: 1.5rem; font-weight: 800; letter-spacing: .5px;
+  /* gold lettering: the text is cut out of a gradient (background-clip: text) */
+  background: linear-gradient(180deg, #fff3c4, var(--gold) 55%, var(--gold-deep));
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
 
 /* ---------- The table: a CSS Grid with named areas ----------
    grid-template-areas draws the layout as a text picture.
@@ -57,10 +119,22 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
   width: min(960px, 100%);
   height: min(680px, 80vh);
   padding: 16px;
-  border-radius: 24px;
-  border: 8px solid #5a3a1a;
-  background: radial-gradient(circle at center, var(--table-green), var(--table-dark));
-  box-shadow: 0 10px 30px rgba(0,0,0,.6);
+  border-radius: 28px;
+  /* The felt, built from layers (the first one listed is on top):
+       1. a very fine noise texture, so it reads as cloth rather than flat colour. It is a
+          tiny SVG written inline as a data: URL (no image file, no download); feTurbulence
+          is the SVG filter that draws random noise.
+       2. the lamp: lighter in the middle, darker towards the edges. */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 50% 45%, var(--felt-hi), var(--felt) 45%, var(--felt-lo));
+  /* The rim: a wooden border with a highlight along its top, plus a shadow cast on the felt */
+  border: 7px solid var(--rim);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, .06),
+    inset 0 0 40px rgba(0, 0, 0, .45),
+    0 0 0 1px var(--rim-hi),
+    var(--shadow-3);
 }
 
 /* With a single CPU there are no side seats: give their columns no width */
@@ -72,26 +146,61 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
 }
 /* Which grid area each seat uses is set by renderSeats() in ui.js, because it
    depends on how many players there are. Unused seats get the hidden attribute
    (see the [hidden] rule further down). */
 
-/* The transparent border and padding are always there, so the label does not move
-   when it gets its highlight */
-.seat-name { font-size: .9rem; opacity: .85; padding: 1px 8px; border: 1px solid transparent; border-radius: 10px; }
-/* Whose turn: gold text in a soft gold pill */
-.seat.active .seat-name {
-  color: #ffd54a; font-weight: bold; opacity: 1;
-  background: rgba(255, 213, 74, .14); border-color: rgba(255, 213, 74, .55);
+/* ---------- Seat chips: avatar, name, level, score ----------
+   Built by renderTurnIndicator() in ui.js. */
+.seat-name {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 3px 4px 3px 3px;
+  font-size: var(--fs-sm);
+  background: rgba(0, 0, 0, .28);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-pill);
+  /* the glow comes and goes smoothly when the turn moves */
+  transition: background .25s, border-color .25s, box-shadow .25s;
 }
+/* A paper-coloured circle with the seat's suit symbol. --cut is the colour of the
+   details cut out of a symbol, so it must match the circle. */
+.avatar {
+  display: grid; place-items: center;   /* centres the symbol both ways */
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 15px;
+  background: var(--paper);
+  --cut: var(--paper);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .12);
+}
+.seat-text { display: flex; flex-direction: column; line-height: 1.15; }
+.seat-who { font-weight: 700; }
+.seat-level { font-size: var(--fs-xs); color: var(--text-dim); }
+.score-badge, .seat-out {
+  padding: 2px 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;   /* every digit the same width, so numbers do not jiggle */
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, .12);
+}
+.seat-out { background: var(--bad); font-size: var(--fs-xs); letter-spacing: .5px; }
+.seat.out .seat-name { opacity: .6; }
+
+/* Whose turn: a gold ring and a soft gold glow */
+.seat.active .seat-name {
+  background: var(--gold-soft);
+  border-color: var(--gold-line);
+  box-shadow: 0 0 0 3px rgba(245, 200, 76, .14), 0 0 22px rgba(245, 200, 76, .28);
+}
+.seat.active .seat-who { color: var(--gold); }
 
 /* A CPU taking its turn: three dots after its name that appear one by one.
    ::after is a "pseudo-element", an extra bit of content CSS adds after the element's
    own text. clip-path hides part of it; steps(4, jump-none) jumps through 4 fixed
    positions (0, 1, 2, 3 dots shown) instead of sliding smoothly. */
-.seat.thinking .seat-name::after {
+.seat.thinking .seat-who::after {
   content: "...";
   display: inline-block;
   animation: thinking-dots 1.2s steps(4, jump-none) infinite;
@@ -138,11 +247,11 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 #seat-0 .card.just-drawn::after {
   content: "";
   position: absolute;
-  top: -9px; left: 50%;
+  top: -10px; left: 50%;
   width: 8px; height: 8px;
   border-radius: 50%;
-  background: #ffd54a;
-  box-shadow: 0 0 4px rgba(255, 213, 74, .8);
+  background: var(--gold);
+  box-shadow: 0 0 6px rgba(245, 200, 76, .9);
   transform: translateX(-50%);
 }
 
@@ -152,12 +261,13 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
   flex-shrink: 0;
   width: var(--card-w);
   height: var(--card-h);
-  border-radius: 8px;
-  background: #fffaf0;
-  color: #222;
-  border: 1px solid #333;
-  box-shadow: 0 2px 5px rgba(0,0,0,.4);
-  font-weight: bold;
+  border-radius: calc(var(--card-w) * 0.12);
+  /* paper with a faint sheen from the top-left */
+  background: linear-gradient(160deg, #fff, var(--paper) 40%, var(--paper-lo));
+  color: var(--ink);
+  border: 1px solid rgba(0, 0, 0, .35);
+  box-shadow: var(--shadow-1);
+  font-weight: 800;
   user-select: none;
 }
 
@@ -166,8 +276,10 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 .card .corner {
   position: absolute;
   top: 4px; left: 6px;
-  font-size: calc(var(--card-w) * 0.2);
+  font-size: calc(var(--card-w) * 0.22);
   line-height: 1;
+  letter-spacing: -.5px;
+  font-variant-numeric: tabular-nums;
 }
 .card .corner.bottom {
   top: auto; left: auto;
@@ -188,7 +300,7 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 .card .pip.xs  { font-size: calc(var(--card-w) * 0.17); }  /* 7-9: smallest, so all the symbols fit */
 .card .pip.big { font-size: calc(var(--card-w) * 0.55); }  /* the 1 (ace) */
 
-/* Figure cards (10 = Sota, 11 = Caballo, 12 = Rey) */
+/* Figure cards (10 = Sota, 11 = Caballo, 12 = Rey): a framed picture with a faint tint of the suit colour */
 .card .face.figure {
   display: flex;
   flex-direction: column;
@@ -196,7 +308,9 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
   justify-content: center;
   gap: 2px;
   border: 1px solid currentColor;
-  border-radius: 6px;
+  border-radius: calc(var(--card-w) * 0.08);
+  /* color-mix blends the suit colour (currentColor) into transparency: a 7% tint */
+  background: color-mix(in srgb, currentColor 7%, transparent);
 }
 .card .fig-suit { font-size: calc(var(--card-w) * 0.17); line-height: 1; }
 .card .fig-icon { font-size: calc(var(--card-w) * 0.3);  line-height: 1; }
@@ -208,16 +322,16 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 #seat-0 .card.in-meld::before {
   content: "";
   position: absolute;
-  left: 2px; right: 2px; bottom: -8px;
+  left: 2px; right: 2px; bottom: -9px;
   height: 4px;
   border-radius: 2px;
 }
-#seat-0 .card.meld-a::before { background: #66e08a; }
-#seat-0 .card.meld-b::before { background: #5ec8f0; }
+#seat-0 .card.meld-a::before { background: var(--good); box-shadow: 0 0 6px var(--good); }
+#seat-0 .card.meld-b::before { background: var(--info); box-shadow: 0 0 6px var(--info); }
 
 /* Drag-and-drop feedback while rearranging your hand */
 .card.dragging    { opacity: .35; }
-.card.drop-target { outline: 3px dashed #ffd54a; }
+.card.drop-target { outline: 3px dashed var(--gold); outline-offset: 2px; }
 
 /* Suit symbols are inline SVGs (defined in ui.js) sized by font-size: 1em wide and tall.
    Inside a card they are blocks so the pip positioning maths stays exact; in running
@@ -228,26 +342,28 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 #analysis { --cut: #1f3a2c; }
 
 /* Suit colours (class is added by JS: "suit-oros", etc.) */
-.suit-oros    { color: #b8860b; }
-.suit-copas   { color: #c0262d; }
-.suit-espadas { color: #1b4f9c; }
-.suit-bastos  { color: #2e7d32; }
+.suit-oros    { color: var(--oros); }
+.suit-copas   { color: var(--copas); }
+.suit-espadas { color: var(--espadas); }
+.suit-bastos  { color: var(--bastos); }
 
 /* Face-down card: hide the face, show a patterned back. It is all CSS, layered like
    transparent sheets (the first background listed is on top):
-     1. a gold ring in the middle (radial-gradient: transparent, then gold, then transparent;
+     1. a soft shine across the top half
+     2. a gold ring in the middle (radial-gradient: transparent, then gold, then transparent;
         "closest-side" makes the percentages relative to half the card's width, so it scales)
-     2. and 3. thin light lines at +45 and -45 degrees, which cross into a diamond lattice
-     4. the dark red base colour
+     3. and 4. thin light lines at +45 and -45 degrees, which cross into a diamond lattice
+     5. the dark red base colour
    The inset box-shadows draw a red margin and a thin gold frame inside the white border. */
 .card.back {
   background:
-    radial-gradient(circle closest-side, transparent 0 38%, #e8c66a 40% 52%, transparent 54%),
+    linear-gradient(170deg, rgba(255, 255, 255, .14), transparent 45%),
+    radial-gradient(circle closest-side, transparent 0 38%, var(--back-gold) 40% 52%, transparent 54%),
     repeating-linear-gradient(45deg,  transparent 0 5px, rgba(255, 235, 200, .16) 5px 6px),
     repeating-linear-gradient(-45deg, transparent 0 5px, rgba(255, 235, 200, .16) 5px 6px),
-    #7a1f2b;
-  border: 2px solid #fffaf0;
-  box-shadow: inset 0 0 0 3px #7a1f2b, inset 0 0 0 4px #e8c66a, 0 2px 5px rgba(0,0,0,.4);
+    var(--back);
+  border: 2px solid var(--paper);
+  box-shadow: inset 0 0 0 3px var(--back), inset 0 0 0 4px var(--back-gold), var(--shadow-1);
 }
 .card.back > * { display: none; }
 
@@ -256,30 +372,23 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 
 /* Gentle lift: your cards rise a little under the pointer (hover) and when pressed (tap).
    Only for real hover devices, so touch screens do not keep a card lifted after a tap. */
-#seat-0 .card { transition: transform .14s ease-out, box-shadow .14s ease-out; }
+#seat-0 .card { transition: transform .16s var(--ease), box-shadow .16s var(--ease); }
 @media (hover: hover) {
-  #seat-0 .card:hover { transform: translateY(-6px); box-shadow: 0 6px 10px rgba(0,0,0,.4); }
+  #seat-0 .card:hover { transform: translateY(-6px); box-shadow: var(--shadow-2); }
   #seat-0 .card.clickable:hover { transform: translateY(-10px); }
 }
 #seat-0 .card:active { transform: translateY(-8px) scale(1.04); }
 #seat-0 .card.dragging { transform: none; }
 
-/* Reduced motion: no movement at all; hovering still shows a shadow so it is not a dead end */
-@media (prefers-reduced-motion: reduce) {
-  #seat-0 .card { transition: none; }
-  #seat-0 .card:hover, #seat-0 .card:active, #seat-0 .card.clickable:hover { transform: none; }
-  /* no pulsing outline or appearing dots either: the dots just stay shown */
-  .pile.can-pick .card, .pile.can-pick .pile-empty, .seat.thinking .seat-name::after { animation: none; }
-}
-
 /* A pile you may click right now (class toggled by JS) gets a gold outline that
    gently pulses, so it is obvious that it is your turn to draw */
 /* (.pile-empty too: an empty deck can still be clicked, to end the round) */
 .pile.can-pick .card, .pile.can-pick .pile-empty {
-  outline: 3px solid #ffd54a; cursor: pointer; animation: pick-pulse 1.6s ease-in-out infinite;
+  outline: 3px solid var(--gold); outline-offset: 2px;
+  cursor: pointer; animation: pick-pulse 1.6s ease-in-out infinite;
 }
 @keyframes pick-pulse {
-  50% { outline-color: rgba(255, 213, 74, .35); }
+  50% { outline-color: rgba(245, 200, 76, .3); }
 }
 
 /* ---------- Centre area: draw pile + discard pile ---------- */
@@ -288,105 +397,167 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 32px;
+  gap: 28px;
   flex-direction: column;
 }
-#piles { display: flex; gap: 32px; }
+/* A faint lit circle behind the piles marks the middle of the table */
+#piles {
+  display: flex; gap: 32px;
+  padding: 14px 22px;
+  border-radius: var(--r-lg);
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, .07), transparent 70%);
+}
 .pile { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.pile-label { font-size: .8rem; opacity: .85; }
+.pile-label { font-size: var(--fs-xs); color: var(--text-dim); font-variant-numeric: tabular-nums; }
 /* "Drawing here ends the round": stands out, and wraps instead of widening the pile */
-.pile-label.warn { color: #ffd54a; font-weight: bold; opacity: 1; max-width: 8em; text-align: center; }
-.pile .card { --card-w: var(--pile-w); --card-h: var(--pile-h); }
+.pile-label.warn { color: var(--gold); font-weight: 700; max-width: 8em; text-align: center; }
+.pile .card { --card-w: var(--pile-w); --card-h: var(--pile-h); box-shadow: var(--shadow-2); }
+/* The draw pile looks like a stack: two cards' edges peek out below the top one */
+#draw-slot .card.back {
+  box-shadow: inset 0 0 0 3px var(--back), inset 0 0 0 4px var(--back-gold),
+              2px 2px 0 -1px var(--paper-lo), 4px 4px 0 -2px var(--paper-lo), var(--shadow-2);
+}
 .pile-empty {
   width: var(--pile-w); height: var(--pile-h);
-  border: 2px dashed rgba(255,255,255,.4);
-  border-radius: 8px;
+  border: 2px dashed rgba(255, 255, 255, .35);
+  border-radius: calc(var(--pile-w) * 0.12);
 }
 #draw-pile .card { cursor: pointer; }
 
 #status {
   min-height: 1.4em;
-  font-size: 1rem;
-  background: rgba(0,0,0,.35);
-  padding: 6px 14px;
-  border-radius: 14px;
+  max-width: 34em;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  text-align: center;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, .35);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-md);
+  backdrop-filter: blur(4px);
 }
 
+/* ---------- Buttons ----------
+   Three kinds: the default (gold pill: the main actions), .secondary (light pill:
+   toggles and less important actions) and .icon (a round button holding a symbol). */
+button {
+  margin: 10px 0 16px;
+  min-height: 40px;
+  padding: 8px 20px;
+  font: inherit; font-weight: 700;
+  color: #2a1e00;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg, #ffe08a, var(--gold) 55%, var(--gold-deep));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), 0 2px 0 #9c7414, var(--shadow-1);
+  cursor: pointer;
+  transition: transform .12s var(--ease), box-shadow .12s var(--ease), filter .12s;
+}
+@media (hover: hover) { button:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); } }
+button:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 1px 0 #9c7414; }
+button:disabled { opacity: .38; cursor: not-allowed; box-shadow: none; filter: saturate(.6); }
+/* A clear ring for keyboard users (only shown when focus comes from the keyboard) */
+button:focus-visible, select:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--info); outline-offset: 2px;
+}
+button.secondary {
+  color: var(--text);
+  background: rgba(255, 255, 255, .1);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+}
+@media (hover: hover) { button.secondary:hover:not(:disabled) { background: rgba(255, 255, 255, .17); } }
+/* A pressed toggle (Hints on, Settings open): gold text and ring */
+button.secondary.active, button.secondary[aria-pressed="true"] {
+  color: var(--gold);
+  background: var(--gold-soft);
+  box-shadow: inset 0 0 0 1px var(--gold-line);
+}
+button.icon { min-width: 40px; padding: 8px; }
+#help-btn { font-weight: 800; }
+
+/* Dropdowns: same pill shape. appearance: none drops the browser's own look, so the
+   arrow is drawn as a small inline SVG chevron in the background. */
+select {
+  appearance: none; -webkit-appearance: none;
+  min-height: 36px;
+  padding: 6px 30px 6px 12px;
+  font: inherit; font-size: var(--fs-sm); font-weight: 600;
+  color: var(--ink);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23555' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 11px center;
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+}
+
+/* ---------- Boxes under the table ---------- */
 #analysis {
   width: min(960px, 100%);
   margin-bottom: 20px;
-  padding: 10px 14px;
-  background: rgba(255,255,255,.08);
-  border-radius: 8px;
-  font-size: .85rem;
-  line-height: 1.5;
+  padding: 12px 16px;
+  background: var(--glass-soft);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
 }
 
 /* Main buttons under your hand; .spacer pushes Hints and Settings to the right */
-#actions { width: min(960px, 100%); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+#actions { width: min(960px, 100%); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
 #actions button { margin: 0; }
 #actions .spacer { flex: 1; }
-/* The language dropdown: same look as the secondary buttons */
-#actions select { font-size: .85rem; padding: 7px 8px; border-radius: 6px; border: 0; font-family: inherit; background: rgba(255, 255, 255, .85); color: #222; }
-button.active { background: #ffd54a; }
 
 /* Settings panel */
 #settings {
   width: min(960px, 100%);
-  display: flex; gap: 12px 16px; flex-wrap: wrap; align-items: center;
-  margin: 10px 0; padding: 10px 14px;
-  background: rgba(255,255,255,.08); border-radius: 8px;
+  display: flex; gap: 12px 18px; flex-wrap: wrap; align-items: center;
+  margin: 4px 0 12px; padding: 14px 16px;
+  background: var(--glass-soft);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-md);
 }
 #settings button { margin: 0 0 0 auto; }
-.opt { font-size: .85rem; display: flex; align-items: center; gap: 6px; }
-.opt select { padding: 6px 8px; border-radius: 6px; border: 0; font: inherit; background: #fffaf0; color: #222; }
+.opt { font-size: var(--fs-sm); color: var(--text-dim); display: flex; align-items: center; gap: 8px; }
 /* The 48-card suggestion: a full-width gold note inside the settings panel */
 #deck-tip {
-  flex-basis: 100%; margin: 0; padding: 6px 10px;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
-  font-size: .85rem;
-  background: rgba(255, 213, 74, .14); border-left: 3px solid #ffd54a; border-radius: 6px;
+  flex-basis: 100%; margin: 0; padding: 8px 12px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  font-size: var(--fs-sm);
+  background: var(--gold-soft); border-left: 3px solid var(--gold); border-radius: var(--r-sm);
 }
-#settings #deck-tip button { margin: 0; padding: 4px 10px; font-size: .8rem; }
+#settings #deck-tip button { margin: 0; min-height: 32px; padding: 4px 14px; font-size: var(--fs-xs); }
 /* Keyboard help: its own line at the bottom of the panel; hidden where there is no
    mouse (hover: none is true on phones and tablets, which usually have no keyboard) */
-.keys-help { flex-basis: 100%; margin: 0; font-size: .75rem; opacity: .75; }
+.keys-help { flex-basis: 100%; margin: 0; font-size: var(--fs-xs); color: var(--text-dim); }
 @media (hover: none) { .keys-help { display: none; } }
 
 /* Closing mode: legal closing cards glow green, the rest fade out */
-.card.close-option { outline: 3px solid #66e08a; }
-.card.dimmed       { opacity: .4; }
+.card.close-option { outline: 3px solid var(--good); outline-offset: 1px; box-shadow: 0 0 14px rgba(95, 216, 138, .55); }
+.card.dimmed       { opacity: .4; filter: saturate(.4); }
 
 #reentry, #deck-confirm {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-  margin-bottom: 10px; padding: 8px 14px;
-  background: rgba(255, 213, 74, .18);
-  border-radius: 8px;
+  margin-bottom: 12px; padding: 10px 16px;
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-md);
 }
 #reentry button, #deck-confirm button { margin: 0; white-space: nowrap; }   /* long Spanish labels must not wrap inside the button */
 
 #scoreboard {
   width: min(960px, 100%);
-  margin-bottom: 10px;
-  padding: 10px 14px;
-  background: rgba(255,255,255,.08);
-  border-radius: 8px;
-  font-size: .85rem;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  background: var(--glass-soft);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
 }
-#scoreboard table { border-collapse: collapse; margin-top: 6px; width: 100%; }
-#scoreboard th, #scoreboard td { text-align: left; padding: 3px 10px 3px 0; }
+#scoreboard table { border-collapse: collapse; margin-top: 8px; width: 100%; font-variant-numeric: tabular-nums; }
+#scoreboard th { color: var(--text-dim); font-weight: 600; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .5px; }
+#scoreboard th, #scoreboard td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+#scoreboard tr:last-child td { border-bottom: 0; }
 #scoreboard tr.out td { opacity: .5; }
-
-button {
-  margin: 10px 0 16px;
-  padding: 8px 18px;
-  border: 0;
-  border-radius: 6px;
-  background: #ffd54a;
-  font-weight: bold;
-  cursor: pointer;
-}
-button:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ---------- Touch: dragging cards, and no accidental zoom ---------- */
 /* touch-action: none tells the browser "don't scroll or zoom when a finger
@@ -399,16 +570,16 @@ button, .pile, select { touch-action: manipulation; }   /* no double-tap zoom de
   position: fixed;
   z-index: 50;
   pointer-events: none;
-  opacity: .92;
-  transform: scale(1.06) rotate(-3deg);
-  box-shadow: 0 10px 20px rgba(0,0,0,.55);
+  opacity: .95;
+  transform: scale(1.08) rotate(-3deg);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, .55);
 }
 
 /* The hidden attribute must win over any display: rule (an element with
    display: flex would otherwise stay visible; !important beats every other rule) */
 [hidden] { display: none !important; }
 
-/* ---------- Round results panel ---------- */
+/* ---------- Panels over the page (round results, help) ---------- */
 .overlay {
   position: fixed;
   inset: 0;
@@ -417,62 +588,74 @@ button, .pile, select { touch-action: manipulation; }   /* no double-tap zoom de
   align-items: center;
   justify-content: center;
   padding: 10px;
-  background: rgba(0, 0, 0, .6);
+  background: rgba(3, 10, 6, .6);
+  backdrop-filter: blur(3px);        /* blurs the table behind the panel */
+  animation: fade-in .18s ease-out;
 }
+/* Frosted glass where the browser can blur what is behind; a solid panel colour otherwise
+   (@supports checks whether the browser understands a property) */
 .panel {
   width: min(760px, 100%);
   max-height: 94vh;
   overflow-y: auto;
-  padding: 14px 16px 12px;
-  background: #15301f;
-  border: 2px solid #5a3a1a;
-  border-radius: 14px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, .6);
+  padding: 16px 18px 12px;
+  background: var(--panel);
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3), inset 0 1px 0 rgba(255, 255, 255, .06);
+  animation: panel-in .22s var(--ease);
 }
-.panel h2 { margin: 0 0 10px; font-size: 1.15rem; }
+@supports (backdrop-filter: blur(1px)) {
+  .panel { background: var(--glass); backdrop-filter: blur(18px) saturate(1.2); }
+}
+@keyframes fade-in  { from { opacity: 0; } }
+@keyframes panel-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+.panel h2 { margin: 0 0 12px; font-size: var(--fs-lg); font-weight: 800; }
 
 .res-row {
-  padding: 8px 10px;
+  padding: 10px 12px;
   margin-bottom: 8px;
-  background: rgba(255, 255, 255, .07);
-  border-radius: 10px;
+  background: var(--glass-soft);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
 }
-.res-row.closer { outline: 2px solid #ffd54a; }
-.res-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
-.res-pts { margin-left: auto; font-weight: bold; font-size: 1.1rem; }
-.res-pts.good { color: #66e08a; }
-.res-total { font-size: .8rem; opacity: .75; min-width: 5.5em; text-align: right; }
+.res-row.closer { border-color: var(--gold-line); background: var(--gold-soft); }
+.res-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.res-pts { margin-left: auto; font-weight: 800; font-size: var(--fs-lg); font-variant-numeric: tabular-nums; }
+.res-pts.good { color: var(--good); }
+.res-total { font-size: var(--fs-xs); color: var(--text-dim); min-width: 5.5em; text-align: right; font-variant-numeric: tabular-nums; }
 .badge {
-  font-size: .7rem; padding: 1px 7px; border-radius: 10px;
-  background: #ffd54a; color: #222; font-weight: bold;
+  font-size: var(--fs-xs); padding: 2px 9px; border-radius: var(--r-pill);
+  background: var(--gold); color: #2a1e00; font-weight: 800;
 }
-.badge.out { background: #c0262d; color: #fff; }
+.badge.out { background: var(--bad); color: #fff; }
 
 .res-cards { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
-.res-group { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.res-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .res-cards-row { display: flex; }
 .res-cards-row .card { --card-w: 44px; --card-h: 66px; margin-left: -12px; }
 .res-cards-row .card:first-child { margin-left: 0; }
-.res-label { font-size: .7rem; opacity: .85; }
-.res-group.meld .res-cards-row    { padding: 3px 4px; border-radius: 8px; background: rgba(102, 224, 138, .25); }
-.res-group.leftover .res-cards-row { padding: 3px 4px; border-radius: 8px; background: rgba(192, 38, 45, .3); }
+.res-label { font-size: var(--fs-xs); color: var(--text-dim); }
+.res-group.meld .res-cards-row     { padding: 4px 5px; border-radius: var(--r-sm); background: var(--good-soft); }
+.res-group.leftover .res-cards-row { padding: 4px 5px; border-radius: var(--r-sm); background: var(--bad-soft); }
 
 /* Game-over banner: the winner in large gold letters, then the final standings */
 #results-banner {
   position: relative;              /* the floating suit symbols are placed inside it */
-  margin-bottom: 12px; padding: 12px 14px;
+  overflow: hidden;
+  margin-bottom: 12px; padding: 14px 16px;
   text-align: center;
-  background: rgba(255, 213, 74, .12);
-  border: 2px solid #ffd54a;
-  border-radius: 12px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(245, 200, 76, .28), rgba(245, 200, 76, .08) 70%);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-md);
 }
 /* The text sits above the floating symbols (z-index works on positioned elements only) */
 .banner-label, .banner-win, .standings { position: relative; z-index: 1; }
-.banner-label { font-size: .75rem; text-transform: uppercase; letter-spacing: 1px; opacity: .8; }
-.banner-win { font-size: 1.6rem; font-weight: bold; color: #ffd54a; margin: 2px 0 10px; }
-.standings { list-style: none; margin: 4px auto 0; padding: 0; max-width: 260px; font-size: .9rem; }
-.standings li { display: flex; justify-content: space-between; padding: 2px 6px; border-radius: 6px; }
-.standings li.winner { background: rgba(255, 213, 74, .25); font-weight: bold; }
+.banner-label { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim); }
+.banner-win { font-size: var(--fs-xl); font-weight: 800; color: var(--gold); margin: 2px 0 10px; }
+.standings { list-style: none; margin: 4px auto 0; padding: 0; max-width: 260px; font-size: .9rem; font-variant-numeric: tabular-nums; }
+.standings li { display: flex; justify-content: space-between; padding: 3px 8px; border-radius: var(--r-sm); }
+.standings li.winner { background: rgba(245, 200, 76, .25); font-weight: 800; }
 .standings li.out { opacity: .5; }
 /* The celebration: suit symbols that rise and fade out once (`forwards` keeps the
    last keyframe, so they stay invisible afterwards). Each one gets its own left
@@ -490,36 +673,46 @@ button, .pile, select { touch-action: manipulation; }   /* no double-tap zoom de
   20%  { opacity: 1; }
   100% { opacity: 0; transform: translateY(-90px) rotate(180deg); }
 }
-@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
 
-#results-notice { margin: 8px 2px; font-size: .85rem; min-height: 1.2em; }
+#results-notice { margin: 8px 2px; font-size: var(--fs-sm); min-height: 1.2em; }
 /* sticky: the buttons stay at the bottom of the panel while its contents scroll under them,
    so Next round / New game are always in reach on a small screen */
 .panel-buttons {
   display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;
   position: sticky; bottom: -12px;          /* -12px: down over the panel's bottom padding */
-  margin: 0 -16px -12px; padding: 10px 16px 12px;
-  background: #15301f;
+  margin: 0 -18px -12px; padding: 12px 18px;
+  background: var(--panel);                 /* solid, so the contents scroll out of sight under it */
   border-top: 1px solid rgba(255, 255, 255, .08);
 }
 .panel-buttons button { margin: 0; }
-button.secondary { background: rgba(255, 255, 255, .85); }
 
 /* ---------- Help panel ----------
    Each section is a <details> element: a <summary> line you click to fold it open or shut. */
-.help-panel { max-width: 640px; line-height: 1.45; font-size: .92rem; }
-.help-panel details { margin: 0 0 6px; padding-bottom: 2px; background: rgba(255, 255, 255, .06); border-radius: 10px; }
+.help-panel { max-width: 640px; line-height: 1.5; font-size: .92rem; }
+.help-panel details { margin: 0 0 6px; padding-bottom: 2px; background: var(--glass-soft); border-radius: var(--r-md); }
 .help-panel summary {
-  padding: 8px 12px;
+  padding: 10px 14px;
   cursor: pointer;
-  font-weight: bold;
-  color: #ffd54a;
+  font-weight: 700;
+  color: var(--gold);
+  border-radius: var(--r-md);
 }
-.help-panel details[open] summary { border-bottom: 1px solid rgba(255, 255, 255, .1); }
-.help-panel details p, .help-panel details ul { margin: 8px 12px; }
+.help-panel details[open] summary { border-bottom: 1px solid rgba(255, 255, 255, .1); border-radius: var(--r-md) var(--r-md) 0 0; }
+.help-panel details p, .help-panel details ul { margin: 8px 14px; }
 .help-panel ul { padding-left: 1.2em; }
 .help-panel li { margin-bottom: 4px; }
-#help-btn { min-width: 2.4em; font-weight: bold; }
+
+/* ---------- Reduced motion ----------
+   When the system asks for less motion: no movement at all. Hovering a card still
+   shows a shadow so it is not a dead end, and the "thinking" dots just stay shown. */
+@media (prefers-reduced-motion: reduce) {
+  #seat-0 .card, button, .seat-name { transition: none; }
+  #seat-0 .card:hover, #seat-0 .card:active, #seat-0 .card.clickable:hover,
+  button:hover:not(:disabled), button:active:not(:disabled) { transform: none; }
+  .pile.can-pick .card, .pile.can-pick .pile-empty, .seat.thinking .seat-who::after,
+  .overlay, .panel { animation: none; }
+  .confetti { display: none; }
+}
 
 /* ---------- Big screens: bigger cards for you and the piles ----------
    Only when the window is both wide and tall enough, so nothing gets squeezed. */
@@ -539,28 +732,34 @@ button.secondary { background: rgba(255, 255, 255, .85); }
     --pile-w: 56px;   --pile-h: 84px;
     --side-overlap: -38px;
   }
-  h1 { font-size: 1.1rem; margin: 6px 0 2px; }
+  h1 { font-size: 1.15rem; margin: 8px 0 6px; }
   #table {
     grid-template-columns: 58px 1fr 58px;
     gap: 6px;
     padding: 8px 6px;
     border-width: 5px;
-    border-radius: 16px;
+    border-radius: 18px;
     height: auto;
     min-height: 470px;
   }
   #table[data-players="2"] { grid-template-columns: 0 1fr 0; }
-  .seat-name { font-size: .68rem; text-align: center; line-height: 1.25; padding: 1px 4px; }
-  #piles { gap: 14px; }
+  .seat-name { font-size: .68rem; gap: 5px; }
+  .avatar { width: 20px; height: 20px; font-size: 12px; }
+  /* The side seats are narrow: stack the chip's parts in a column */
+  .seat.side .seat-name { flex-direction: column; gap: 2px; padding: 4px 3px; border-radius: var(--r-md); text-align: center; }
+  .seat.side .score-badge, .seat.side .seat-out { padding: 1px 6px; }
+  .seat.side .seat-out { font-size: .55rem; }
+  #piles { gap: 14px; padding: 8px 10px; }
   .pile-label { font-size: .65rem; text-align: center; }
-  #status { font-size: .8rem; padding: 5px 10px; text-align: center; }
+  #status { font-size: .78rem; padding: 6px 10px; }
   #actions { gap: 6px; }
   #settings { gap: 8px 12px; }
-  .opt { font-size: .75rem; }
-  button { padding: 7px 12px; }
+  .opt { font-size: var(--fs-xs); }
+  button { min-height: 44px; padding: 8px 14px; }   /* at least 44px tall: easy to hit with a thumb */
+  button.icon { min-width: 44px; }
   .res-cards-row .card { --card-w: 38px; --card-h: 57px; margin-left: -14px; }
   /* The status column repeats what the seat labels and the greyed-out rows already show */
   #scoreboard .col-status { display: none; }
-  .panel { padding: 10px 10px 8px; }
-  .panel-buttons { bottom: -8px; margin: 0 -10px -8px; padding: 8px 10px; }
+  .panel { padding: 12px 12px 8px; }
+  .panel-buttons { bottom: -8px; margin: 0 -12px -8px; padding: 10px 12px; }
 }

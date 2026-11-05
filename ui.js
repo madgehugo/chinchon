@@ -354,11 +354,20 @@ function renderTurnIndicator() {
     seat.classList.toggle("active", active);
     seat.classList.toggle("thinking", active && p !== 0);   // CSS adds animated dots to a CPU's name
 
-    // Seat label: name, running total, and OUT if eliminated
-    const name = p === 0 ? t("seat.you")
-               : t("seat.cpu", { name: playerName(p), level: state.cpuLevels[p] || "hard" });
-    seat.querySelector(".seat-name").textContent =
-      t("seat.score", { name, n: state.totals[p] }) + (state.inGame[p] ? "" : t("seat.out"));
+    // Seat label, drawn as a "chip": a round avatar with a suit symbol (each seat has its
+    // own suit), the name with the CPU level under it, the running total in a badge,
+    // and OUT if eliminated. The whole chip is also read out as one line by screen
+    // readers (aria-label), since the separate pieces would not make a sentence.
+    seat.classList.toggle("out", !state.inGame[p]);
+    const label = seat.querySelector(".seat-name");
+    const level = p === 0 ? "" : `<span class="seat-level">${t(`level.${state.cpuLevels[p] || "hard"}`)}</span>`;
+    label.innerHTML =
+      `<span class="avatar suit-${SUITS[p]}">${decorIcon(SUITS[p])}</span>` +
+      `<span class="seat-text"><span class="seat-who">${playerName(p)}</span>${level}</span>` +
+      `<span class="score-badge">${state.totals[p]}</span>` +
+      (state.inGame[p] ? "" : `<span class="seat-out">${t("board.out")}</span>`);
+    label.setAttribute("aria-label", t("seat.score", { name: playerName(p), n: state.totals[p] }) +
+                                     (state.inGame[p] ? "" : ` · ${t("board.out")}`));
   }
 }
 

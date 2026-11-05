@@ -78,10 +78,7 @@ const STRINGS = {
     "pile.discard": "Discard pile ({n})",
     "pile.reshuffles": "Reshuffles left: {n}",
     "pile.endsRound": "Drawing here ends the round",
-    "seat.you": "You (Player 1)",
-    "seat.cpu": "{name} ({level})",
     "seat.score": "{name} · {n} pts",
-    "seat.out": " · OUT",
 
     // ---- Cards ----
     "suit.oros": "oros",
@@ -287,10 +284,7 @@ const STRINGS = {
     "pile.discard": "Descartes ({n})",
     "pile.reshuffles": "Barajadas restantes: {n}",   // TODO review
     "pile.endsRound": "Robar aquí termina la ronda",   // TODO review
-    "seat.you": "Tú (Jugador 1)",
-    "seat.cpu": "{name} ({level})",
     "seat.score": "{name} · {n} pts",
-    "seat.out": " · ELIMINADO",
 
     // ---- Cards ----
     "suit.oros": "oros",
@@ -488,7 +482,6 @@ const FORMATTERS = {
   card:   c => `${c.value}${SUIT_SYMBOL[c.suit]}`,          // {value, suit} -> "12🪙"
   suit:   s => t(`suit.${s}`),
   fig:    v => FIGURE_VALUES.includes(v) ? ` (${t(`card.fig.${v}`)})` : "",   // 12 -> " (Rey)", 5 -> ""
-  level:  l => t(`level.${l}`),
   winner: p => t(whoKey("win", p), { who: p }),             // 0 -> "You win", 2 -> "CPU 2 wins"
   reason: key => t(key),                                    // a "reason.*" key
   // The round's points as "You: 5 | CPU 1: Chinchón": [{ p, pts, chinchon }, ...]
