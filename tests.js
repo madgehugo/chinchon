@@ -102,6 +102,7 @@ function runTestsAI() {
   let failures = 0;
   const check = (ok, label) => { if (!ok) { failures++; console.error("TEST FAILED:", label); } };
   const savedKnown = state.known, savedIn = state.inGame, savedSettings = { ...SMART };
+  const savedHands = state.hands, savedTotals = state.totals, savedTurns = state.turns;
 
   // denialRisk: opponent 1 is known to hold the 5 and 6 of oros
   state.inGame = [true, true, true, true];
@@ -120,6 +121,22 @@ function runTestsAI() {
   check(handCost(closable) === 1, "closeBonus rewards a hand that could close");
   Object.assign(SMART, savedSettings);
 
+  // cpuBestClose: no closing in the first lap, and never a close that goes over SCORE_LIMIT.
+  // The 8-card hand closes on 7 points at best (discard the 12, keep the 7).
+  const eight = [c(1,"oros"), c(2,"oros"), c(3,"oros"), c(4,"copas"), c(5,"copas"), c(6,"copas"), c(7,"bastos"), c(12,"bastos")];
+  state.hands = [eight, [], [], []];
+  state.totals = [0, 0, 0, 0];
+  state.turns = 3;                                  // 4 players, only 3 turns played: first lap
+  check(!closingAllowed() && cpuBestClose(0) === null, "nobody closes in the first lap");
+  check(closeOptions(eight).length === 0, "the human cannot close in the first lap either");
+  state.turns = 4;
+  check(closingAllowed() && cpuBestClose(0) !== null, "closing allowed once everyone has played");
+  state.totals = [SCORE_LIMIT - 7, 0, 0, 0];
+  check(cpuBestClose(0) !== null, "a close that lands exactly on the limit is fine");
+  state.totals = [SCORE_LIMIT - 6, 0, 0, 0];
+  check(cpuBestClose(0) === null, "a CPU does not close if it would go over the limit");
+
+  state.hands = savedHands; state.totals = savedTotals; state.turns = savedTurns;
   state.known = savedKnown; state.inGame = savedIn;       // leave the game state as we found it
   if (failures === 0) console.log("All CPU helper tests passed.");
 }

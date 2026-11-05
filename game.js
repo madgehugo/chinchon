@@ -321,10 +321,19 @@ function humanDiscard(cardIndex) {
   endTurn();
 }
 
+// Nobody may close during the first lap of a round: every player still in the
+// round must have played one turn first. `state.turns` counts the turns completed
+// this round, so with 4 players the starter's second turn (turns = 4) is the first
+// one where closing is allowed. Applies to the human and the CPUs alike.
+function closingAllowed() {
+  return state.turns >= activePlayers().length;
+}
+
 // Every card you could discard to close the round, with what that would score.
 // Returns [{ index, info }, ...] (empty if you cannot close this turn).
 function closeOptions(hand) {
   const options = [];
+  if (!closingAllowed()) return options;          // still the first lap
   hand.forEach((card, index) => {
     const info = getCloseInfo(hand.filter((c, j) => j !== index));
     if (info.canClose) options.push({ index, info });

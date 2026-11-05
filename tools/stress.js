@@ -60,6 +60,8 @@ for (const size of [40, 48]) {
       }
       stats.maxRoundTurns = Math.max(stats.maxRoundTurns, turns);
       if (state.roundResult.closer === null) stats.stalemates++;   // no closer = stalemate
+      // Nobody may close before everyone in the round has played once (closingAllowed)
+      else if (state.turns < state.roundDetail.filter(Boolean).length) fail("closed in the first lap", state.turns);
       if (state.maxReshuffles !== null && state.reshuffles > state.maxReshuffles) fail("too many reshuffles", state.reshuffles);
       if (state.maxReentries !== null && state.reentries.some(r => r > state.maxReentries)) fail("too many re-entries", state.reentries);
       if (state.roundLimit !== null && state.round >= state.roundLimit && !state.gameOver) stats.tieBreaks++;   // a tie: one more round

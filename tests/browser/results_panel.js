@@ -21,6 +21,7 @@ const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
     state.hands[1][5] = c(2,'espadas');   // 1-2-3 oros run + 4c 2b 2e 5e 6b ... pick closable below
     state.hands[1] = [c(1,'oros'),c(2,'oros'),c(3,'oros'),c(4,'copas'),c(5,'copas'),c(6,'copas'),c(2,'bastos'),c(12,'espadas')];
     state.currentPlayer = 1; state.phase = 'discard'; render();
+    state.turns = 8;   // past the first lap, when closing is allowed
     closeRound(1, closeOptions(state.hands[1])[0].index);
   });
   console.log('A eliminated: awaitingReentry =', await page.evaluate(() => state.awaitingReentry),
@@ -42,6 +43,7 @@ const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
     const c = (value, suit) => ({ value, suit });
     state.hands[2] = [1,2,3,4,5,6,7].map(v => c(v, 'copas')).concat([c(12,'oros')]);
     state.currentPlayer = 2; state.phase = 'discard'; render();
+    state.turns = 8;   // past the first lap, when closing is allowed
     closeRound(2, closeOptions(state.hands[2])[0].index);
   });
   console.log('B game over =', await page.evaluate(() => state.gameOver), '| title:', await page.textContent('#results-title'));
@@ -57,6 +59,7 @@ const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
     const c = (value, suit) => ({ value, suit });
     state.hands[1] = [c(1,'oros'),c(2,'oros'),c(3,'oros'),c(4,'copas'),c(5,'copas'),c(6,'copas'),c(2,'bastos'),c(12,'espadas')];
     state.currentPlayer = 1; state.phase = 'discard'; render();
+    state.turns = 8;   // past the first lap, when closing is allowed
     closeRound(1, closeOptions(state.hands[1])[0].index);
   });
   await page.keyboard.press('Escape');

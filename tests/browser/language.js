@@ -46,6 +46,7 @@ const OUT = process.argv[2] || os.tmpdir();      // screenshots go here
     state.totals = [99, 10, 20, 30];
     state.hands[1] = [c(1,'oros'),c(2,'oros'),c(3,'oros'),c(4,'copas'),c(5,'copas'),c(6,'copas'),c(2,'bastos'),c(12,'espadas')];
     state.currentPlayer = 1; state.phase = 'discard'; render();
+    state.turns = 8;   // past the first lap, when closing is allowed
     closeRound(1, closeOptions(state.hands[1])[0].index);
   });
   check((await text('#results-title')) === 'Round 1: CPU 1 closed the round', 'results title (English)');

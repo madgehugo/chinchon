@@ -28,6 +28,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 * **Groups:** 3 or 4 cards of the same number. **Runs:** 3 or more consecutive cards of one suit, in deck order
   (7-10-11 is a run in the 40-card deck; 7-8-9-10 in the 48-card deck). No wraparound. A card belongs to one meld only.
 * **Closing:** you need at least one meld and at most 7 unmatched points. Closing with no unmatched cards scores **-10**.
+  Nobody may close in the first lap of a round: every player still in must have played one turn first.
 * **Points:** 1-9 count face value, the figures (10, 11, 12) count 10. Lower is better; everyone else adds their
   unmatched points to their total.
 * **Chinchón:** all seven cards form one run in a single suit. It ends the whole game with a win for that player
@@ -98,7 +99,8 @@ the game also works from `file://`, where browsers block modules.
 | Hard | `smart`, no mistakes. |
 | Mixed | One CPU of each level: CPU 1 easy, CPU 2 medium, CPU 3 hard (with fewer CPUs, the first ones). |
 
-A mistake is drawing from the other pile or discarding a random card; CPUs never miss a legal close.
+A mistake is drawing from the other pile or discarding a random card; CPUs never miss a legal close, except that no
+CPU closes with a score that would put its total over 100 (even when it could re-enter).
 Benchmark (`node tools/bench.js 3200 <A> <B>`, 2 CPUs of each level, seats and starter rotated; the standard errors below were measured before duplicate dealing was added and were about 0.2, now roughly a third smaller):
 
 | A vs B | A avg points | B avg points | A - B |

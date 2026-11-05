@@ -151,6 +151,7 @@ const STRINGS = {
     "hint.canClose": "Can close",
     "hint.none": "none",
     "hint.no": "No",
+    "hint.notYet": "Not yet (everyone plays one turn first)",
     "hint.notPlaying": "You are not playing this round.",
     "hint.yes": "Yes (would score {n})",
     "hint.yesChinchon": "Yes: CHINCHÓN!",
@@ -298,6 +299,7 @@ const STRINGS = {
     "hint.canClose": "Puedes cerrar",
     "hint.none": "ninguna",
     "hint.no": "No",
+    "hint.notYet": "Todavía no (primero todos juegan un turno)",   // TODO review
     "hint.notPlaying": "No juegas esta ronda.",
     "hint.yes": "Sí (anotarías {n})",
     "hint.yesChinchon": "Sí: ¡CHINCHÓN!",

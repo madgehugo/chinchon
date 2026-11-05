@@ -492,7 +492,7 @@ function renderControls() {
   const myTurn  = state.currentPlayer === 0;
   const drawing = myTurn && state.phase === "draw";
   const closeAllowed = myTurn && state.phase === "discard" &&
-                       findBestClose(state.hands[0]) !== null;
+                       closeOptions(state.hands[0]).length > 0;
 
   document.getElementById("close-btn").disabled = !closeAllowed;
   document.getElementById("close-btn").textContent =
@@ -534,7 +534,9 @@ function renderAnalysis() {
     : t("hint.none");
 
   let closeText = t("hint.no");
-  if (state.hands[0].length > CARDS_PER_HAND) {
+  if (!closingAllowed()) {
+    closeText = t("hint.notYet");                 // first lap: nobody may close yet
+  } else if (state.hands[0].length > CARDS_PER_HAND) {
     // 8 cards in hand: you must discard one to close, so show the best option
     const option = findBestClose(state.hands[0]);
     if (option) {

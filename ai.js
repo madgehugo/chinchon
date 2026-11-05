@@ -224,8 +224,6 @@ const RISK = {
   overWeight:  1,    // ...plus this much per point it would go over by
   closeSelf:   3,    // when I am near the limit: cost taken off a hand that could close right now
   closePush:   3,    // when an opponent is near it: the same (ending the round may knock them out)
-  noBustClose: 0,    // 1 = never close if the closing score itself would put me out for good
-                     // (off: it LOSES games, see the results above STRATEGIES.risk)
 };
 
 // Points player p can still take without going out (going over the limit is out)
@@ -269,6 +267,21 @@ function riskCost(hand, p) {
   return cost;
 }
 
+// ---- Which closes a CPU will consider ----
+// The best close for CPU p (findBestClose in rules.js), or null if there is none it
+// will take. On top of the rules (no closing in the first lap, see closingAllowed in
+// game.js), a CPU never closes with a score that would put its own total over
+// SCORE_LIMIT, even when it could re-enter afterwards. A Chinchón is always fine (it
+// wins). findBestClose returns the lowest closing score, so if that one goes over,
+// every other way of closing would too.
+function cpuBestClose(p) {
+  if (!closingAllowed()) return null;
+  const option = findBestClose(state.hands[p]);
+  if (option && !option.info.chinchon &&
+      state.totals[p] + option.info.closerScore > SCORE_LIMIT) return null;
+  return option;
+}
+
 // ---- The base strategies (greedy, smart) and the three levels built from them ----
 
 const STRATEGIES = {
@@ -282,9 +295,9 @@ const STRATEGIES = {
       const top = state.discardPile[state.discardPile.length - 1];
       return bestDiscard([...hand, top]).points < evaluateHand(hand).points ? "discard" : "deck";
     },
-    // Close as soon as the rules allow it
+    // Close as soon as the rules allow it (and it does not put me out, see cpuBestClose)
     chooseClose(p) {
-      const option = findBestClose(state.hands[p]);
+      const option = cpuBestClose(p);
       return option ? option.discardIndex : null;
     },
     // Discard the card that leaves the fewest unmatched points
@@ -310,7 +323,7 @@ const STRATEGIES = {
     // are low enough, unless a perfect hand is likely next turn (see SMART).
     chooseClose(p) {
       const hand = state.hands[p];
-      const option = findBestClose(hand);
+      const option = cpuBestClose(p);
       if (!option) return null;
 
       const info = option.info;
@@ -378,7 +391,8 @@ STRATEGIES.aware = {
 };
 
 // RISK: smart, with every hand scored by riskCost (game-risk awareness, see RISK above)
-// instead of handCost, and one optional closing rule.
+// instead of handCost. It used to have one optional closing rule, noBustClose (refuse a
+// close whose score would put me out for good); that setting has been removed.
 // NOT used by any level. Single rounds cannot show it (all totals are 0 there, so it plays
 // exactly like smart), so it was benchmarked over whole games with tools/gamebench.js:
 // one risk CPU against hard CPUs, 4,000 games each, 40-card deck. A's share of games won
@@ -397,6 +411,10 @@ STRATEGIES.aware = {
 // points, they often go over too, and then the lowest total wins.
 // An early version ignored re-entry and did worse: while re-entry is open, going out
 // puts a player back in LOWER, so avoiding it (or pushing an opponent into it) is no gain.
+// NOTE: all of these numbers were measured before the owner decided that NO CPU closes
+// with a score that puts it over the limit (cpuBestClose), re-entry or not. That rule is
+// a choice about how the CPUs should behave, not a strength tweak; the table above
+// suggests it costs hard a little in close endgames.
 STRATEGIES.risk = {
   chooseSource(p) {
     if (state.discardPile.length === 0) return "deck";
@@ -407,14 +425,9 @@ STRATEGIES.risk = {
     const drawCost = expectedCostAfterDraw(hand, unseenCards(p, hand), costOf);
     return takeCost < drawCost - SMART.takeMargin ? "discard" : "deck";
   },
-  // Like smart, except that closing with a score that would put me out for good is
-  // refused: it is certain elimination, while playing on leaves a chance to improve.
-  chooseClose(p) {
-    const option = findBestClose(state.hands[p]);
-    if (RISK.noBustClose && option && !option.info.chinchon &&
-        option.info.closerScore > roomLeft(p) && outIsFinal(p)) return null;
-    return STRATEGIES.smart.chooseClose(p);
-  },
+  // Same as smart. (Refusing a close that would put me out is now done for every
+  // CPU by cpuBestClose; noBustClose was this strategy's earlier, re-entry aware version.)
+  chooseClose: (p) => STRATEGIES.smart.chooseClose(p),
   chooseDiscard(p) { return smartDiscard(p, () => 0, h => riskCost(h, p)); },
 };
 
