@@ -158,6 +158,14 @@ function renderHand(playerIndex) {
     ? new Map(closeOptions(state.hands[0]).map(o => [o.index, o.info]))
     : null;
 
+  // Hints on: the cards of each meld in your hand get a coloured bar along the bottom
+  // (two colours, alternating, so two melds side by side can be told apart).
+  // A Map from card object to meld number; evaluateHand returns the hand's own card objects.
+  const meldOf = new Map();
+  if (playerIndex === 0 && state.showHints && state.hands[0].length > 0) {
+    evaluateHand(state.hands[0]).melds.forEach((m, k) => m.cards.forEach(c => meldOf.set(c, k)));
+  }
+
   // How many cards are in the hand: style.css uses it to spread your hand over the
   // available width (less overlap when there is room, more when there is not)
   container.style.setProperty("--hand-n", state.hands[playerIndex].length);
@@ -166,6 +174,7 @@ function renderHand(playerIndex) {
     const el = createCardElement(card, faceUp);
     // The card you drew this turn gets a small gold dot until you discard
     if (canDiscard && card === state.lastDrawn) el.classList.add("just-drawn");
+    if (meldOf.has(card)) el.classList.add("in-meld", meldOf.get(card) % 2 ? "meld-b" : "meld-a");
     let onTap = null;                                        // what a plain tap or click does
     if (closable) {
       if (closable.has(index)) {
@@ -484,7 +493,7 @@ function renderScoreboard() {
     return `<tr class="${state.inGame[p] ? "" : "out"}">` +
            `<td>${playerName(p)}</td><td>${state.totals[p]}</td>` +
            `<td>${last === null ? "–" : last}</td>` +
-           `<td>${t(state.inGame[p] ? "board.in" : "board.out")}</td></tr>`;
+           `<td class="col-status">${t(state.inGame[p] ? "board.in" : "board.out")}</td></tr>`;
   }).join("");
 
   // "Round 3", "Round 3 of 10", or "Round 11: tie-break" once past the round limit
@@ -495,7 +504,7 @@ function renderScoreboard() {
   document.getElementById("scoreboard").innerHTML =
     `<b>${heading}</b>` +
     `<table><tr><th>${t("board.player")}</th><th>${t("board.total")}</th>` +
-    `<th>${t("board.last")}</th><th>${t("board.status")}</th></tr>${rows}</table>`;
+    `<th>${t("board.last")}</th><th class="col-status">${t("board.status")}</th></tr>${rows}</table>`;
 }
 
 // Enable/disable the buttons and highlight the piles you can click
@@ -514,8 +523,7 @@ function renderControls() {
   document.getElementById("results-btn").hidden = !roundOver;
 
   document.getElementById("close-btn").disabled = !closeAllowed;
-  document.getElementById("close-btn").textContent =
-    t(state.closing ? "btn.closeCancel" : "btn.close");
+  document.getElementById("close-btn").textContent = closeButtonText(closeAllowed);
   document.getElementById("sort-btn").disabled = state.hands[0].length === 0;
   document.getElementById("next-btn").disabled =
     !(state.phase === "roundOver" && !state.awaitingReentry && !state.gameOver);
@@ -529,6 +537,16 @@ function renderControls() {
   document.getElementById("draw-pile").classList.toggle("can-pick", drawing);
   document.getElementById("discard-pile").classList.toggle(
     "can-pick", drawing && state.discardPile.length > 0);
+}
+
+// "Close round", or "Cancel closing" in closing mode. With Hints on and a close possible,
+// it also says the best score you could close with: "Close round (3 pts)" or "Close: CHINCHÓN!".
+function closeButtonText(closeAllowed) {
+  if (state.closing) return t("btn.closeCancel");
+  if (!closeAllowed || !state.showHints) return t("btn.close");
+  const options = closeOptions(state.hands[0]);
+  if (options.some(o => o.info.chinchon)) return t("btn.closeChinchon");
+  return t("btn.closeBest", { n: Math.min(...options.map(o => o.info.closerScore)) });
 }
 
 // Debug panel under the table: shows how the evaluator sees YOUR hand.
@@ -636,18 +654,47 @@ function renderResults() {
   body.innerHTML = "";
   detail.forEach(d => { if (d) body.appendChild(resultRow(d)); });
 
+  renderGameOverBanner();
   let notice = tms(state.notice);
-  if (state.awaitingReentry) {
-    notice = `${reentryText()} ${notice}`;
-  } else if (state.gameOver) {
-    notice = `${t(whoKey("res.noticeWin", state.winner), { who: state.winner })} ${notice}`;
-  }
+  if (state.awaitingReentry) notice = `${reentryText()} ${notice}`;   // (a win is announced by the banner)
   document.getElementById("results-notice").textContent = notice;
 
   document.getElementById("res-next").hidden     = state.awaitingReentry || state.gameOver;
   document.getElementById("res-reenter").hidden  = !state.awaitingReentry;
   document.getElementById("res-stayout").hidden  = !state.awaitingReentry;
   document.getElementById("res-newgame").hidden  = !state.gameOver;
+}
+
+// At the end of a game, the results panel opens with a banner: who won, and the final
+// standings (the winner first, then the others still in by total, then those who are out).
+// When you win, or anyone makes a Chinchón, a few suit symbols float up from it.
+const CELEBRATION_PIPS = 10;    // how many suit symbols float up from the banner
+function renderGameOverBanner() {
+  const banner = document.getElementById("results-banner");
+  banner.hidden = !state.gameOver;
+  if (!state.gameOver) { banner.innerHTML = ""; return; }
+
+  const order = Array.from({ length: state.numPlayers }, (_, p) => p)
+    .filter(p => p !== state.winner)
+    .sort((a, b) => (state.inGame[b] - state.inGame[a]) || (state.totals[a] - state.totals[b]));
+  order.unshift(state.winner);
+  // (state.inGame[b] - state.inGame[a]: true counts as 1 and false as 0, so players still in come first)
+  const rows = order.map((p, i) =>
+    `<li class="${p === state.winner ? "winner" : ""}${state.inGame[p] ? "" : " out"}">` +
+    `<span>${i + 1}. ${playerName(p)}</span><span>${state.totals[p]}</span></li>`).join("");
+
+  const celebrate = state.winner === 0 || (state.roundResult && state.roundResult.chinchon);
+  const pips = celebrate
+    ? Array.from({ length: CELEBRATION_PIPS }, (_, i) =>
+        `<span class="confetti suit-${SUITS[i % SUITS.length]}" ` +
+        `style="left:${5 + i * 90 / CELEBRATION_PIPS}%;animation-delay:${i * 90}ms">` +
+        `<svg class="suit-icon" aria-hidden="true"><use href="#sym-${SUITS[i % SUITS.length]}"/></svg></span>`).join("")
+    : "";
+
+  banner.innerHTML =
+    `${pips}<div class="banner-label">${t("res.gameOver")}</div>` +
+    `<div class="banner-win">${t(whoKey("res.noticeWin", state.winner), { who: state.winner })}</div>` +
+    `<div class="banner-label">${t("res.standings")}</div><ol class="standings">${rows}</ol>`;
 }
 
 function setResultsOpen(open) {
@@ -662,8 +709,17 @@ function setStatus(...messages) {
   renderStatus();
 }
 
+// On a touch screen, a message with a ".touch" version (e.g. "msg.pickDiscard.touch", which
+// says "tap" instead of "click") is shown in that version. "(pointer: coarse)" means the main
+// pointer is a finger rather than a mouse. game.js does not need to know about any of this.
+const COARSE_POINTER = window.matchMedia("(pointer: coarse)");
+function statusText(m) {
+  const touchKey = `${m.key}.touch`;
+  return COARSE_POINTER.matches && touchKey in STRINGS.en ? t(touchKey, m.vars) : tm(m);
+}
+
 function renderStatus() {
-  document.getElementById("status").textContent = tms(state.status);
+  document.getElementById("status").textContent = state.status.map(statusText).join(" ");
 }
 
 // "Capitalised meld name" for a meld type ("run" or "group")
@@ -850,8 +906,40 @@ document.getElementById("res-next").addEventListener("click", nextRound);
 document.getElementById("res-reenter").addEventListener("click", () => humanReenter(true));
 document.getElementById("res-stayout").addEventListener("click", () => humanReenter(false));
 document.getElementById("res-newgame").addEventListener("click", () => newGame());
+// Keyboard play (handy on a desktop). The keys call the same functions as the clicks:
+//   1-8 discard (or, in closing mode, close with) that card, counted from the left
+//   D draw pile, T take the top discard, C close (or cancel closing), S sort,
+//   Enter next round, Escape hide the results panel.
+// Keys are ignored while a dropdown has the focus or Ctrl/Cmd/Alt is held (browser shortcuts).
+// On a focused button (the one you clicked last) Enter and Space press that button, as usual.
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && state.showResults) setResultsOpen(false);
+  if (e.key === "Escape" && state.showResults) { setResultsOpen(false); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey || dragFrom !== null) return;
+  if (["SELECT", "INPUT"].includes(e.target.tagName)) return;
+
+  const key = e.key.toLowerCase();
+  if (e.target.tagName === "BUTTON" && (key === "enter" || key === " ")) return;
+  if (key >= "1" && key <= "9" && key.length === 1) {
+    const index = Number(key) - 1;
+    const el = document.querySelectorAll("#hand-0 .card")[index];
+    if (!el || state.currentPlayer !== 0 || state.phase !== "discard") return;
+    if (state.closing && !closeOptions(state.hands[0]).some(o => o.index === index)) return;
+    discardFrom = el.getBoundingClientRect();        // so the card slides from where it was
+    if (state.closing) closeRound(0, index); else humanDiscard(index);
+  } else if (key === "d") {
+    humanDraw("deck");
+  } else if (key === "t") {
+    humanDraw("discard");
+  } else if (key === "c") {
+    humanClose();
+  } else if (key === "s") {
+    if (state.hands[0].length > 0) sortHand();
+  } else if (key === "enter") {
+    nextRound();                                     // does nothing unless a round just ended
+  } else {
+    return;                                          // not one of our keys: let the browser have it
+  }
+  e.preventDefault();
 });
 
 /* ---------------------------------------------------------

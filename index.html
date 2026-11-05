@@ -149,6 +149,8 @@
     </select>
   </label>
   <button id="new-game" data-i18n="btn.newGame">New game</button>
+  <!-- Keyboard help: style.css hides it on touch-only devices -->
+  <p class="keys-help" data-i18n="set.keys">Keys: 1-8 discard · D draw pile · T take discard · C close · S sort · Enter next round</p>
 </div>
 
 <!-- Asks before a deck change throws away a game in progress (browser pop-up
@@ -173,6 +175,8 @@
 <div id="results" class="overlay" hidden>
   <div class="panel">
     <h2 id="results-title"></h2>
+    <!-- Winner and final standings; only shown once the game is over (see renderGameOverBanner) -->
+    <div id="results-banner" hidden></div>
     <div id="results-body"></div>
     <p id="results-notice"></p>
     <div class="panel-buttons">

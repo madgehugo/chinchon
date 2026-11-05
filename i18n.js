@@ -34,6 +34,8 @@ const STRINGS = {
     "btn.sort": "Sort hand",
     "btn.close": "Close round",
     "btn.closeCancel": "Cancel closing",
+    "btn.closeBest": "Close round ({n} pts)",
+    "btn.closeChinchon": "Close: CHINCHÓN!",
     "btn.next": "Next round",
     "btn.results": "Round results",
     "btn.hints": "Hints",
@@ -61,6 +63,7 @@ const STRINGS = {
     "set.rounds": "Rounds per game",
     "set.reentries": "Re-entries per player",
     "set.noLimit": "No limit",
+    "set.keys": "Keys: 1-8 discard · D draw pile · T take discard · C close · S sort · Enter next round",
     "level.easy": "Easy",
     "level.medium": "Medium",
     "level.hard": "Hard",
@@ -111,6 +114,11 @@ const STRINGS = {
     "msg.drewDeck": "{who} drew from the draw pile...",
     "msg.pickDiscard": "Click a card in your hand to discard it, or press Close round if you can.",
     "msg.closing": "Closing: click the highlighted card you want to discard. (Press the button again to cancel.)",
+    // .touch: the same prompts for touch screens ("tap" instead of "click"; see statusText in ui.js)
+    "msg.yourTurn.touch": "Your turn: tap the draw pile or the top discard to take a card.",
+    "msg.yourTurnDeckDone.touch": "Your turn: the draw pile is used up. Take the top discard to play on, or tap the empty pile to end the round (everyone scores their hand).",
+    "msg.pickDiscard.touch": "Tap a card in your hand to discard it, or press Close round if you can.",
+    "msg.closing.touch": "Closing: tap the highlighted card you want to discard. (Press the button again to cancel.)",
     "msg.mayReenter": "You may re-enter below.",
     "msg.pressNext": "Press Next round.",
     "msg.gameOver": "Game over! {winner} ({reason}).",
@@ -172,6 +180,8 @@ const STRINGS = {
     "res.leftover": "Left over: {n} pts",
     "res.noticeWin.you": "You win the game!",
     "res.noticeWin.cpu": "{who} wins the game!",
+    "res.gameOver": "Game over",
+    "res.standings": "Final standings",
   },
 
   es: {
@@ -182,6 +192,8 @@ const STRINGS = {
     "btn.sort": "Ordenar mano",
     "btn.close": "Cerrar ronda",
     "btn.closeCancel": "Cancelar cierre",
+    "btn.closeBest": "Cerrar ronda ({n} pts)",   // TODO review
+    "btn.closeChinchon": "Cerrar: ¡CHINCHÓN!",   // TODO review
     "btn.next": "Siguiente ronda",
     "btn.results": "Resultados de la ronda",
     "btn.hints": "Pistas",
@@ -209,6 +221,7 @@ const STRINGS = {
     "set.rounds": "Rondas por partida",   // TODO review
     "set.reentries": "Reenganches por jugador",   // TODO review
     "set.noLimit": "Sin límite",   // TODO review
+    "set.keys": "Teclado: 1-8 descartar · D mazo · T coger descarte · C cerrar · S ordenar · Intro siguiente ronda",   // TODO review
     "level.easy": "Fácil",
     "level.medium": "Medio",
     "level.hard": "Difícil",
@@ -259,6 +272,11 @@ const STRINGS = {
     "msg.drewDeck": "{who} tomó una carta del mazo...",
     "msg.pickDiscard": "Haz clic en una carta de tu mano para descartarla, o presiona Cerrar ronda si puedes.",
     "msg.closing": "Cerrando: haz clic en la carta resaltada que quieres descartar. (Presiona el botón otra vez para cancelar.)",
+    // .touch: the same prompts for touch screens ("tap" instead of "click"; see statusText in ui.js)
+    "msg.yourTurn.touch": "Tu turno: toca el mazo o la carta superior de los descartes para coger una carta.",   // TODO review
+    "msg.yourTurnDeckDone.touch": "Tu turno: el mazo se agotó. Coge la carta superior de los descartes para seguir, o toca el mazo vacío para terminar la ronda (cada uno anota su mano).",   // TODO review
+    "msg.pickDiscard.touch": "Toca una carta de tu mano para descartarla, o pulsa Cerrar ronda si puedes.",   // TODO review
+    "msg.closing.touch": "Cerrando: toca la carta resaltada que quieres descartar. (Pulsa el botón otra vez para cancelar.)",   // TODO review
     "msg.mayReenter": "Puedes volver a entrar más abajo.",
     "msg.pressNext": "Presiona Siguiente ronda.",
     "msg.gameOver": "¡Fin de la partida! {winner} ({reason}).",
@@ -320,6 +338,8 @@ const STRINGS = {
     "res.leftover": "Sueltas: {n} pts",
     "res.noticeWin.you": "¡Ganaste la partida!",
     "res.noticeWin.cpu": "¡{who} ganó la partida!",
+    "res.gameOver": "Partida terminada",   // TODO review
+    "res.standings": "Clasificación final",   // TODO review
   },
 };
 

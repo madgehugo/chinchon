@@ -9,7 +9,8 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 ## Features
 
 * **English and Spanish**, with a language dropdown next to the Settings button. The first visit follows the browser's language (Spanish if it starts with `es`, else English); after that the choice is remembered in `localStorage`. All text lives in `i18n.js`.
-* Sort and Close sit under your hand (Next round and Round results take their place once a round is over); the dropdowns (sort mode, CPUs, level, speed, deck, reshuffles per round, re-entries per player, rounds per game) and New game are in a panel behind the Settings button, and the hand analysis table is behind the Hints toggle (off by default).
+* Sort and Close sit under your hand (Next round and Round results take their place once a round is over); the dropdowns (sort mode, CPUs, level, speed, deck, reshuffles per round, re-entries per player, rounds per game) and New game are in a panel behind the Settings button, and the Hints toggle (off by default) shows the hand analysis table, a coloured bar under each meld in your hand,
+  and the best closing score on the Close button.
 * 1 human vs 1, 2 or 3 CPUs (the "CPUs" dropdown starts a new game), with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
 * 40-card Spanish deck (1-7, 10-12) or 48-card deck (adds the 8s and 9s), which suits bigger groups.
 * Adjustable rules: how often the draw pile may be reshuffled in a round (0, 1, 2, 3, 5 or no limit; the board
@@ -21,6 +22,11 @@ Or download the repo and open `index.html` in a browser. It works straight from 
   available, so on a phone the cards overlap only as much as they must.
 * Turn cues: the seat whose turn it is has a gold label (a CPU's also shows animated dots while it plays), the pile
   you may draw from pulses, and the card you just drew has a small gold dot until you discard.
+* Keyboard play: `1`-`8` discard that card (or close with it in closing mode), `D` draws from the pile, `T` takes the
+  top discard, `C` closes, `S` sorts, `Enter` starts the next round, `Escape` hides the results. The help line is in
+  the Settings panel (hidden on touch screens, where the status line says "tap" instead of "click").
+* The end of a game opens the results with a banner: the winner and the final standings. A few suit symbols float up
+  when you win or someone makes a Chinchón (not with reduced motion).
 * The settings are remembered between visits (`localStorage`, like the language; see `saveSettings` in `ui.js`).
 * You pick which card to close with.
 * Round results screen showing every hand split into melds and leftovers.

@@ -201,6 +201,19 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 .card .fig-icon { font-size: calc(var(--card-w) * 0.3);  line-height: 1; }
 .card .fig-name { font-size: calc(var(--card-w) * 0.115); letter-spacing: .5px; text-transform: uppercase; }
 
+/* Hints on: a coloured bar under the cards of each meld in your hand (classes set by
+   renderHand). Overlapping cards of one meld join into one line. ::before is the
+   pseudo-element before the card's content (::after is taken by the just-drawn dot). */
+#seat-0 .card.in-meld::before {
+  content: "";
+  position: absolute;
+  left: 2px; right: 2px; bottom: -8px;
+  height: 4px;
+  border-radius: 2px;
+}
+#seat-0 .card.meld-a::before { background: #66e08a; }
+#seat-0 .card.meld-b::before { background: #5ec8f0; }
+
 /* Drag-and-drop feedback while rearranging your hand */
 .card.dragging    { opacity: .35; }
 .card.drop-target { outline: 3px dashed #ffd54a; }
@@ -219,11 +232,21 @@ h1 { margin: 12px 0 4px; font-size: 1.4rem; letter-spacing: 1px; }
 .suit-espadas { color: #1b4f9c; }
 .suit-bastos  { color: #2e7d32; }
 
-/* Face-down card: hide the face, show a patterned back */
+/* Face-down card: hide the face, show a patterned back. It is all CSS, layered like
+   transparent sheets (the first background listed is on top):
+     1. a gold ring in the middle (radial-gradient: transparent, then gold, then transparent;
+        "closest-side" makes the percentages relative to half the card's width, so it scales)
+     2. and 3. thin light lines at +45 and -45 degrees, which cross into a diamond lattice
+     4. the dark red base colour
+   The inset box-shadows draw a red margin and a thin gold frame inside the white border. */
 .card.back {
   background:
-    repeating-linear-gradient(45deg, #7a1f2b 0 6px, #5c1520 6px 12px);
+    radial-gradient(circle closest-side, transparent 0 38%, #e8c66a 40% 52%, transparent 54%),
+    repeating-linear-gradient(45deg,  transparent 0 5px, rgba(255, 235, 200, .16) 5px 6px),
+    repeating-linear-gradient(-45deg, transparent 0 5px, rgba(255, 235, 200, .16) 5px 6px),
+    #7a1f2b;
   border: 2px solid #fffaf0;
+  box-shadow: inset 0 0 0 3px #7a1f2b, inset 0 0 0 4px #e8c66a, 0 2px 5px rgba(0,0,0,.4);
 }
 .card.back > * { display: none; }
 
@@ -315,6 +338,10 @@ button.active { background: #ffd54a; }
 #settings button { margin: 0 0 0 auto; }
 .opt { font-size: .85rem; display: flex; align-items: center; gap: 6px; }
 .opt select { padding: 6px 8px; border-radius: 6px; border: 0; font: inherit; background: #fffaf0; color: #222; }
+/* Keyboard help: its own line at the bottom of the panel; hidden where there is no
+   mouse (hover: none is true on phones and tablets, which usually have no keyboard) */
+.keys-help { flex-basis: 100%; margin: 0; font-size: .75rem; opacity: .75; }
+@media (hover: none) { .keys-help { display: none; } }
 
 /* Closing mode: legal closing cards glow green, the rest fade out */
 .card.close-option { outline: 3px solid #66e08a; }
@@ -420,10 +447,63 @@ button, .pile, select { touch-action: manipulation; }   /* no double-tap zoom de
 .res-group.meld .res-cards-row    { padding: 3px 4px; border-radius: 8px; background: rgba(102, 224, 138, .25); }
 .res-group.leftover .res-cards-row { padding: 3px 4px; border-radius: 8px; background: rgba(192, 38, 45, .3); }
 
+/* Game-over banner: the winner in large gold letters, then the final standings */
+#results-banner {
+  position: relative;              /* the floating suit symbols are placed inside it */
+  margin-bottom: 12px; padding: 12px 14px;
+  text-align: center;
+  background: rgba(255, 213, 74, .12);
+  border: 2px solid #ffd54a;
+  border-radius: 12px;
+}
+/* The text sits above the floating symbols (z-index works on positioned elements only) */
+.banner-label, .banner-win, .standings { position: relative; z-index: 1; }
+.banner-label { font-size: .75rem; text-transform: uppercase; letter-spacing: 1px; opacity: .8; }
+.banner-win { font-size: 1.6rem; font-weight: bold; color: #ffd54a; margin: 2px 0 10px; }
+.standings { list-style: none; margin: 4px auto 0; padding: 0; max-width: 260px; font-size: .9rem; }
+.standings li { display: flex; justify-content: space-between; padding: 2px 6px; border-radius: 6px; }
+.standings li.winner { background: rgba(255, 213, 74, .25); font-weight: bold; }
+.standings li.out { opacity: .5; }
+/* The celebration: suit symbols that rise and fade out once (`forwards` keeps the
+   last keyframe, so they stay invisible afterwards). Each one gets its own left
+   position and start delay from renderGameOverBanner(). */
+.confetti {
+  position: absolute; bottom: 10px; z-index: 0;
+  font-size: 22px;
+  --cut: #2a3f2a;
+  opacity: 0;
+  pointer-events: none;
+  animation: confetti-rise 1.6s ease-out forwards;
+}
+@keyframes confetti-rise {
+  0%   { opacity: 0; transform: translateY(0) rotate(0); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-90px) rotate(180deg); }
+}
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
+
 #results-notice { margin: 8px 2px; font-size: .85rem; min-height: 1.2em; }
-.panel-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+/* sticky: the buttons stay at the bottom of the panel while its contents scroll under them,
+   so Next round / New game are always in reach on a small screen */
+.panel-buttons {
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;
+  position: sticky; bottom: -12px;          /* -12px: down over the panel's bottom padding */
+  margin: 0 -16px -12px; padding: 10px 16px 12px;
+  background: #15301f;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+}
 .panel-buttons button { margin: 0; }
 button.secondary { background: rgba(255, 255, 255, .85); }
+
+/* ---------- Big screens: bigger cards for you and the piles ----------
+   Only when the window is both wide and tall enough, so nothing gets squeezed. */
+@media (min-width: 1000px) and (min-height: 820px) {
+  :root {
+    --human-w: 90px;  --human-h: 134px;
+    --pile-w: 86px;   --pile-h: 128px;
+  }
+  #table { height: min(720px, 84vh); }
+}
 
 /* ---------- Phones and small windows ---------- */
 @media (max-width: 720px) {
@@ -453,5 +533,8 @@ button.secondary { background: rgba(255, 255, 255, .85); }
   .opt { font-size: .75rem; }
   button { padding: 7px 12px; }
   .res-cards-row .card { --card-w: 38px; --card-h: 57px; margin-left: -14px; }
+  /* The status column repeats what the seat labels and the greyed-out rows already show */
+  #scoreboard .col-status { display: none; }
   .panel { padding: 10px 10px 8px; }
+  .panel-buttons { bottom: -8px; margin: 0 -10px -8px; padding: 8px 10px; }
 }
