@@ -9,6 +9,9 @@
 
 const MOVE_MS          = 260;   // how long one card takes to slide (kept under 300 ms)
 const DEAL_STAGGER_MS  = 30;    // delay between one dealt card and the next
+const GLOW_MS          = 900;   // how long the glow on a newly completed meld lasts
+const POP_MS           = 1500;  // how long a "+12" score pop-up floats above a seat
+const TOAST_EXTRA_MS   = 300;   // a CPU's toast stays this long after the CPU's discard pause
 
 // Where to put each pip on a 1-9 card (8 and 9 only exist in the 48-card deck).
 // Each pair is [x%, y%] inside the card's face area:
@@ -186,6 +189,8 @@ function renderHand(playerIndex) {
   if (playerIndex === 0 && state.showHints && state.hands[0].length > 0) {
     evaluateHand(state.hands[0]).melds.forEach((m, k) => m.cards.forEach(c => meldOf.set(c, k)));
   }
+  // ...and when a card you take completes a new meld, its cards glow once (see glowMelds)
+  const newMeld = playerIndex === 0 && meldGrew();
 
   // How many cards are in the hand: style.css uses it to spread your hand over the
   // available width (less overlap when there is room, more when there is not)
@@ -213,6 +218,32 @@ function renderHand(playerIndex) {
     }
     if (playerIndex === 0) makeInteractive(el, index, onTap);   // tap = act, drag = rearrange
     container.appendChild(el);
+  });
+  if (newMeld && meldOf.size > 0) glowMelds(container, meldOf);
+}
+
+// Has the number of melds in your hand gone up since your hand was last drawn? A new deal
+// starts the count again, so a dealt hand never glows. (evalSummary in rules.js caches the
+// answer, so asking on every render is cheap.)
+let meldsSeen = { deals: 0, count: 0 };
+function meldGrew() {
+  const count = state.hands[0].length ? evalSummary(state.hands[0]).melds : 0;
+  const grew = state.deals === meldsSeen.deals && count > meldsSeen.count;
+  meldsSeen = { deals: state.deals, count };
+  return grew;
+}
+
+// A soft green glow that rises and fades on the cards of your melds (Hints on, motion allowed)
+function glowMelds(container, meldOf) {
+  if (REDUCED_MOTION.matches) return;
+  const cards = container.querySelectorAll(".card");
+  state.hands[0].forEach((card, i) => {
+    if (!meldOf.has(card)) return;
+    cards[i].animate(
+      [{ boxShadow: "0 0 0 0 rgba(95, 216, 138, 0)" },
+       { boxShadow: "0 0 20px 5px rgba(95, 216, 138, .85)", offset: 0.35 },
+       { boxShadow: "0 0 0 0 rgba(95, 216, 138, 0)" }],
+      { duration: GLOW_MS, easing: "ease-out" });
   });
 }
 
@@ -421,7 +452,8 @@ function render() {
    for reduced motion.
    --------------------------------------------------------- */
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");  // live: .matches follows the OS setting
-let animSeen = { deals: 0, drawLen: 0, discardLen: 0, handLen: [] };   // what the previous render looked like
+let animSeen = { deals: 0, drawLen: 0, discardLen: 0, handLen: [],      // what the previous render looked like
+                 phase: null, current: null, gameOver: false };
 let discardFrom = null;       // where the card you just tapped was (set by the tap, used once)
 
 // Slide a card element from `from` (a rectangle) to where it now is.
@@ -454,35 +486,88 @@ function animateDeal() {
   }
 }
 
+// Called at the end of every render(): compare with the previous render and play what
+// changed, as card slides (unless reduced motion is on) and sounds (unless Sound is off).
 function animateChanges(rebuilt) {
   const prev = animSeen;
   const now = { deals: state.deals, drawLen: state.drawPile.length,
-                discardLen: state.discardPile.length, handLen: prev.handLen.slice() };
+                discardLen: state.discardPile.length, handLen: prev.handLen.slice(),
+                phase: state.phase, current: state.currentPlayer, gameOver: state.gameOver };
   state.hands.forEach((hand, p) => { if (rebuilt[p]) now.handLen[p] = hand.length; });
+  const motion = !REDUCED_MOTION.matches;
 
-  if (!REDUCED_MOTION.matches) {
-    if (now.deals !== prev.deals) {
-      animateDeal();
-    } else {
-      for (let p = 0; p < state.numPlayers; p++) {
-        if (!rebuilt[p]) continue;
-        const before = prev.handLen[p] || 0, after = now.handLen[p];
-        if (after === before + 1) {
-          // A card was drawn. It came from the discard pile if that shrank and the draw pile did not.
-          const fromDiscard = now.discardLen === prev.discardLen - 1 && now.drawLen === prev.drawLen;
-          const cards = document.querySelectorAll(`#hand-${p} .card`);
-          slideFrom(cards[cards.length - 1], rectOf(fromDiscard ? "discard-slot" : "draw-slot"), true);
-        } else if (after === before - 1 && now.discardLen === prev.discardLen + 1) {
-          // A card was discarded: slide the new top of the discard pile in from the hand
-          const top = document.querySelector("#discard-slot .card");
-          const from = (p === 0 && discardFrom) ? discardFrom : rectOf(`hand-${p}`);
-          if (top) slideFrom(top, from, p === 0 && discardFrom !== null);
-        }
+  if (now.deals !== prev.deals) {
+    if (motion) animateDeal();
+    playSound("deal");
+  } else {
+    for (let p = 0; p < state.numPlayers; p++) {
+      if (!rebuilt[p]) continue;
+      const before = prev.handLen[p] || 0, after = now.handLen[p];
+      if (after === before + 1) {
+        // A card was drawn. It came from the discard pile if that shrank and the draw pile did not.
+        const fromDiscard = now.discardLen === prev.discardLen - 1 && now.drawLen === prev.drawLen;
+        const cards = document.querySelectorAll(`#hand-${p} .card`);
+        if (motion) slideFrom(cards[cards.length - 1], rectOf(fromDiscard ? "discard-slot" : "draw-slot"), true);
+        playSound("draw");
+      } else if (after === before - 1 && now.discardLen === prev.discardLen + 1) {
+        // A card was discarded: slide the new top of the discard pile in from the hand
+        const top = document.querySelector("#discard-slot .card");
+        const from = (p === 0 && discardFrom) ? discardFrom : rectOf(`hand-${p}`);
+        if (top && motion) slideFrom(top, from, p === 0 && discardFrom !== null);
+        playSound("discard");
       }
     }
   }
+
+  // The round just ended (a close or a stalemate), the game just ended with your win,
+  // or your turn just began
+  if (now.phase === "roundOver" && prev.phase !== "roundOver") {
+    playSound(state.roundResult && state.roundResult.chinchon ? "chinchon" : "close");
+  }
+  if (now.gameOver && !prev.gameOver && state.winner === 0) playSound("win");
+  if (now.phase === "draw" && now.current === 0 && now.deals === prev.deals &&
+      (prev.current !== 0 || prev.phase !== "draw")) playSound("turn");
+
+  queueScorePops(now.deals !== prev.deals && state.round === 1);   // true when a new game was dealt
   animSeen = now;
   discardFrom = null;
+}
+
+// ---- Score pop-ups ----
+// When a round has been scored, each seat shows what it scored ("+12", "-10") floating up
+// from its name. The results panel opens over the table at that moment, so the pop-ups
+// wait until it is out of the way (hidden, or the next round has started).
+// (Keyed by state.deals, which goes up with every deal, unlike the round number.)
+let scorePops = { deal: 0, points: null };    // the deal already queued, and points waiting to be shown
+function queueScorePops(newGame) {
+  if (newGame) scorePops.points = null;                          // an old game's points are not shown
+  if (state.roundDetail && scorePops.deal !== state.deals) {     // a round result we have not queued yet
+    scorePops = { deal: state.deals, points: state.roundDetail.map(d => d && d.points) };
+  }
+  if (!scorePops.points || state.showResults) return;
+  if (!REDUCED_MOTION.matches) {
+    scorePops.points.forEach((pts, p) => {
+      if (pts === null || pts === undefined || pts === 0 || p >= state.numPlayers) return;
+      showScorePop(p, pts);
+    });
+  }
+  scorePops.points = null;
+}
+function showScorePop(p, pts) {
+  const pop = document.createElement("span");
+  pop.className = "score-pop" + (pts < 0 ? " good" : "");
+  pop.textContent = pts > 0 ? `+${pts}` : `\u2212${-pts}`;   // \u2212 is a real minus sign
+  // Starting over the top edge of the seat's name chip: offsetTop is the chip's distance
+  // from the top of the seat (the seat is the positioned box the pop-up is placed in)
+  const seat = document.getElementById(`seat-${p}`);
+  seat.appendChild(pop);
+  pop.style.top = `${seat.querySelector(".seat-name").offsetTop - pop.offsetHeight / 2}px`;
+  const anim = pop.animate(
+    [{ opacity: 0, transform: "translate(-50%, 6px) scale(.8)" },
+     { opacity: 1, transform: "translate(-50%, -10px) scale(1.1)", offset: 0.2 },
+     { opacity: 0, transform: "translate(-50%, -24px) scale(1)" }],
+    { duration: POP_MS, easing: "ease-out" });
+  anim.onfinish = () => pop.remove();
 }
 
 // The text written in index.html (data-i18n attributes): rewritten whenever the language
@@ -503,6 +588,8 @@ function applyStaticText() {
   if (pendingQuestion) {                                           // a confirm bar is open
     document.getElementById("deck-confirm-text").textContent = pendingQuestion();
   }
+  const toast = document.querySelector("#toasts .toast");
+  if (toast && toastMessage) toast.textContent = tm(toastMessage);
 }
 
 // The top bar's buttons and the panels they open follow state. The Hints button is a
@@ -739,9 +826,34 @@ function setResultsOpen(open) {
 
 // The status line. Pass messages (msg(key, data) from i18n.js), not sentences: they are kept
 // in state.status so that renderStatus() can write them again in another language.
+// What a CPU drew is shown as a toast near the piles instead (see showToast).
 function setStatus(...messages) {
   state.status = messages;
+  messages.filter(m => TOAST_KEYS.includes(m.key)).forEach(showToast);
   renderStatus();
+}
+
+// ---- Toasts: a short note over the table, one at a time, that fades by itself ----
+// Only for what a CPU just drew, so it is never a log of moves (the owner decided against
+// one): each toast replaces the last and is gone before the CPU's next turn.
+const TOAST_KEYS = ["msg.drewDeck", "msg.tookDiscard"];
+let toastMessage = null;       // the message on show (re-translated on a language switch)
+let toastTimer = null;
+function showToast(m) {
+  const box = document.getElementById("toasts");
+  clearTimeout(toastTimer);
+  toastMessage = m;
+  box.innerHTML = "";
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = tm(m);
+  box.appendChild(el);
+  // stay through the CPU's pause before it discards, then fade out (style.css) and go
+  toastTimer = setTimeout(() => {
+    toastMessage = null;
+    el.classList.add("leaving");
+    toastTimer = setTimeout(() => el.remove(), 250);
+  }, CPU_SPEEDS[state.cpuSpeed].discard + TOAST_EXTRA_MS);
 }
 
 // On a touch screen, a message with a ".touch" version (e.g. "msg.pickDiscard.touch", which
@@ -753,8 +865,12 @@ function statusText(m) {
   return COARSE_POINTER.matches && touchKey in STRINGS.en ? t(touchKey, m.vars) : tm(m);
 }
 
+// The toast messages are left out of the status line, which says "CPU 1 is playing..."
+// instead while the toast shows what that CPU drew
 function renderStatus() {
-  document.getElementById("status").textContent = state.status.map(statusText).join(" ");
+  let shown = state.status.filter(m => !TOAST_KEYS.includes(m.key));
+  if (shown.length === 0 && state.status.length > 0) shown = [msg("msg.playing", { who: state.currentPlayer })];
+  document.getElementById("status").textContent = shown.map(statusText).join(" ");
 }
 
 // "Capitalised meld name" for a meld type ("run" or "group")
@@ -840,6 +956,19 @@ document.getElementById("cpu-speed").addEventListener("change", (e) => {
   saveSettings();
 });
 
+// Sound on or off (sound.js); a card snap confirms that it is on
+document.getElementById("sound").addEventListener("change", (e) => {
+  setSoundOn(e.target.value === "on");
+  saveSettings();
+  playSound("draw");
+});
+// Browsers allow sound only after the player has touched the page: wake the audio
+// engine on every tap, click and key press (cheap once it is running).
+// `capture: true` runs this before any other handler, so the sound of that very tap plays.
+for (const type of ["pointerdown", "keydown"]) {
+  document.addEventListener(type, unlockAudio, { capture: true });
+}
+
 // Changing the deck or the number of CPUs starts a new game. If a game is under way,
 // ask first with a bar inside the page (the browser's pop-up dialogs are blocked in
 // some places). `pendingChange` holds the function to run if the player says yes
@@ -852,6 +981,7 @@ function syncSettingDropdowns() {
   document.getElementById("sort-mode").value = state.sortMode;
   document.getElementById("cpu-mode").value = state.cpuMode;
   document.getElementById("cpu-speed").value = state.cpuSpeed;
+  document.getElementById("sound").value = soundOn ? "on" : "off";
   document.getElementById("deck-size").value = String(DECK_SIZE);
   document.getElementById("cpu-count").value = String(state.numPlayers - 1);
   document.getElementById("reshuffles").value = limitToOption(state.maxReshuffles);
@@ -881,6 +1011,7 @@ function saveSettings() {
     "cpu-count":   String(state.numPlayers - 1),
     "cpu-mode":    state.cpuMode,
     "cpu-speed":   state.cpuSpeed,
+    "sound":       soundOn ? "on" : "off",
     "deck-size":   String(DECK_SIZE),
     "reshuffles":  limitToOption(state.maxReshuffles),
     "reentries":   limitToOption(state.maxReentries),
@@ -906,6 +1037,7 @@ function loadSettings() {
   state.cpuMode       = pick("cpu-mode");
   state.cpuLevels     = [...CPU_MODES[state.cpuMode]];
   state.cpuSpeed      = pick("cpu-speed");
+  setSoundOn(pick("sound") === "on");
   setDeckSize(Number(pick("deck-size")));
   state.maxReshuffles = optionToLimit(pick("reshuffles"));
   state.maxReentries  = optionToLimit(pick("reentries"));

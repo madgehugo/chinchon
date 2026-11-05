@@ -136,6 +136,7 @@ h1 {
    Each name below is assigned to an element further down
    with "grid-area: name".                                     */
 #table {
+  position: relative;      /* the toasts (below) are placed inside it */
   display: grid;
   grid-template-columns: 1fr 2fr 1fr;
   /* minmax(0, 1fr) lets the middle row shrink below its content, so a side
@@ -172,6 +173,7 @@ h1 {
 
 /* Each seat is a box holding a name label and a row of cards */
 .seat {
+  position: relative;      /* the score pop-ups are placed inside it */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -467,6 +469,42 @@ h1 {
   backdrop-filter: blur(4px);
 }
 
+/* ---------- Toasts and score pop-ups (see showToast and showScorePop in ui.js) ---------- */
+/* The toast floats over the table just above the piles; pointer-events: none lets clicks
+   pass through it to the cards underneath. */
+#toasts {
+  position: absolute; left: 50%; top: 31%; z-index: 20;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.toast {
+  width: max-content; max-width: min(24em, 62vw);   /* as wide as its text, but wraps on a phone */
+  padding: 7px 16px;
+  text-align: center;
+  font-size: var(--fs-sm); font-weight: 600;
+  background: var(--glass);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-2);
+  backdrop-filter: blur(8px);
+  animation: toast-in .2s var(--ease);
+  transition: opacity .25s;
+}
+.toast.leaving { opacity: 0; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(6px) scale(.96); } }
+/* A seat's round score, floating up from its name (the movement is in ui.js) */
+.score-pop {
+  position: absolute; left: 50%; z-index: 25;   /* top is set by showScorePop, above the name chip */
+  white-space: nowrap;
+  padding: 2px 10px;
+  font-weight: 800; font-size: var(--fs-md); font-variant-numeric: tabular-nums;
+  color: #2a1e00; background: var(--gold);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-2);
+  pointer-events: none;
+}
+.score-pop.good { background: var(--good); }
+
 /* ---------- Buttons ----------
    Three kinds: the default (gold pill: the main actions), .secondary (light pill:
    toggles and less important actions) and .icon (a round button holding a symbol). */
@@ -744,7 +782,8 @@ button, .pile, select { touch-action: manipulation; }   /* no double-tap zoom de
   #seat-0 .card:hover, #seat-0 .card:active, #seat-0 .card.clickable:hover,
   button:hover:not(:disabled), button:active:not(:disabled) { transform: none; }
   .pile.can-pick .card, .pile.can-pick .pile-empty, .seat.thinking .seat-who::after,
-  .overlay, .panel { animation: none; }
+  .overlay, .panel, .toast { animation: none; }
+  .toast { transition: none; }
   .confetti { display: none; }
 }
 
@@ -796,6 +835,8 @@ button, .pile, select { touch-action: manipulation; }   /* no double-tap zoom de
   #piles { gap: 14px; padding: 8px 10px; }
   .pile-label { font-size: .65rem; text-align: center; }
   #status { font-size: .78rem; padding: 6px 10px; }
+  #toasts { top: 23%; }
+  .toast { font-size: var(--fs-xs); padding: 5px 12px; border-radius: var(--r-md); }
   #actions { gap: 8px; }
   #actions button { min-width: 0; flex: 1; }
   .opt { font-size: var(--fs-xs); }

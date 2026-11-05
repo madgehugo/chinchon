@@ -10,7 +10,7 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 ## Hard constraints
 
 * **Classic `<script>` tags in one shared global scope, no ES modules**, so the game works from `file://`.
-  Script order in `index.html` is `rules.js, i18n.js, ai.js, game.js, tests.js, ui.js`; a file may only use what earlier
+  Script order in `index.html` is `rules.js, i18n.js, ai.js, game.js, tests.js, sound.js, ui.js`; a file may only use what earlier
   files define at load time. `build_single.py` depends on the exact `<link>`/`<script src>` tag shapes in `index.html`.
 * **No libraries, no build step, no external requests.**
 * **Text and languages (English + Spanish):** no player-visible string in JS or `state`. Look text up with
@@ -32,6 +32,8 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 * Re-entry after elimination uses the highest current total among players still in.
 * CPU turns are deliberately slow by default so the player can follow discards (`CPU_SPEEDS` in `game.js`).
 * Sort button defaults to sorting by number; the user can switch to suit.
+* CPU draws show as a toast that replaces the previous one and fades before the next turn; it must never become a
+  list of moves (see "no move log" above).
 * No `alert`/`confirm`/`prompt` (they do not work when the game runs inside a published Claude artifact); use in-page
   bars like `#deck-confirm`.
 

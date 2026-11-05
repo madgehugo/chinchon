@@ -56,6 +56,9 @@ const STRINGS = {
     "set.speed.slow": "Slow",
     "set.speed.normal": "Normal",
     "set.speed.fast": "Fast",
+    "set.sound": "Sound",
+    "set.sound.on": "On",
+    "set.sound.off": "Off",
     "set.deck": "Deck",
     "set.deck.40": "40 cards",
     "set.deck.48": "48 cards (with 8s and 9s)",
@@ -227,6 +230,7 @@ const STRINGS = {
     "help.settings.li6": "Reshuffles per round: how many times the draw pile may be refilled in a round. Starts a new game.",
     "help.settings.li7": "Re-entries per player: how many times each player may come back after going out. Starts a new game.",
     "help.settings.li8": "Rounds per game: with no limit you play until one player is left; otherwise the lowest total after the last round wins. Starts a new game.",
+    "help.settings.li9": "Sound: short card sounds and jingles. They start after your first tap or click.",
     "help.settings.p": "Your settings and language are remembered on this device.",
     "help.screen.h": "Hints, results and other help",
     "help.screen.li1": "Hints (the light-bulb button at the top): shows the melds in your hand, your unmatched points and whether you can close (and with which discard). Your melds get coloured bars and the Close button shows your best score. Leave it off for the full challenge.",
@@ -267,6 +271,9 @@ const STRINGS = {
     "set.speed.slow": "Lenta",
     "set.speed.normal": "Normal",
     "set.speed.fast": "Rápida",
+    "set.sound": "Sonido",   // TODO review
+    "set.sound.on": "Activado",   // TODO review
+    "set.sound.off": "Desactivado",   // TODO review
     "set.deck": "Baraja",
     "set.deck.40": "40 cartas",
     "set.deck.48": "48 cartas (con 8 y 9)",
@@ -437,6 +444,7 @@ const STRINGS = {
     "help.settings.li6": "Barajadas por ronda: cuántas veces se puede rehacer el mazo en una ronda. Empieza una partida nueva.",   // TODO review
     "help.settings.li7": "Reenganches por jugador: cuántas veces puede volver cada jugador tras ser eliminado. Empieza una partida nueva.",   // TODO review
     "help.settings.li8": "Rondas por partida: sin límite se juega hasta que queda un solo jugador; si no, gana el total más bajo tras la última ronda. Empieza una partida nueva.",   // TODO review
+    "help.settings.li9": "Sonido: breves sonidos de cartas y melodías. Empiezan tras tu primer toque o clic.",   // TODO review
     "help.settings.p": "Tu configuración y tu idioma se guardan en este dispositivo.",   // TODO review
     "help.screen.h": "Pistas, resultados y otras ayudas",   // TODO review
     "help.screen.li1": "Pistas (el botón de la bombilla, arriba): muestra las combinaciones de tu mano, tus puntos sueltos y si puedes cerrar (y con qué descarte). Tus combinaciones llevan barras de color y el botón Cerrar muestra tu mejor puntuación. Déjalo apagado para el reto completo.",   // TODO review

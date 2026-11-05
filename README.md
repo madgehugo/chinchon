@@ -9,7 +9,7 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 ## Features
 
 * **English and Spanish**, with a language dropdown (EN / ES) in the top bar. The first visit follows the browser's language (Spanish if it starts with `es`, else English); after that the choice is remembered in `localStorage`. All text lives in `i18n.js`.
-* A slim top bar holds the title, the current round and round buttons for Scores, Hints, Help and Settings.
+* A slim top bar holds the title, the current round and round icon buttons for Scores, Hints, Help and Settings.
   Settings and Scores open as sheets (from the side on a desktop, from the bottom on a phone) that close with their
   X button, Escape or a tap on the background. Settings has the dropdowns (sort mode, CPUs, level, speed, deck,
   reshuffles per round, re-entries per player, rounds per game) and New game. Under your hand are only the play
@@ -21,6 +21,11 @@ Or download the repo and open `index.html` in a browser. It works straight from 
   shows how many reshuffles are left), how many times each player may re-enter after elimination (0, 1, 2 or
   no limit, default 1) and how many rounds a game lasts (no limit, 5, 10, 15 or 20). Changing any of them starts a new game.
 * Cards show their number of suit symbols (the 4 of swords has four swords), drawn as inline SVG shapes defined once in `ui.js` (`SUIT_SPRITE`) so they look the same on every device.
+* Game feel: what a CPU draws shows as a short toast near the piles (one at a time, gone before the next turn); after
+  each round every seat shows its score floating up ("+12", "−10") once the results panel is out of the way; with Hints
+  on, the cards of a meld you just completed glow once. Sound effects (card snaps, a tick when your turn starts,
+  jingles for a close, a Chinchón and a win) are made in code in `sound.js`, start after your first tap or click (browsers
+  require that), and can be turned off in Settings.
 * Short card animations (260 ms or less each): the deal, drawing from either pile, discarding, and a gentle lift when you hover or press one of your cards. They switch off when the system asks for reduced motion (`prefers-reduced-motion`).
 * Drag cards to rearrange your hand; one button sorts by number or by suit. Your hand spreads over the width
   available, so on a phone the cards overlap only as much as they must.
@@ -75,14 +80,15 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 | `CPU_EXPERIMENTS.md` | Ideas for a stronger CPU that were benchmarked and did not help, with their results. |
 | `game.js` | The game state (`state`), turns, rounds, scoring, elimination and re-entry. |
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
-| `ui.js` | Drawing the table, clicks, touch and mouse dragging, the results panel, startup. |
+| `sound.js` | Sound effects made in code with the Web Audio API (no audio files); only `ui.js` calls it. |
+| `ui.js` | Drawing the table, clicks, touch and mouse dragging, the panels, toasts and score pop-ups, startup. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch); `helpers.js` holds what they share. |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups and sound); `helpers.js` holds what they share. |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file. |
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
 
 The scripts share one global scope, so the order of the `<script>` tags in `index.html` matters: each file may use what
-the files above it define (`rules.js, i18n.js, ai.js, game.js, tests.js, ui.js`). They are plain scripts rather than ES modules so
+the files above it define (`rules.js, i18n.js, ai.js, game.js, tests.js, sound.js, ui.js`). They are plain scripts rather than ES modules so
 the game also works from `file://`, where browsers block modules.
 
 ## How the pieces connect
@@ -152,7 +158,7 @@ node tools/gamebench.js 4000 hard medium 40 4 --jobs 8   # whole games: one A ag
 node tools/bench.js 3200 finish smart 48 --reshuffles 2   # 48-card deck, at most 2 reshuffles (gamebench: also --rounds, --reentries)
 node tools/bench.js 6400 "hard:takeMargin=1.5" hard --players 2 --jobs 8   # a 1v1 table (default 4 players)
 npm install && npx playwright install chromium    # once, for the browser tests
-npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch
+npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound
 ```
 
 * Unit tests in `tests.js` run every time the page loads; open the console (F12) and look for
