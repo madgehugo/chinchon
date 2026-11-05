@@ -495,6 +495,22 @@ button, .pile, select { touch-action: manipulation; }   /* no double-tap zoom de
 .panel-buttons button { margin: 0; }
 button.secondary { background: rgba(255, 255, 255, .85); }
 
+/* ---------- Help panel ----------
+   Each section is a <details> element: a <summary> line you click to fold it open or shut. */
+.help-panel { max-width: 640px; line-height: 1.45; font-size: .92rem; }
+.help-panel details { margin: 0 0 6px; padding-bottom: 2px; background: rgba(255, 255, 255, .06); border-radius: 10px; }
+.help-panel summary {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #ffd54a;
+}
+.help-panel details[open] summary { border-bottom: 1px solid rgba(255, 255, 255, .1); }
+.help-panel details p, .help-panel details ul { margin: 8px 12px; }
+.help-panel ul { padding-left: 1.2em; }
+.help-panel li { margin-bottom: 4px; }
+#help-btn { min-width: 2.4em; font-weight: bold; }
+
 /* ---------- Big screens: bigger cards for you and the piles ----------
    Only when the window is both wide and tall enough, so nothing gets squeezed. */
 @media (min-width: 1000px) and (min-height: 820px) {

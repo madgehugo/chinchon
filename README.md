@@ -23,10 +23,12 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 * Turn cues: the seat whose turn it is has a gold label (a CPU's also shows animated dots while it plays), the pile
   you may draw from pulses, and the card you just drew has a small gold dot until you discard.
 * Keyboard play: `1`-`8` discard that card (or close with it in closing mode), `D` draws from the pile, `T` takes the
-  top discard, `C` closes, `S` sorts, `Enter` starts the next round, `Escape` hides the results. The help line is in
+  top discard, `C` closes, `S` sorts, `Enter` starts the next round, `H` opens the help, `Escape` closes the help or hides the results. The help line is in
   the Settings panel (hidden on touch screens, where the status line says "tap" instead of "click").
 * The end of a game opens the results with a banner: the winner and the final standings. A few suit symbols float up
   when you win or someone makes a Chinchón (not with reduced motion).
+* A Help panel (the `?` button or the `H` key) explains the rules, every setting, Hints, the results screen and the
+  keyboard keys, in fold-out sections (`<details>` elements in `index.html`; the text is the `help.*` keys in `i18n.js`).
 * The settings are remembered between visits (`localStorage`, like the language; see `saveSettings` in `ui.js`).
 * You pick which card to close with.
 * Round results screen showing every hand split into melds and leftovers.

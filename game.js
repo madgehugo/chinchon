@@ -48,6 +48,7 @@ const state = {
   cpuSpeed: "normal",// "slow" | "normal" | "fast" (see CPU_SPEEDS)
   showHints: false,  // is the hand analysis table visible? (off by default)
   showSettings: false, // is the settings panel open?
+  showHelp: false,   // is the help panel (rules, settings, keys) open?
   maxReshuffles: MAX_RESHUFFLES, // reshuffles allowed per round (null = no limit); a setting
   roundLimit: null,  // rounds per game (null = no limit: play until one player is left); a setting
   maxReentries: null, // times each player may re-enter after elimination (null = no limit); a setting

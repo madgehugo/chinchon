@@ -475,7 +475,7 @@ function applyStaticText() {
   }
 }
 
-// Hints / Settings buttons and the settings panel follow state
+// Hints / Settings / Help buttons and their panels follow state
 function renderToggles() {
   document.getElementById("settings").hidden = !state.showSettings;
   const hints = document.getElementById("hints-btn");
@@ -484,6 +484,8 @@ function renderToggles() {
   const settings = document.getElementById("settings-btn");
   settings.setAttribute("aria-expanded", String(state.showSettings));
   settings.classList.toggle("active", state.showSettings);
+  document.getElementById("help").hidden = !state.showHelp;
+  document.getElementById("help-btn").setAttribute("aria-expanded", String(state.showHelp));
 }
 
 // Table of running totals under the game
@@ -754,6 +756,19 @@ document.getElementById("settings-btn").addEventListener("click", () => {
   render();
 });
 
+// Help panel: the ? button (or H) opens it; its Close button, Escape, or a click on the
+// dark background around the panel closes it
+function setHelpOpen(open) {
+  state.showHelp = open;
+  render();
+}
+document.getElementById("help-btn").addEventListener("click", () => setHelpOpen(!state.showHelp));
+document.getElementById("help-close").addEventListener("click", () => setHelpOpen(false));
+document.getElementById("help").addEventListener("click", (e) => {
+  // e.target is the element actually clicked: the overlay itself only outside the panel
+  if (e.target === e.currentTarget) setHelpOpen(false);
+});
+
 // Language: setLanguage (i18n.js) remembers the choice and calls render()
 document.getElementById("lang").addEventListener("change", (e) => setLanguage(e.target.value));
 
@@ -909,16 +924,20 @@ document.getElementById("res-newgame").addEventListener("click", () => newGame()
 // Keyboard play (handy on a desktop). The keys call the same functions as the clicks:
 //   1-8 discard (or, in closing mode, close with) that card, counted from the left
 //   D draw pile, T take the top discard, C close (or cancel closing), S sort,
-//   Enter next round, Escape hide the results panel.
+//   Enter next round, H help, Escape close the help or hide the results panel.
+// While the help is open, only H and Escape work (no moves behind the panel).
 // Keys are ignored while a dropdown has the focus or Ctrl/Cmd/Alt is held (browser shortcuts).
 // On a focused button (the one you clicked last) Enter and Space press that button, as usual.
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.showHelp) { setHelpOpen(false); return; }
   if (e.key === "Escape" && state.showResults) { setResultsOpen(false); return; }
   if (e.ctrlKey || e.metaKey || e.altKey || dragFrom !== null) return;
   if (["SELECT", "INPUT"].includes(e.target.tagName)) return;
 
   const key = e.key.toLowerCase();
   if (e.target.tagName === "BUTTON" && (key === "enter" || key === " ")) return;
+  if (key === "h") { setHelpOpen(!state.showHelp); e.preventDefault(); return; }
+  if (state.showHelp) return;
   if (key >= "1" && key <= "9" && key.length === 1) {
     const index = Number(key) - 1;
     const el = document.querySelectorAll("#hand-0 .card")[index];
