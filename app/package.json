@@ -1,0 +1,22 @@
+{
+  "name": "chinchon-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chinchón for the App Store and Google Play: the game in a native shell (Capacitor).",
+  "scripts": {
+    "copy": "node copy_web.js",
+    "sync": "node copy_web.js && cap sync",
+    "ios": "cap open ios",
+    "android": "cap open android",
+    "assets": "capacitor-assets generate"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

@@ -1,0 +1,3 @@
+node_modules/
+# Filled by copy_web.js from the game files at the repo root; never edit it
+www/

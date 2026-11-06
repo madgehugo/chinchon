@@ -17,6 +17,42 @@ browser bars, and it opens without a network once it has been opened online once
 Updates: while online the app always loads the newest files (see `sw.js`), so a push to `main` reaches installed
 copies the next time they open. Installing needs https, so it does not work from a file opened from disk.
 
+## Phone app (App Store and Google Play)
+
+The store apps are the same files inside [Capacitor](https://capacitorjs.com), a native shell that shows the game
+full screen in the phone's own web view. Everything for it lives in `app/`, the one folder with dependencies; the game
+itself still has none, and never loads anything from `app/`.
+
+| In `app/` | What it is |
+| --- | --- |
+| `package.json` | Capacitor and its `App` plugin (Android's back button), pinned to exact versions, and the commands below. |
+| `capacitor.config.json` | App id `io.github.madgehugo.chinchon` (permanent once published), name, launch colour, Android system bars. |
+| `copy_web.js` | Copies the game into `www/` (git-ignored). The file list is `APP_FILES` in `sw.js`, so there is one list to keep. |
+| `ios/`, `android/` | The native projects for Xcode and Android Studio, made by Capacitor. Committed: signing and version numbers live there. |
+
+**Once:** install Xcode (Mac App Store; then `sudo xcode-select -s /Applications/Xcode.app` and open it once) and
+Android Studio (it brings its own Java; open it once to install the SDK and an emulator). Then `cd app && npm install`.
+
+**After changing the game:** `cd app && npm run sync` (copies the files into both native projects), then build:
+`npm run ios` opens Xcode (choose a simulator or your phone, press Run); `npm run android` opens Android Studio (Run).
+After changing `icon.svg`, `node tools/make_icons.js` also redraws the native icons and launch screens.
+Inside the app `ui.js` sees `window.Capacitor` (`NATIVE_APP`): it skips the service worker and handles the back button.
+
+**Versions:** each upload needs a higher build number. iOS: Xcode → the App target → General → Version and Build.
+Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
+
+**Publishing checklist**
+
+* Privacy policy URL for both stores: `https://madgehugo.github.io/chinchon/privacy.html` (`privacy.html`).
+* iOS ([Apple Developer Program](https://developer.apple.com/programs/), $99/year): in Xcode set your Team under
+  Signing & Capabilities; Product → Archive → Distribute → App Store Connect. In App Store Connect create the app
+  (same bundle id), add screenshots, description, age rating and App Privacy "Data Not Collected"; test with
+  TestFlight, then submit for review.
+* Android ([Google Play Console](https://play.google.com/console), $25 once): Build → Generate Signed App Bundle
+  (.aab). **Back up the keystore and its passwords**: every update must be signed with it. In the Console: store
+  listing, Data safety "no data collected", content rating, then a closed test (new personal accounts need 12 testers
+  for 14 days) before production.
+
 ## Features
 
 * **English and Spanish**, with a language dropdown at the top of the Settings sheet. The first visit follows the browser's language (Spanish if it starts with `es`, else English); after that the choice is remembered in `localStorage`. All text lives in `i18n.js`.
@@ -99,9 +135,11 @@ copies the next time they open. Installing needs https, so it does not work from
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
 | `sound.js` | Sound effects made in code with the Web Audio API (no audio files); only `ui.js` calls it. |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the panels, toasts and score pop-ups, startup. |
-| `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups and sound, saving and resuming, installing and offline play); `helpers.js` holds what they share. |
+| `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons, and the store apps' icons and launch screens). |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups and sound, saving and resuming, installing and offline play, the store app's back button); `helpers.js` holds what they share. |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file (it plays the same, but cannot be installed as an app). |
+| `privacy.html` | The privacy policy page the app stores ask for (English and Spanish). Not part of the game. |
+| `app/` | The App Store and Google Play apps (see "Phone app" above). |
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
 
 The scripts share one global scope, so the order of the `<script>` tags in `index.html` matters: each file may use what
@@ -133,7 +171,8 @@ the game also works from `file://`, where browsers block modules.
   `SAVE_VERSION`**, so an old save is ignored instead of loaded half-right. Cards are compared as objects
   (`state.lastDrawn`, `state.known`), so `restoreGame` re-links those to the card objects in the hands.
 * **Installing and offline.** `index.html` links `manifest.webmanifest` and the iOS icon; `ui.js` registers `sw.js` on
-  https or localhost only. Every file the page loads must also be in `APP_FILES` in `sw.js` (`tests/browser/pwa.js` checks).
+  https or localhost only, and not in the store app. Every file the page loads must also be in `APP_FILES` in `sw.js`
+  (`tests/browser/pwa.js` checks); `app/copy_web.js` uses the same list.
 * CPU turns have two timed beats (draw, then discard) so you can follow them. Decisions come from a **strategy** object in
   `ai.js` with three functions: `chooseSource`, `chooseClose`, `chooseDiscard`. A new level is an entry in `STRATEGIES`
   plus an entry in `CPU_MODES` and a `level.<name>` text in `i18n.js`.
@@ -183,8 +222,8 @@ node tools/gamebench.js 4000 hard medium 40 4 --jobs 8   # whole games: one A ag
 node tools/bench.js 3200 finish smart 48 --reshuffles 2   # 48-card deck, at most 2 reshuffles (gamebench: also --rounds, --reentries)
 node tools/bench.js 6400 "hard:takeMargin=1.5" hard --players 2 --jobs 8   # a 1v1 table (default 4 players)
 npm install && npx playwright install chromium    # once, for the browser tests
-npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound, resume, offline
-node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png (commit them)
+npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound, resume, offline, store app
+node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png and the app/ icons (commit them)
 ```
 
 * Unit tests in `tests.js` run every time the page loads; open the console (F12) and look for
@@ -222,7 +261,8 @@ python3 build_single.py            # writes chinchon-single.html
 ## Deploying
 
 The site is served by GitHub Pages from the `main` branch root. Push to `main` and it redeploys in a minute or two.
-There is no build step, so what is in the repo is what is served.
+There is no build step, so what is in the repo is what is served. The store apps do not update this way: see
+"Phone app" above (sync, a new build number, upload, review).
 
 ## License
 

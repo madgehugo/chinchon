@@ -1,0 +1,13 @@
+{
+  "appId": "io.github.madgehugo.chinchon",
+  "appName": "Chinchón",
+  "webDir": "www",
+  "backgroundColor": "#08170e",
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
+    }
+  }
+}

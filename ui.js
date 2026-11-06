@@ -918,6 +918,16 @@ function setHelpOpen(open) {
   state.showHelp = open;
   render();
 }
+// Escape (and Android's back button in the phone app): close the panel on top.
+// Returns false if none was open.
+function closeTopPanel() {
+  if (state.showHelp) setHelpOpen(false);             // the help opens on top of the others
+  else if (state.showSettings) setSettingsOpen(false);
+  else if (state.showScores) setScoresOpen(false);
+  else if (state.showResults) setResultsOpen(false);
+  else return false;
+  return true;
+}
 // Closing Settings with a "start a new game?" question still open counts as "no"
 // (closeConfirm puts the dropdowns back to what the game is using)
 function setSettingsOpen(open) {
@@ -1159,13 +1169,7 @@ document.getElementById("res-newgame").addEventListener("click", () => newGame()
 // Keys are ignored while a dropdown has the focus or Ctrl/Cmd/Alt is held (browser shortcuts).
 // On a focused button (the one you clicked last) Enter and Space press that button, as usual.
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    if (state.showHelp) setHelpOpen(false);             // the help opens on top of the others
-    else if (state.showSettings) setSettingsOpen(false);
-    else if (state.showScores) setScoresOpen(false);
-    else if (state.showResults) setResultsOpen(false);
-    return;
-  }
+  if (e.key === "Escape") { closeTopPanel(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey || dragFrom !== null) return;
   if (["SELECT", "INPUT"].includes(e.target.tagName)) return;
 
@@ -1205,13 +1209,32 @@ if (loadGame()) resumeTurn();         // carry on with the game left unfinished 
 else newGame(savedCpuCount);          // or start a new one with those settings
 syncSettingDropdowns();      // after newGame, which sets the number of players
 
+// The App Store / Google Play app (app/ in this repo) runs these same files inside a
+// native shell called Capacitor, which defines `window.Capacitor` before any script
+// here runs. In the browser it does not exist. (`window.Capacitor` rather than plain
+// `Capacitor`: reading a global that was never defined is an error, a missing property is not.)
+const NATIVE_APP = Boolean(window.Capacitor);
+
 // Offline play once the game is installed on a phone: register sw.js, the "service
 // worker" (a script the browser keeps running in the background that answers the
 // page's file requests, from a saved copy when there is no network). Browsers allow
 // one only on https:// or localhost, so this is skipped when the game is opened
-// from disk (file://). Inside some embeds it can still fail; that is fine, the game
-// just has no offline copy. (.catch on a promise = what to do if it fails.)
-if ("serviceWorker" in navigator &&
+// from disk (file://), and in the store app, whose files are on the phone already.
+// Inside some embeds it can still fail; that is fine, the game just has no offline
+// copy. (.catch on a promise = what to do if it fails.)
+if ("serviceWorker" in navigator && !NATIVE_APP &&
     (location.protocol === "https:" || location.hostname === "localhost")) {
   navigator.serviceWorker.register("sw.js").catch(() => { /* no offline copy; fine */ });
+}
+
+// Android's back button in the store app: close the open panel, as Escape does; with
+// none open, save and leave the app (the default would be to go back a page, and the
+// game has only one). This talks to the native "App" plugin (app/package.json) through
+// the bridge functions Capacitor puts on window.Capacitor, so the game needs no
+// Capacitor JavaScript library of its own. PluginHeaders lists the native plugins.
+if (NATIVE_APP && window.Capacitor.getPlatform() === "android" &&
+    (window.Capacitor.PluginHeaders || []).some(plugin => plugin.name === "App")) {
+  window.Capacitor.addListener("App", "backButton", () => {
+    if (!closeTopPanel()) { saveGame(); window.Capacitor.nativeCallback("App", "exitApp", {}); }
+  });
 }

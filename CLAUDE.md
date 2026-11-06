@@ -12,7 +12,7 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 * **Classic `<script>` tags in one shared global scope, no ES modules**, so the game works from `file://`.
   Script order in `index.html` is `rules.js, i18n.js, ai.js, game.js, tests.js, sound.js, ui.js`; a file may only use what earlier
   files define at load time. `build_single.py` depends on the exact `<link>`/`<script src>` tag shapes in `index.html`.
-* **No libraries, no build step, no external requests.**
+* **No libraries, no build step, no external requests** (the game itself; `app/` is the exception, below).
 * **Text and languages (English + Spanish):** no player-visible string in JS or `state`. Look text up with
   `t("key", vars)` / `plural()` from `i18n.js`; static HTML uses `data-i18n`. `state` stores messages as
   `msg(key, data)` (never finished sentences, never player names) so `setLanguage()` + `render()` redraws everything.
@@ -24,6 +24,10 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 * Files must not contain the text `</script` (the single-file bundler refuses it).
 * **Installable app:** a new file the page loads must also go into `APP_FILES` in `sw.js` (`tests/browser/pwa.js` checks).
   A new or renamed field of `state` needs `SAVE_VERSION` in `game.js` bumped, or old saved games load wrongly.
+* **Store apps (`app/`):** the only folder with dependencies (Capacitor); the game files never load anything from it.
+  Code for the native shell only runs behind `NATIVE_APP` in `ui.js` and talks to plugins through the bridge functions on
+  `window.Capacitor` (no Capacitor JS library in the game). `tests/browser/native.js` fakes the shell. After changing
+  game files run `cd app && npm run sync` before a native build. Do not edit `app/www/` (refilled from `sw.js`'s list).
 
 ## Decisions the owner made (do not undo without asking)
 
