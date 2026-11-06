@@ -1227,14 +1227,18 @@ if ("serviceWorker" in navigator && !NATIVE_APP &&
   navigator.serviceWorker.register("sw.js").catch(() => { /* no offline copy; fine */ });
 }
 
-// Android's back button in the store app: close the open panel, as Escape does; with
-// none open, save and leave the app (the default would be to go back a page, and the
-// game has only one). This talks to the native "App" plugin (app/package.json) through
-// the bridge functions Capacitor puts on window.Capacitor, so the game needs no
-// Capacitor JavaScript library of its own. PluginHeaders lists the native plugins.
-if (NATIVE_APP && window.Capacitor.getPlatform() === "android" &&
-    (window.Capacitor.PluginHeaders || []).some(plugin => plugin.name === "App")) {
-  window.Capacitor.addListener("App", "backButton", () => {
-    if (!closeTopPanel()) { saveGame(); window.Capacitor.nativeCallback("App", "exitApp", {}); }
-  });
+// The store app talks to the native "App" plugin (app/package.json) through the bridge
+// functions Capacitor puts on window.Capacitor, so the game needs no Capacitor JavaScript
+// library of its own. PluginHeaders lists the native plugins.
+if (NATIVE_APP && (window.Capacitor.PluginHeaders || []).some(plugin => plugin.name === "App")) {
+  // "pause": the app went to the background. Android's web view does not always report
+  // that to the page (no visibilitychange), so save here too.
+  window.Capacitor.addListener("App", "pause", saveGame);
+  // Android's back button: close the open panel, as Escape does; with none open, save
+  // and leave the app (the default would be to go back a page, and the game has only one).
+  if (window.Capacitor.getPlatform() === "android") {
+    window.Capacitor.addListener("App", "backButton", () => {
+      if (!closeTopPanel()) { saveGame(); window.Capacitor.nativeCallback("App", "exitApp", {}); }
+    });
+  }
 }

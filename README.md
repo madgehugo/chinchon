@@ -32,11 +32,14 @@ itself still has none, and never loads anything from `app/`.
 
 **Once:** install Xcode (Mac App Store; then `sudo xcode-select -s /Applications/Xcode.app` and open it once) and
 Android Studio (it brings its own Java; open it once to install the SDK and an emulator). Then `cd app && npm install`.
+(`app/android` uses Gradle 9.5.1 instead of the 8.14.3 Capacitor sets up, because the Java that comes with Android
+Studio, version 25, is too new for 8.14. Gradle 9.6 and later do not work with the Android plugin in use, so stay on 9.5
+until Capacitor moves to a newer one.)
 
 **After changing the game:** `cd app && npm run sync` (copies the files into both native projects), then build:
 `npm run ios` opens Xcode (choose a simulator or your phone, press Run); `npm run android` opens Android Studio (Run).
 After changing `icon.svg`, `node tools/make_icons.js` also redraws the native icons and launch screens.
-Inside the app `ui.js` sees `window.Capacitor` (`NATIVE_APP`): it skips the service worker and handles the back button.
+Inside the app `ui.js` sees `window.Capacitor` (`NATIVE_APP`): it skips the service worker, saves on the native `pause` event (Android's web view does not always report going to the background) and handles the back button.
 
 **Versions:** each upload needs a higher build number. iOS: Xcode → the App target → General → Version and Build.
 Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
@@ -136,7 +139,7 @@ Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
 | `sound.js` | Sound effects made in code with the Web Audio API (no audio files); only `ui.js` calls it. |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the panels, toasts and score pop-ups, startup. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons, and the store apps' icons and launch screens). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups and sound, saving and resuming, installing and offline play, the store app's back button); `helpers.js` holds what they share. |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups and sound, saving and resuming, installing and offline play, the store app's back button and pause save); `helpers.js` holds what they share. |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file (it plays the same, but cannot be installed as an app). |
 | `privacy.html` | The privacy policy page the app stores ask for (English and Spanish). Not part of the game. |
 | `app/` | The App Store and Google Play apps (see "Phone app" above). |

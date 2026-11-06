@@ -19,13 +19,22 @@ const { GAME_URL, makeChecker } = require('./helpers');
     window.Capacitor = {
       getPlatform: () => 'android',
       PluginHeaders: [{ name: 'App', methods: [] }],
-      addListener: (plugin, event, callback) => { nativeCalls.push(`${plugin}.addListener ${event}`); window.pressBack = callback; },
+      addListener: (plugin, event, callback) => {
+        nativeCalls.push(`${plugin}.addListener ${event}`);
+        if (event === 'backButton') window.pressBack = callback;
+        if (event === 'pause') window.pauseApp = callback;
+      },
       nativeCallback: (plugin, method) => { nativeCalls.push(`${plugin}.${method}`); },
     };
   });
   await page.goto(GAME_URL);
   check(await page.evaluate(() => NATIVE_APP === true), 'the game knows it runs in the store app');
   check(await page.evaluate(() => typeof pressBack === 'function'), 'it listens for the back button');
+
+  // Going to the background saves the game (the native "pause" event)
+  check(await page.evaluate(() => typeof pauseApp === 'function'), 'it listens for the app going to the background');
+  await page.evaluate(() => { localStorage.removeItem(GAME_STORAGE_KEY); pauseApp(); });
+  check(await page.evaluate(() => localStorage.getItem(GAME_STORAGE_KEY) !== null), 'going to the background saves the game');
 
   // Back with a panel open closes it, and the app stays open
   await page.click('#settings-btn');
