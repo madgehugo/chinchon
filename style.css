@@ -541,6 +541,9 @@ button.secondary.active, button.secondary[aria-pressed="true"] {
   box-shadow: inset 0 0 0 1px var(--gold-line);
 }
 button.icon { min-width: 40px; padding: 8px; }
+/* The icon is a block-level <svg>, which a button does not centre by itself when the button is
+   wider than the icon (text-align only moves inline content). A flex box centres it both ways. */
+button.icon { display: inline-flex; align-items: center; justify-content: center; }
 /* Sound is on by default, so "pressed" (on) keeps the plain look; muted, the button dims */
 #sound-btn[aria-pressed] { color: var(--text); background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px var(--glass-line); }
 #sound-btn[aria-pressed="false"] { color: var(--text-dim); }
