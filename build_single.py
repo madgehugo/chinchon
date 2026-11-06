@@ -7,8 +7,11 @@ It copies index.html and replaces
     <link rel="stylesheet" href="style.css">   with an inline <style> block, and
     <link rel="icon" href="favicon.svg" ...>   with a data: URL, and
     <script src="rules.js"></script> ...        with inline <script> blocks,
-keeping the same order. Nothing else changes, so the bundled file behaves
-exactly like the multi-file version. Edit the separate files, then re-run this.
+keeping the same order, and it removes
+    <link rel="manifest" ...> and <link rel="apple-touch-icon" ...>
+(installing as a phone app needs the separate files, and the single file has
+none next to it). Nothing else changes, so the bundled file plays exactly like
+the multi-file version. Edit the separate files, then re-run this.
 
 It only relies on the tag shapes above, so a new script needs no change here as
 long as index.html lists it in exactly that form.
@@ -45,6 +48,7 @@ def inline_icon(match: re.Match) -> str:
     return f'<link rel="icon" href="data:image/svg+xml;base64,{data}" type="image/svg+xml">'
 
 
+html = re.sub(r'<link rel="(?:manifest|apple-touch-icon)" href="[^"]+">\n', "", html)
 html = re.sub(r'<link rel="icon" href="([^"]+)" type="image/svg\+xml">', inline_icon, html)
 html = re.sub(r'<link rel="stylesheet" href="([^"]+)">', inline_css, html)
 html = re.sub(r'<script src="([^"]+)"></script>', inline_js, html)

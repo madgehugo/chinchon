@@ -9,6 +9,8 @@
    that no card was lost or duplicated, and it checks that rounds end, hand
    sizes are right and nobody active is over the score limit. Games cycle through
    the reshuffle, re-entry and round-limit settings, and it checks those rules too.
+   Now and then it saves the game and restores it (as the browser does when the
+   app is closed and opened again) and keeps playing from the restored copy.
    Exits with a non-zero code if anything failed.
    ========================================================= */
 const { loadGame } = require("./harness");
@@ -21,7 +23,7 @@ let totalErrors = 0;
 for (const size of [40, 48]) {
   g.setDeckSize(size);
   console.log("--- deck", size);
-  const stats = { games: 0, rounds: 0, chinchon: 0, humanOut: 0, endlessRound: 0, stuck: 0, errors: 0, stalemates: 0, tieBreaks: 0, winners: [0, 0, 0, 0], maxRoundTurns: 0 };
+  const stats = { games: 0, rounds: 0, chinchon: 0, humanOut: 0, endlessRound: 0, stuck: 0, errors: 0, stalemates: 0, tieBreaks: 0, winners: [0, 0, 0, 0], maxRoundTurns: 0, restores: 0 };
   const fail = (m, ...a) => { stats.errors++; if (stats.errors < 10) console.error("FAIL", m, ...a); };
   const audit = (label) => {
     const all = [...state.drawPile, ...state.discardPile, ...state.hands.flat()];
@@ -29,6 +31,22 @@ for (const size of [40, 48]) {
     if (all.length !== size || keys.size !== size) fail("card audit", label, all.length, keys.size);
   };
   const settle = () => { if (!g.drain(20000)) { stats.endlessRound++; return false; } return true; };
+  // Save and restore through JSON, like a reload in the browser, then carry on from the copy.
+  // The copy must save to exactly the same thing, and broken saves must be refused.
+  const roundTrip = (label) => {
+    const before = JSON.stringify(g.snapshotGame());
+    g.clearQueue();                                   // a closed app keeps no timers
+    if (!g.restoreGame(JSON.parse(before))) { fail("restore refused a good save", label); return; }
+    if (JSON.stringify(g.snapshotGame()) !== before) fail("restore changed the game", label);
+    // Cards are compared as objects, so a known card must be the very object in that hand
+    if (state.known.some((cards, p) => cards.some(c => !state.hands[p].includes(c)))) fail("known card not re-linked", label);
+    if (state.lastDrawn && !state.hands[0].includes(state.lastDrawn)) fail("drawn card not re-linked", label);
+    const bad = JSON.parse(before);
+    (bad.drawPile.length ? bad.drawPile : bad.discardPile).pop();   // one card missing
+    if (g.restoreGame(bad) || g.restoreGame({ ...JSON.parse(before), version: -1 })) fail("restore accepted a broken save", label);
+    stats.restores++;
+    g.resumeTurn();
+  };
 
   for (let n = 0; n < GAMES; n++) {
     state.cpuLevels = [...g.CPU_MODES[["easy", "medium", "hard", "mixed"][n % 4]]];
@@ -43,12 +61,14 @@ for (const size of [40, 48]) {
       while (state.phase !== "roundOver" && turns++ < 800) {
         // CPUs advance through the fake-timer queue; the human plays at random
         if (state.currentPlayer !== 0 || !state.inGame[0]) {
+          if (Math.random() < 0.05) { g.drain(1); roundTrip("cpu turn"); }   // part-way through CPU turns
           ok = settle(); if (!ok) break;
           if (state.phase !== "roundOver" && state.currentPlayer !== 0) { stats.stuck++; ok = false; break; }
           continue;
         }
         g.humanDraw(Math.random() < 0.5 ? "deck" : "discard");
         audit("draw");
+        if (Math.random() < 0.05) { roundTrip("your discard"); audit("restore"); }
         if (state.phase === "discard") {
           if (Math.random() < 0.3) { g.moveCard(0, state.hands[0].length - 1); g.sortHand(); }
           if (g.closeOptions(state.hands[0]).length && Math.random() < 0.9) {
@@ -68,6 +88,7 @@ for (const size of [40, 48]) {
       if (!ok) break;
       if (state.phase !== "roundOver") { stats.stuck++; break; }
       state.hands.forEach((h, p) => { if (h.length !== 0 && h.length !== 7) fail("hand size", p, h.length); });
+      if (Math.random() < 0.1) roundTrip("round over");
       if (state.gameOver) break;
       if (state.awaitingReentry && state.maxReentries !== null && state.reentries[0] >= state.maxReentries) fail("asked to re-enter with none left");
       if (state.awaitingReentry) { stats.humanOut++; g.humanReenter(Math.random() < 0.5); }

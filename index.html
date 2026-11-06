@@ -2,10 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- viewport-fit=cover: on phones with a notch, use the whole screen (style.css keeps
+     clear of the notch with env(safe-area-inset-*)) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title data-i18n="app.title">Chinchón</title>
 <!-- The small picture in the browser tab. build_single.py inlines it, so keep this exact form. -->
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!-- Installing on a phone ("Add to Home Screen"): the manifest gives the app's name, icons
+     and colours; iOS reads the apple-* tags instead. theme-color tints the phone's status bar.
+     build_single.py removes the manifest and apple-touch-icon links (the single file has no
+     files next to it), so keep them on one line each in this form. -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#163a26">
+<meta name="apple-mobile-web-app-title" content="Chinchón">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
 <!-- Files in this project (all in one folder; just open index.html):
        style.css  how it looks
@@ -16,6 +27,8 @@
        tests.js   self-tests for the rules (results appear in the console)
        sound.js   sound effects, made in code (Web Audio)
        ui.js      drawing the table, clicks, dragging, startup
+       sw.js      offline copy for the installed app (not a <script> below; ui.js registers it)
+       manifest.webmanifest, icons/   the app's name and icons when installed on a phone
      The scripts share one global scope, so the ORDER below matters:
      each file may use what the files above it define. -->
 <link rel="stylesheet" href="style.css">

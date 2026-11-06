@@ -6,6 +6,17 @@ Plain HTML, CSS and JavaScript, with no build step, no framework and no librarie
 **Play it:** `https://madgehugo.github.io/chinchon/` (GitHub Pages; replace the placeholders with your own).
 Or download the repo and open `index.html` in a browser. It works straight from disk.
 
+## Install on your phone
+
+From the GitHub Pages link the game installs as an app: its own icon on the home screen, full screen with no
+browser bars, and it opens without a network once it has been opened online once.
+
+* **iPhone / iPad (Safari):** open the link, tap Share, then **Add to Home Screen**.
+* **Android (Chrome):** open the link, then tap **Install** when offered, or menu (⋮) → **Add to Home screen** / **Install app**.
+
+Updates: while online the app always loads the newest files (see `sw.js`), so a push to `main` reaches installed
+copies the next time they open. Installing needs https, so it does not work from a file opened from disk.
+
 ## Features
 
 * **English and Spanish**, with a language dropdown at the top of the Settings sheet. The first visit follows the browser's language (Spanish if it starts with `es`, else English); after that the choice is remembered in `localStorage`. All text lives in `i18n.js`.
@@ -39,6 +50,9 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 * A Help panel (the `?` button or the `H` key) explains the rules, every setting, Hints, the results screen and the
   keyboard keys, in fold-out sections (`<details>` elements in `index.html`; the text is the `help.*` keys in `i18n.js`).
 * The settings are remembered between visits (`localStorage`, like the language; see `saveSettings` in `ui.js`).
+* A game in progress is saved whenever you leave the page (another app, the home screen, closing the tab) and continues
+  where it was when you come back, even mid-way through a CPU's turn. New game starts afresh.
+* Installable on a phone, with offline play (see "Install on your phone" above).
 * You pick which card to close with.
 * Round results screen showing every hand split into melds and leftovers.
 * Elimination and re-entry. Works with mouse, touch and pen, and has a phone layout.
@@ -73,6 +87,9 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 | --- | --- |
 | `index.html` | The page skeleton: empty containers that the JavaScript fills in. |
 | `favicon.svg` | The small icon in the browser tab (two cards on the green table). |
+| `icon.svg`, `icons/` | The app icon for phones: `icon.svg` is the picture (full-bleed, cards inside the mask "safe zone"); `icons/*.png` are made from it by `tools/make_icons.js`. |
+| `manifest.webmanifest` | What a phone needs to install the game as an app: name, icons, colours, full-screen mode. |
+| `sw.js` | The service worker: keeps a copy of the files so the installed app opens offline (network first, cache as fallback). Not one of the page's `<script>` tags; `ui.js` registers it. |
 | `style.css` | How it looks, including the phone layout (`@media` block at the end). |
 | `rules.js` | The rules: deck, shuffling, runs and groups, scoring, closing. No display code. |
 | `i18n.js` | All the player-visible text in English and Spanish (`STRINGS`), `t(key, vars)`, `plural()`, `setLanguage()`, and the `msg()` helper for messages kept in `state`. |
@@ -82,9 +99,9 @@ Or download the repo and open `index.html` in a browser. It works straight from 
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
 | `sound.js` | Sound effects made in code with the Web Audio API (no audio files); only `ui.js` calls it. |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the panels, toasts and score pop-ups, startup. |
-| `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups and sound); `helpers.js` holds what they share. |
-| `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file. |
+| `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons). |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups and sound, saving and resuming, installing and offline play); `helpers.js` holds what they share. |
+| `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file (it plays the same, but cannot be installed as an app). |
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
 
 The scripts share one global scope, so the order of the `<script>` tags in `index.html` matters: each file may use what
@@ -108,6 +125,15 @@ the game also works from `file://`, where browsers block modules.
   `data-i18n-aria` for attributes), and `applyStaticText()` in `ui.js` fills it in.
 * **To add or change a text:** add the key to BOTH `en` and `es` in `STRINGS`. The unit test `runTestsI18n` fails if the two languages differ in keys
   or `{placeholders}`. **To add a language:** add an entry to `STRINGS` and an `<option>` to `#lang` in `index.html`.
+* **Saving and resuming.** `snapshotGame()` in `game.js` turns `state` into a plain object (leaving out what only
+  belongs to the screen: the timer, open panels, closing mode) and `restoreGame()` checks a saved one (version
+  `SAVE_VERSION`, every field present, exactly one full deck) and puts it back; `resumeTurn()` restarts play, including a
+  CPU's pending timer. They never touch the page or storage. `saveGame()` / `loadGame()` in `ui.js` keep the JSON in
+  `localStorage` and save on `visibilitychange` / `pagehide`. **If you add or rename a field of `state`, bump
+  `SAVE_VERSION`**, so an old save is ignored instead of loaded half-right. Cards are compared as objects
+  (`state.lastDrawn`, `state.known`), so `restoreGame` re-links those to the card objects in the hands.
+* **Installing and offline.** `index.html` links `manifest.webmanifest` and the iOS icon; `ui.js` registers `sw.js` on
+  https or localhost only. Every file the page loads must also be in `APP_FILES` in `sw.js` (`tests/browser/pwa.js` checks).
 * CPU turns have two timed beats (draw, then discard) so you can follow them. Decisions come from a **strategy** object in
   `ai.js` with three functions: `chooseSource`, `chooseClose`, `chooseDiscard`. A new level is an entry in `STRATEGIES`
   plus an entry in `CPU_MODES` and a `level.<name>` text in `i18n.js`.
@@ -157,7 +183,8 @@ node tools/gamebench.js 4000 hard medium 40 4 --jobs 8   # whole games: one A ag
 node tools/bench.js 3200 finish smart 48 --reshuffles 2   # 48-card deck, at most 2 reshuffles (gamebench: also --rounds, --reentries)
 node tools/bench.js 6400 "hard:takeMargin=1.5" hard --players 2 --jobs 8   # a 1v1 table (default 4 players)
 npm install && npx playwright install chromium    # once, for the browser tests
-npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound
+npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound, resume, offline
+node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png (commit them)
 ```
 
 * Unit tests in `tests.js` run every time the page loads; open the console (F12) and look for
@@ -181,6 +208,8 @@ npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts,
   still knock a B out for the other). Each deal is played with A in every seat, so a fair share is exactly 1/players
   (25% with 4 players); `--control` gives the noise level (about 0.7 percentage points at 4,000 games, 0.3-0.4 paired).
   4,000 games take about 5 minutes with `--jobs 8`.
+* `stress.js` also saves and restores the game at random moments (through JSON, as the browser does) and keeps playing
+  from the copy, so a field that does not survive saving shows up there.
 * After changing `ui.js` or `style.css`, run the browser tests and check the page at phone width (about 390px), in both
   languages (Spanish labels are longer). `tools/stress.js` does not depend on any text: it reads `state.roundResult`.
 

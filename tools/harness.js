@@ -38,7 +38,7 @@ globalThis.__game = {
   setRandom, setDecisionRandom, makeSeededRandom, setDeckSize,
   newGame, startRound, nextRound, humanDraw, humanDiscard, humanClose, humanReenter,
   drawCard, discardCard, endTurn, closeRound, closeOptions, moveCard, sortHand,
-  cpuWantsReentry,
+  cpuWantsReentry, snapshotGame, restoreGame, resumeTurn,
 };`;
   vm.runInNewContext(source, sandbox, { filename: "game-bundle.js" });
 

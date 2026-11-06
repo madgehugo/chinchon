@@ -1056,6 +1056,42 @@ function loadSettings() {
   return Number(pick("cpu-count"));
 }
 
+/* ---------------------------------------------------------
+   Remembering the game in progress. A phone may close the app at any moment
+   while it is in the background, so the game is saved whenever the page is
+   hidden and continued when it opens again (a reload continues it too; New game
+   starts afresh). snapshotGame / restoreGame in game.js do the real work; this
+   part only stores the result, as JSON, in localStorage.
+   --------------------------------------------------------- */
+const GAME_STORAGE_KEY = "chinchon-game";   // localStorage key for the saved game
+
+function saveGame() {
+  try { localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify(snapshotGame())); } catch (err) { /* not saved; fine */ }
+}
+
+// Put the saved game into `state`. Returns false if there is none (or it is from an
+// older version of the game, or damaged), and then `state` is unchanged.
+function loadGame() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(GAME_STORAGE_KEY)); } catch (err) { /* none saved */ }
+  if (!restoreGame(saved)) return false;
+  // The table is already as it should be: don't play the deal animation, the deal
+  // sound or the score pop-ups again (see animateChanges and queueScorePops)
+  animSeen = { deals: state.deals, drawLen: state.drawPile.length, discardLen: state.discardPile.length,
+               handLen: state.hands.map(hand => hand.length),
+               phase: state.phase, current: state.currentPlayer, gameOver: state.gameOver };
+  scorePops = { deal: state.deals, points: null };
+  return true;
+}
+
+// "visibilitychange" fires when the page is hidden (another app, the home screen, a
+// locked phone) or shown again; "pagehide" when it is being left or closed. Those
+// are the last moments a phone reliably gives a page, so that is when we save.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") saveGame();
+});
+window.addEventListener("pagehide", saveGame);
+
 function closeConfirm(accepted) {
   document.getElementById("deck-confirm").hidden = true;
   const change = pendingChange;
@@ -1164,5 +1200,18 @@ document.addEventListener("keydown", (e) => {
    START: run once when the page loads
    --------------------------------------------------------- */
 if (typeof runSelfTests === "function") runSelfTests();   // results in the console (F12)
-newGame(loadSettings());     // with last visit's settings (or the defaults written in index.html)
+const savedCpuCount = loadSettings();   // last visit's settings (or the defaults written in index.html)
+if (loadGame()) resumeTurn();         // carry on with the game left unfinished last time
+else newGame(savedCpuCount);          // or start a new one with those settings
 syncSettingDropdowns();      // after newGame, which sets the number of players
+
+// Offline play once the game is installed on a phone: register sw.js, the "service
+// worker" (a script the browser keeps running in the background that answers the
+// page's file requests, from a saved copy when there is no network). Browsers allow
+// one only on https:// or localhost, so this is skipped when the game is opened
+// from disk (file://). Inside some embeds it can still fail; that is fine, the game
+// just has no offline copy. (.catch on a promise = what to do if it fails.)
+if ("serviceWorker" in navigator &&
+    (location.protocol === "https:" || location.hostname === "localhost")) {
+  navigator.serviceWorker.register("sw.js").catch(() => { /* no offline copy; fine */ });
+}

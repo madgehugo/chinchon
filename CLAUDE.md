@@ -22,6 +22,8 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
   (defined in `ui.js`; stubbed in `tools/harness.js`). Keep it that way, because the Node tools rely on it.
 * **State flow:** change `state`, then call `render()`. `render()` only reads `state`.
 * Files must not contain the text `</script` (the single-file bundler refuses it).
+* **Installable app:** a new file the page loads must also go into `APP_FILES` in `sw.js` (`tests/browser/pwa.js` checks).
+  A new or renamed field of `state` needs `SAVE_VERSION` in `game.js` bumped, or old saved games load wrongly.
 
 ## Decisions the owner made (do not undo without asking)
 

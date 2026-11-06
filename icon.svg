@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- App icon (home screen): the favicon's two cards on a square of felt that fills the
+       whole image. Phones cut their own shape out of it (a circle, a rounded square), so
+       there are no rounded corners here and the cards are shrunk into the middle (the
+       "safe zone", a circle of 80% of the width that every mask keeps).
+       tools/make_icons.js turns this into the PNGs in icons/. -->
+  <defs>
+    <radialGradient id="felt" cx="50%" cy="45%" r="70%">
+      <stop offset="0" stop-color="#2b8150"/>
+      <stop offset="1" stop-color="#1d6339"/>
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" fill="url(#felt)"/>
+  <!-- read right to left: move the centre to the origin, shrink to 75%, move it back -->
+  <g transform="translate(32 32) scale(0.75) translate(-32 -32)">
+    <!-- Face-down card behind (the maroon card back), tilted left -->
+    <rect x="12" y="10" width="26" height="40" rx="4" fill="#7a1f2b" stroke="#fffaf0" stroke-width="2.5"
+          transform="rotate(-14 25 30)"/>
+    <!-- Face-up card in front, tilted right, showing one oro (gold coin) -->
+    <g transform="rotate(10 39 34)">
+      <rect x="25" y="14" width="28" height="42" rx="4" fill="#fffaf0" stroke="#144d29" stroke-width="1.5"/>
+      <circle cx="39" cy="35" r="9" fill="#e0a82e" stroke="#b8860b" stroke-width="2.5"/>
+      <circle cx="39" cy="35" r="3.5" fill="#b8860b"/>
+    </g>
+  </g>
+</svg>

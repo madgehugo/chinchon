@@ -587,3 +587,84 @@ function nextRound() {
   state.startPlayer = nextActivePlayer(state.startPlayer);
   startRound();
 }
+
+/* ---------------------------------------------------------
+   5. SAVING AND RESTORING A GAME
+   ---------------------------------------------------------
+   A phone may close the app whenever it is in the background, so ui.js saves
+   the game in progress (in localStorage) when the page is hidden, and restores
+   it when the page opens again. The functions here only turn `state` into a
+   plain object and back; they never touch the page or the storage, so the Node
+   tools can test them (and a future server could use them as they are).
+   --------------------------------------------------------- */
+const SAVE_VERSION = 1;   // bump when the shape of `state` changes: older saves are then ignored
+// Fields of `state` that describe this moment on screen rather than the game, so are not saved
+const UNSAVED_FIELDS = ["timer", "closing", "showSettings", "showHelp", "showScores"];
+
+// A copy of the game as a plain object, ready for JSON.stringify.
+// JSON.parse(JSON.stringify(x)) is a quick deep copy (like copy.deepcopy in Python)
+// for data made only of objects, arrays, strings, numbers, booleans and null.
+function snapshotGame() {
+  const saved = JSON.parse(JSON.stringify(state));
+  for (const key of UNSAVED_FIELDS) delete saved[key];
+  saved.version = SAVE_VERSION;
+  saved.deckSize = DECK_SIZE;        // lives in rules.js, not in state; a 48-card game must resume on 48
+  return saved;
+}
+
+// Is `saved` a game we can safely continue? Checks the version, that every field is there,
+// and that the piles and hands hold exactly one full deck, each card once.
+function isValidSave(saved) {
+  if (!saved || saved.version !== SAVE_VERSION) return false;
+  const fields = Object.keys(state).filter(key => !UNSAVED_FIELDS.includes(key));
+  if (!fields.every(key => key in saved)) return false;
+  if (!(saved.numPlayers >= MIN_PLAYERS && saved.numPlayers <= MAX_PLAYERS)) return false;
+  if (!Array.isArray(saved.hands) || saved.hands.length !== saved.numPlayers) return false;
+  if (saved.deckSize !== 40 && saved.deckSize !== 48) return false;
+
+  const values = saved.deckSize === 48 ? VALUES_48 : VALUES_40;
+  const cards = [...saved.drawPile, ...saved.discardPile, ...saved.hands.flat()];
+  const ok = card => card && SUITS.includes(card.suit) && values.includes(card.value);
+  return cards.length === saved.deckSize && cards.every(ok) &&
+         new Set(cards.map(cardKey)).size === saved.deckSize;
+}
+
+// Put a saved game into `state`. Returns false, changing nothing, if the save is not usable.
+function restoreGame(saved) {
+  if (!isValidSave(saved)) return false;
+  clearTimeout(state.timer);
+  setDeckSize(saved.deckSize);
+  for (const key of Object.keys(state)) {
+    if (!UNSAVED_FIELDS.includes(key)) state[key] = saved[key];
+  }
+  state.timer = null;
+  state.closing = false;
+  state.showSettings = state.showHelp = state.showScores = false;
+
+  // Re-link cards. In JS, `a === b` on two objects asks "the same object?" (like
+  // Python's `is`), and the game relies on that: state.lastDrawn must be the very card
+  // object in your hand, and state.known must hold the card objects in the hands
+  // (discardCard looks them up with indexOf). After JSON they are look-alike copies,
+  // so point them back at the real cards, found by their key ("o12" = 12 of oros).
+  const real = new Map([...state.drawPile, ...state.discardPile, ...state.hands.flat()]
+    .map(card => [cardKey(card), card]));
+  const relink = card => card && real.get(cardKey(card));
+  state.lastDrawn = relink(state.lastDrawn) || null;
+  state.known = state.known.map(cards => cards.map(relink).filter(Boolean));
+  return true;
+}
+
+// Carry on playing after restoreGame(): draw the table, and if a CPU was on the move,
+// start its timer again (a timer does not survive the app being closed).
+function resumeTurn() {
+  if (state.phase === "roundOver") {
+    render();
+  } else if (state.currentPlayer !== 0 && state.phase === "discard") {
+    // The CPU had drawn and was about to discard: do its second beat
+    render();
+    setStatus(msg("msg.playing", { who: state.currentPlayer }));
+    state.timer = setTimeout(cpuFinishTurn, CPU_SPEEDS[state.cpuSpeed].discard);
+  } else {
+    beginTurn();   // your turn, or a CPU about to draw
+  }
+}
