@@ -24,11 +24,11 @@
 
 "use strict";
 
-// The online server, once it is running somewhere, e.g. "wss://chinchon.example.com".
-// Empty: no server yet. (Testing: a page opened from the server itself on this computer
-// or the home network finds it at the same address; ?server=ws://... in the page
-// address picks any other one.)
-const SERVER_URL = "";
+// The online server (server/ in this repo, running on Render). wss:// is the encrypted
+// WebSocket form of https://. (Testing: a page opened from the server itself on this
+// computer or the home network finds it at the same address instead; ?server=ws://...
+// in the page address picks any other one.)
+const SERVER_URL = "wss://chinchon.onrender.com";
 const ROOM_STORAGE_KEY = "chinchon-room";        // localStorage: { code, token } of the room you are in
 const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 8000];   // waits between tries after a dropped connection
 // Fields of `state` that belong to this screen, not to the game: a view from the server
@@ -69,14 +69,14 @@ function act(name, ...args) {
 function serverUrl() {
   const asked = new URLSearchParams(location.search).get("server");
   if (asked) return asked;
-  if (SERVER_URL) return SERVER_URL;
   // A page served by the game server on this computer or the home network (npm start in
-  // server/): the server is at the same address. ws:// is the WebSocket form of http://.
+  // server/, for testing): the server is at the same address, not the published one.
+  // ws:// is the WebSocket form of http://.
   const local = /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|[\w-]+\.local)$/;
   if (location.protocol === "http:" && local.test(location.hostname) && !window.Capacitor) {
     return `ws://${location.host}`;
   }
-  return null;
+  return SERVER_URL || null;
 }
 
 // Open the connection, then send `first` (create or join) or, if we are in a room

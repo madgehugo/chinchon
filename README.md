@@ -87,11 +87,14 @@ cd server && npm install && npm start      # http://localhost:8080
 
 The server also serves the game's files, so you can open `http://localhost:8080`. To test with phones, put them on
 the same Wi-Fi and open `http://<your computer's address>:8080` (on a Mac: System Settings → Wi-Fi → Details →
-IP address). On those addresses the page finds the server by itself. A page anywhere else can be pointed at a server
-with `?server=ws://address:8080` in its address.
+IP address). On those addresses the page uses the server it came from; anywhere else (GitHub Pages, a file, the
+store apps) it uses `SERVER_URL` in `net.js`. Any page can be pointed at another server with
+`?server=ws://address:8080` in its address.
 
-**Deploying the server** (the host is still to be chosen). It is an ordinary Node program, so any host that runs Node
-and allows WebSockets will do (Render, Fly.io, Railway, a VPS...):
+**Deploying the server.** It runs on [Render](https://render.com) at `https://chinchon.onrender.com` (a Web Service
+connected to this repo: root directory empty, build `cd server && npm ci`, start `node server/server.js`, health check
+`/health`, one instance). Every push to `main` redeploys it, which ends the online games in progress. Any other host
+that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). The steps for a host:
 
 1. Run `npm install` and `npm start` in `server/`. It listens on `PORT` (default 8080), and `/health` answers "ok"
    for hosts that check the server is up. The whole repo must be there, since the server loads the game files from it.
@@ -99,7 +102,7 @@ and allows WebSockets will do (Render, Fly.io, Railway, a VPS...):
    to an unencrypted `ws://` server, so the page connects with `wss://` (the encrypted form).
 3. Set the environment variable `ALLOWED_ORIGINS=https://madgehugo.github.io` (the address the game is published at;
    several are separated by commas). Pages from other sites are refused.
-4. Put the server's address in `SERVER_URL` at the top of `net.js` (e.g. `"wss://chinchon-server.example.com"`),
+4. Put the server's address in `SERVER_URL` at the top of `net.js` (now `"wss://chinchon.onrender.com"`),
    push to `main`, and run `cd app && npm run sync` for the store apps.
 5. The store listings change: the privacy answers become "data is collected" (see `privacy.html`): the nickname you
    type and your moves are sent to the server, used only to run the game, kept in memory only for the life of the

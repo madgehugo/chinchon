@@ -103,6 +103,7 @@ cd server && npm test                        # online server: whole games, hidde
 
 ## Deploying
 
-GitHub Pages serves `main` at the repo root. Push to `main`; nothing else to do. The online server is deployed
-separately (host not chosen yet; README "Online play"). `chinchon-single.html` is a
+GitHub Pages serves `main` at the repo root. Push to `main`; nothing else to do. The online server runs on Render
+(`wss://chinchon.onrender.com`, `SERVER_URL` in `net.js`) and redeploys on every push to `main`, which ends online
+games in progress (README "Online play"). `chinchon-single.html` is a
 build product and is git-ignored.
