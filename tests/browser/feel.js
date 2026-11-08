@@ -1,6 +1,6 @@
-// Browser test: toasts, score pop-ups, meld glow and sound (needs Playwright; see README)
+// Browser test: toasts, score pop-ups, meld glow, Chinchón fireworks and sound (needs Playwright; see README)
 const { chromium } = require('playwright');
-const { GAME_URL, makeChecker, noCpuClose, cpu1Closes } = require('./helpers');
+const { GAME_URL, OUT, makeChecker, noCpuClose, cpu1Closes } = require('./helpers');
 
 (async () => {
   const browser = await chromium.launch();
@@ -61,6 +61,25 @@ const { GAME_URL, makeChecker, noCpuClose, cpu1Closes } = require('./helpers');
   await page.waitForTimeout(1700);
   check((await page.locator('.score-pop').count()) === 0, 'the pop-ups remove themselves');
 
+  // A Chinchón fills the screen with fireworks (with their sound), which clear themselves
+  const chinchon = p => p.evaluate(() => {
+    const c = (value, suit) => ({ value, suit });
+    state.hands[2] = [1,2,3,4,5,6,7].map(v => c(v, 'copas')).concat([c(12,'oros')]);
+    clearTimeout(state.timer);                               // no CPU move left pending behind the test's back
+    state.currentPlayer = 2; state.phase = 'discard'; state.turns = 8;   // past the first lap
+    closeRound(2, closeOptions(state.hands[2])[0].index);
+  });
+  await page.evaluate(() => nextRound());           // (the results panel is hidden by now)
+  await chinchon(page);
+  check((await page.locator('canvas#fireworks').count()) === 1, 'a Chinchón launches the fireworks');
+  await page.waitForTimeout(1500);
+  check(await page.evaluate(() => played.includes('firework')), 'the fireworks bursts have a sound');
+  await page.screenshot({ path: OUT + '/fireworks.png' });
+  await page.click('#res-newgame');                      // taps go through the fireworks to the panel
+  check(await page.evaluate(() => state.round === 1 && !state.gameOver), 'the panel under the fireworks still works');
+  check((await page.locator('canvas#fireworks').count()) === 0, 'a new deal stops the fireworks');
+  await noCpuClose(page);
+
   // The Sound button in the top bar mutes, shows it, and is remembered
   const pressed = () => page.getAttribute('#sound-btn', 'aria-pressed');
   check((await pressed()) === 'true', 'the Sound button starts pressed (sound on)');
@@ -81,6 +100,9 @@ const { GAME_URL, makeChecker, noCpuClose, cpu1Closes } = require('./helpers');
   await cpu1Closes(calm);
   await calm.click('#res-hide');
   check((await calm.locator('.score-pop').count()) === 0, 'reduced motion: no score pop-ups');
+  await calm.evaluate(() => nextRound());
+  await chinchon(calm);
+  check((await calm.locator('canvas#fireworks').count()) === 0, 'reduced motion: no fireworks');
 
   await browser.close();
   finish();

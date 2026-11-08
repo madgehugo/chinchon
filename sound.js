@@ -83,6 +83,11 @@ const SOUNDS = {
   turn(t)     { note(t, 880, 0.12, 0.12, "sine"); note(t + 0.08, 1320, 0.14, 0.1, "sine"); },
   close(t)    { [C5, E5, G5].forEach((f, i) => note(t + i * 0.09, f, 0.3)); },
   chinchon(t) { [C5, E5, G5, C6, E6].forEach((f, i) => note(t + i * 0.08, f, 0.45)); },
+  // one burst of the Chinchón fireworks (ui.js): a low boom, then a crackle of tiny snaps
+  firework(t) {
+    snap(t, 160, 0.45, 0.5);
+    for (let i = 0; i < 6; i++) snap(t + 0.12 + i * 0.045 + Math.random() * 0.03, 3000 + Math.random() * 2500, 0.02, 0.15);
+  },
   // played as the game ends with your win, just after the round's close sound
   win(t)      { [G4, C5, E5, G5, C6].forEach((f, i) => note(t + 0.35 + i * 0.11, f, 0.6, 0.4)); },
 };

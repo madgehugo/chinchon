@@ -88,6 +88,9 @@ Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
   the Settings panel (hidden on touch screens, where the status line says "tap" instead of "click").
 * The end of a game opens the results with a banner: the winner and the final standings. A few suit symbols float up
   when you win or someone makes a Chinchón (not with reduced motion).
+* Easter egg: a Chinchón (anyone's) fills the whole screen with fireworks and emojis for about six seconds, with a
+  boom and crackle per burst (`launchFireworks` in `ui.js`, a particle system on a `<canvas>` that taps go through;
+  not with reduced motion; a new deal stops it).
 * A Help panel (the `?` button or the `H` key) explains the rules, every setting, Hints, the results screen and the
   keyboard keys, in fold-out sections (`<details>` elements in `index.html`; the text is the `help.*` keys in `i18n.js`).
 * The settings are remembered between visits (`localStorage`, like the language; see `saveSettings` in `ui.js`).
@@ -149,7 +152,7 @@ Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
 | `sound.js` | Sound effects made in code with the Web Audio API (no audio files); only `ui.js` calls it. |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the panels, toasts and score pop-ups, startup. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons, and the store apps' icons and launch screens). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups and sound, saving and resuming, installing and offline play, the store app's back button and pause save); `helpers.js` holds what they share. |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups, Chinchón fireworks and sound, saving and resuming, installing and offline play, the store app's back button and pause save); `helpers.js` holds what they share. |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file (it plays the same, but cannot be installed as an app). |
 | `privacy.html` | The privacy policy page the app stores ask for (English and Spanish). Not part of the game. |
 | `app/` | The App Store and Google Play apps (see "Phone app" above). |
