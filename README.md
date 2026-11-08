@@ -50,12 +50,45 @@ Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
 * Privacy policy URL for both stores: `https://madgehugo.github.io/chinchon/privacy.html` (`privacy.html`).
 * iOS ([Apple Developer Program](https://developer.apple.com/programs/), $99/year): in Xcode set your Team under
   Signing & Capabilities; Product → Archive → Distribute → App Store Connect. In App Store Connect create the app
-  (same bundle id), add screenshots, description, age rating and App Privacy "Data Not Collected"; test with
+  (same bundle id), add screenshots, description, age rating and App Privacy (see "Store privacy answers" below); test with
   TestFlight, then submit for review.
 * Android ([Google Play Console](https://play.google.com/console), $25 once): Build → Generate Signed App Bundle
   (.aab). **Back up the keystore and its passwords**: every update must be signed with it. In the Console: store
-  listing, Data safety "no data collected", content rating, then a closed test (new personal accounts need 12 testers
-  for 14 days) before production.
+  listing, Data safety (see "Store privacy answers" below), content rating, then a closed test (new personal
+  accounts need 12 testers for 14 days) before production.
+
+**Store privacy answers.** Since online play, the app sends two things to the game server: the **nickname** you
+type and your **moves**. The server only uses them to run the game, keeps them in memory while the room exists
+(at most 30 minutes after everyone has left, or until a restart), never saves them to disk, and shares them with
+nobody. There are no accounts, adverts, analytics or tracking. The stores reword their forms now and then, so
+match these answers to the current wording. They must agree with `privacy.html`; if the game ever sends something
+new, update all three.
+
+* **App Store Connect → App Privacy:**
+  * "Do you or your third-party partners collect data from this app?" **Yes.**
+  * **Identifiers → User ID.** Apple's examples include "screen name", which is what the nickname is.
+  * **User Content → Gameplay Content.** Apple's examples include multiplayer gameplay.
+  * For each of the two:
+    * Purpose: **App Functionality** only.
+    * Linked to the user's identity: **No**. There is no account, and nothing ties the name to a person.
+    * Used for tracking: **No.**
+* **Play Console → Data safety:**
+  * "Does your app collect or share any of the required user data types?" **Yes.**
+  * "Is all of the user data collected by your app encrypted in transit?" **Yes** (the connection is `wss://`).
+  * Account creation: the app has **no accounts**.
+  * Data types, each **collected, not shared**:
+    * **Personal info → Name.** Google's definition includes "nickname".
+    * **App activity → App interactions**, for the moves.
+  * For each of the two:
+    * Processed ephemerally: **No**. It is kept for the life of the room, which is longer than one request.
+    * Collection: **optional**. You can play without going online.
+    * Purpose: **App functionality** only.
+  * The hosting company (Render) is a service provider working for you, so this does not count as "sharing" in
+    Google's sense.
+  * Deletion: the data is deleted by itself when the room is thrown away, and there is nothing stored to ask to
+    delete. Say so if the form asks.
+* **Not declared:** the IP address that every internet connection carries. It is not used, stored or turned into a
+  location by the game; only Render's ordinary connection logs see it (mentioned in `privacy.html`).
 
 ## Online play
 
