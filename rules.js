@@ -261,8 +261,56 @@ function findBestClose(hand) {
   return best && { discardIndex: best.discardIndex, info: best.info };
 }
 
+// Do these cards make ONE meld, all of them together (one group or one run)?
+function isMeld(cards) {
+  return cards.length >= 3 && findAllMelds(cards).some(m => m.indices.length === cards.length);
+}
+
 /* ---------------------------------------------------------
-   4. REMEMBERING EVALUATIONS
+   4. LAYING OFF: leftover cards onto other players' melds
+   ---------------------------------------------------------
+   An optional rule (state.layoffMode in game.js): once a round is closed, the
+   other players may get rid of leftover cards by adding them to melds on the
+   table, so those cards no longer count against them. A card can only extend
+   a meld (the 4th card of a group, or the next card at either end of a run),
+   and a card just laid off can itself be built on: 7 then 10 onto 4-5-6.
+   --------------------------------------------------------- */
+
+// The best way to lay off `cards` onto `melds` (an array of card arrays): the placement
+// that gets rid of the most points. Order matters: a group of 5s can take the 5 of
+// bastos, but so can the run 6-7-10 of bastos, and only the run then takes the 4 too.
+// So this tries every order (a depth-first search like evaluateHand's), skipping
+// placements it has already seen in another order. Returns [{ card, meld }, ...]
+// (meld = index into `melds`) in an order that can be played out one by one.
+function bestLayoff(cards, melds) {
+  const table = melds.map(m => [...m]);       // copies that the search grows and shrinks
+  const seen = new Set();                     // placements already explored, as text keys
+  let best = { points: 0, moves: [] };
+
+  function search(left, moves, points) {
+    // The same cards in the same melds, whatever the order, is the same position
+    const key = moves.map(m => `${cardKey(m.card)}>${m.meld}`).sort().join(" ");
+    if (seen.has(key)) return;
+    seen.add(key);
+    if (points > best.points) best = { points, moves: [...moves] };
+
+    left.forEach((card, i) => {
+      table.forEach((meld, k) => {
+        if (!isMeld([...meld, card])) return;              // does not fit this meld
+        meld.push(card);
+        moves.push({ card, meld: k });
+        search(left.filter((c, j) => j !== i), moves, points + cardPoints(card));
+        moves.pop();                                       // undo (backtrack)
+        meld.pop();
+      });
+    });
+  }
+  search(cards, [], 0);
+  return best.moves;
+}
+
+/* ---------------------------------------------------------
+   5. REMEMBERING EVALUATIONS
    ---------------------------------------------------------
    evaluateHand() is the slow part, and the same hands come up again and again
    (especially while the CPUs look ahead). So we remember the answers: a "cache"

@@ -62,14 +62,16 @@ Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
 * A slim top bar holds the title, the current round and round icon buttons for Scores, Hints, Help, Sound (on/off) and Settings.
   Settings and Scores open as sheets (from the side on a desktop, from the bottom on a phone) that close with their
   X button, Escape or a tap on the background. Settings has the dropdowns (language, sort mode, CPUs, level, speed, deck,
-  reshuffles per round, re-entries per player, rounds per game) and New game. Under your hand are only the play
+  reshuffles per round, re-entries per player, rounds per game, lay off leftovers) and New game (which also closes the sheet). Under your hand are only the play
   buttons: Sort and Close (Next round and Round results once a round is over). Hints (off by default) shows the hand
-  analysis under your hand, a coloured bar under each meld, and the best closing score on the Close button.
+  analysis under your hand, a coloured bar under each meld (striped in both colours
+  for a card that fits either meld, such as the fourth 3 in 3-3-3-3 with 4-5-6 of that 3's suit), and the best closing score on the Close button.
 * 1 human vs 1, 2 or 3 CPUs (1 by default; the "CPUs" dropdown starts a new game). With 3 CPUs on the 40-card deck, the Settings panel suggests the 48-card deck (one button switches), since four players empty the 40-card draw pile quickly, with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
 * 40-card Spanish deck (1-7, 10-12) or 48-card deck (adds the 8s and 9s), which suits bigger groups.
 * Adjustable rules: how often the draw pile may be reshuffled in a round (0, 1, 2, 3, 5 or no limit, default 2; the board
   shows how many reshuffles are left), how many times each player may re-enter after elimination (0, 1, 2 or
-  no limit, default 1) and how many rounds a game lasts (no limit, 5, 10, 15 or 20). Changing any of them starts a new game.
+  no limit, default 1), how many rounds a game lasts (no limit, 5, 10, 15 or 20) and laying off leftover cards
+  (automatic, manual or off; default automatic). Changing any of them starts a new game.
 * Cards show their number of suit symbols (the 4 of swords has four swords), drawn as inline SVG shapes defined once in `ui.js` (`SUIT_SPRITE`) so they look the same on every device.
 * Game feel: what a CPU draws shows as a short toast near the piles (one at a time, gone before the next turn); after
   each round every seat shows its score floating up ("+12", "−10") once the results panel is out of the way; with Hints
@@ -118,6 +120,14 @@ Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
 * **Round limit** (optional setting): after the last round the player still in with the lowest total wins.
   Elimination over 100 still applies until then, and nobody re-enters after the last round. If two or more
   players tie for the lowest total, everyone still in plays one more round, until the tie is broken.
+* **Laying off** (setting "Lay off leftovers"): after a close, the other players take turns, clockwise from the
+  closer, to add leftover cards to any other player's melds (the closer's or another player's): the 4th card of a
+  group, or the next card at either end of a run. Cards laid off earlier, by anyone, can be built on (7 then 10 onto
+  4-5-6). Laid-off cards do not count. Not after a Chinchón or a close with -10, nor after a stalemate. The CPUs lay
+  off as well as they can (`bestLayoff` in `rules.js`); in **automatic** mode so do you; in **manual** mode the round
+  waits while you tap your leftover cards and the melds in the results panel (tap a card you laid off to take it back,
+  if nothing hangs on it), then Done. With Hints on, the melds your picked card fits are outlined in green.
+  Each player's melds are their best split (fewest unmatched points); nobody re-arranges a hand to lay off more.
 * No jokers.
 
 ## Files
@@ -139,7 +149,7 @@ Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
 | `sound.js` | Sound effects made in code with the Web Audio API (no audio files); only `ui.js` calls it. |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the panels, toasts and score pop-ups, startup. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons, and the store apps' icons and launch screens). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups and sound, saving and resuming, installing and offline play, the store app's back button and pause save); `helpers.js` holds what they share. |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups and sound, saving and resuming, installing and offline play, the store app's back button and pause save); `helpers.js` holds what they share. |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file (it plays the same, but cannot be installed as an app). |
 | `privacy.html` | The privacy policy page the app stores ask for (English and Spanish). Not part of the game. |
 | `app/` | The App Store and Google Play apps (see "Phone app" above). |
@@ -176,6 +186,10 @@ the game also works from `file://`, where browsers block modules.
 * **Installing and offline.** `index.html` links `manifest.webmanifest` and the iOS icon; `ui.js` registers `sw.js` on
   https or localhost only, and not in the store app. Every file the page loads must also be in `APP_FILES` in `sw.js`
   (`tests/browser/pwa.js` checks); `app/copy_web.js` uses the same list.
+* **Laying off** happens in `closeRound` (`game.js`) before the round is scored: `state.layoff` holds the turn
+  order and whose turn it is; `continueLayoffs()` plays the CPUs' lay-offs and stops at yours in manual mode, and
+  `humanLayoffDone()` carries on. Cards move only within `state.roundDetail` (the results screen), never in the
+  hands; `finishClose()` then scores what each player still holds.
 * CPU turns have two timed beats (draw, then discard) so you can follow them. Decisions come from a **strategy** object in
   `ai.js` with three functions: `chooseSource`, `chooseClose`, `chooseDiscard`. A new level is an entry in `STRATEGIES`
   plus an entry in `CPU_MODES` and a `level.<name>` text in `i18n.js`.
@@ -225,7 +239,7 @@ node tools/gamebench.js 4000 hard medium 40 4 --jobs 8   # whole games: one A ag
 node tools/bench.js 3200 finish smart 48 --reshuffles 2   # 48-card deck, at most 2 reshuffles (gamebench: also --rounds, --reentries)
 node tools/bench.js 6400 "hard:takeMargin=1.5" hard --players 2 --jobs 8   # a 1v1 table (default 4 players)
 npm install && npx playwright install chromium    # once, for the browser tests
-npm run test:browser              # drag, touch, results panel, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound, resume, offline, store app
+npm run test:browser              # drag, touch, results panel, laying off, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound, resume, offline, store app
 node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png and the app/ icons (commit them)
 ```
 

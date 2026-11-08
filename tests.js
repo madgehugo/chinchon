@@ -99,6 +99,22 @@ function runTests40() {
   check(bc && eight[bc.discardIndex].value === 12 && bc.info.closerScore === -10,
         "findBestClose picks the 12 to discard");
 
+  // isMeld: all the cards together make one meld
+  check(isMeld([c(3,"oros"), c(3,"copas"), c(3,"bastos"), c(3,"espadas")]), "four 3s are one meld");
+  check(isMeld([c(7,"copas"), c(10,"copas"), c(11,"copas")]), "7-10-11 is one meld");
+  check(!isMeld([c(4,"copas"), c(5,"copas"), c(6,"copas"), c(6,"oros")]), "a run plus a stray card is not one meld");
+
+  // Laying off: a card laid off can be built on (7 then 10 onto 4-5-6 of copas)
+  const run456 = [c(4,"copas"), c(5,"copas"), c(6,"copas")];
+  let lo = bestLayoff([c(10,"copas"), c(12,"oros"), c(7,"copas")], [run456]);
+  check(lo.length === 2 && lo[0].card.value === 7 && lo[1].card.value === 10, "lay off 7 then 10 onto 4-5-6");
+  // The 5 of bastos fits the group of 5s or the run 6-7-10, but only the run then takes the 4 as well
+  const fives = [c(5,"oros"), c(5,"copas"), c(5,"espadas")];
+  const run67 = [c(6,"bastos"), c(7,"bastos"), c(10,"bastos")];
+  lo = bestLayoff([c(5,"bastos"), c(4,"bastos")], [fives, run67]);
+  check(lo.length === 2 && lo.every(m => m.meld === 1), "lay off onto the meld that lets more cards follow");
+  check(bestLayoff([c(12,"oros")], [run456]).length === 0, "nothing to lay off");
+
   done();
 }
 

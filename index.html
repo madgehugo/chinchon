@@ -215,6 +215,14 @@
           <option value="20">20</option>
         </select>
       </label>
+      <!-- Laying off leftover cards onto other players' melds after a close (state.layoffMode) -->
+      <label class="opt"><span data-i18n="set.layoff">Lay off leftovers</span>
+        <select id="layoff">
+          <option value="auto" data-i18n="set.layoff.auto" selected>Automatic</option>
+          <option value="manual" data-i18n="set.layoff.manual">Manual</option>
+          <option value="none" data-i18n="set.layoff.none">Off</option>
+        </select>
+      </label>
       <button id="new-game" data-i18n="btn.newGame">New game</button>
       <!-- Keyboard help: style.css hides it on touch-only devices -->
       <p class="keys-help" data-i18n="set.keys">Keys: 1-8 discard · D draw pile · T take discard · C close · S sort · Enter next round · H help</p>
@@ -242,6 +250,8 @@
     <div id="results-body"></div>
     <p id="results-notice"></p>
     <div class="panel-buttons">
+      <!-- Only while you lay off your cards by hand (manual lay-off mode) -->
+      <button id="res-layoff-done" data-i18n="btn.layoffDone">Done</button>
       <button id="res-next" data-i18n="btn.next">Next round</button>
       <button id="res-reenter" data-i18n="btn.reenter">Re-enter</button>
       <button id="res-stayout" data-i18n="btn.stayOut">Stay out</button>
@@ -287,6 +297,7 @@
         <li data-i18n="help.close.li2"></li>
         <li data-i18n="help.close.li3"></li>
         <li data-i18n="help.close.li4"></li>
+        <li data-i18n="help.close.li5"></li>
       </ul>
     </details>
     <details><summary data-i18n="help.chinchon.h"></summary>
@@ -313,6 +324,7 @@
         <li data-i18n="help.settings.li6"></li>
         <li data-i18n="help.settings.li7"></li>
         <li data-i18n="help.settings.li8"></li>
+        <li data-i18n="help.settings.li10"></li>
       </ul>
       <p data-i18n="help.settings.p"></p>
     </details>

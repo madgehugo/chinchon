@@ -360,6 +360,13 @@ h1 {
 }
 #seat-0 .card.meld-a::before { background: var(--good); box-shadow: 0 0 6px var(--good); }
 #seat-0 .card.meld-b::before { background: var(--info); box-shadow: 0 0 6px var(--info); }
+/* A card that fits either meld: stripes of both colours. repeating-linear-gradient repeats
+   the 0-6px / 6-12px colour pair along the bar, so the stripes show even on the part of
+   the card that is not covered by its neighbour. */
+#seat-0 .card.meld-shared::before {
+  background: repeating-linear-gradient(90deg, var(--good) 0 6px, var(--info) 6px 12px);
+  box-shadow: 0 0 6px var(--good);
+}
 
 /* Drag-and-drop feedback while rearranging your hand */
 .card.dragging    { opacity: .35; }
@@ -717,6 +724,16 @@ button, .pile, select, .card { -webkit-tap-highlight-color: transparent; }   /* 
 .res-label { font-size: var(--fs-xs); color: var(--text-dim); }
 .res-group.meld .res-cards-row     { padding: 4px 5px; border-radius: var(--r-sm); background: var(--good-soft); }
 .res-group.leftover .res-cards-row { padding: 4px 5px; border-radius: var(--r-sm); background: var(--bad-soft); }
+.res-group.laidoff .res-cards-row  { padding: 4px 5px; border-radius: var(--r-sm); background: var(--glass-soft); opacity: .6; }
+
+/* Laying off. A card laid off onto someone's meld has a dashed gold outline. While you lay
+   off by hand, the leftover card you picked is lifted, and the melds you can put it on
+   (other players' melds) are outlined; with Hints on, the ones it fits are green. */
+.res-cards-row .card.laid   { outline: 2px dashed var(--gold); outline-offset: -2px; }
+.res-cards-row .card.picked { transform: translateY(-6px); outline: 3px solid var(--gold); outline-offset: 1px; }
+.res-group.target { cursor: pointer; }
+.res-group.target .res-cards-row { box-shadow: inset 0 0 0 2px var(--gold-line); }
+.res-group.target.fits .res-cards-row { box-shadow: inset 0 0 0 2px var(--good); }
 
 /* Game-over banner: the winner in large gold letters, then the final standings */
 #results-banner {

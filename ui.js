@@ -189,11 +189,17 @@ function renderHand(playerIndex) {
     : null;
 
   // Hints on: the cards of each meld in your hand get a coloured bar along the bottom
-  // (two colours, alternating, so two melds side by side can be told apart).
-  // A Map from card object to meld number; evaluateHand returns the hand's own card objects.
+  // (two colours, so two melds side by side can be told apart; 7 or 8 cards hold at most two melds).
+  // A Map from card object to the meld numbers it fits; evaluateHand returns the hand's own card objects.
   const meldOf = new Map();
   if (playerIndex === 0 && state.showHints && state.hands[0].length > 0) {
-    evaluateHand(state.hands[0]).melds.forEach((m, k) => m.cards.forEach(c => meldOf.set(c, k)));
+    const melds = evaluateHand(state.hands[0]).melds;
+    melds.forEach((m, k) => m.cards.forEach(c => meldOf.set(c, [k])));
+    // A card that could just as well join the other meld (3-3-3-3 with 4-5-6 of the 3's suit:
+    // that 3 fits the group or the run) gets both colours, as a striped bar
+    melds.forEach((m, k) => m.cards.forEach(c => {
+      melds.forEach((other, j) => { if (j !== k && isMeld([...other.cards, c])) meldOf.get(c).push(j); });
+    }));
   }
   // ...and when a card you take completes a new meld, its cards glow once (see glowMelds)
   const newMeld = playerIndex === 0 && meldGrew();
@@ -206,7 +212,10 @@ function renderHand(playerIndex) {
     const el = createCardElement(card, faceUp);
     // The card you drew this turn gets a small gold dot until you discard
     if (canDiscard && card === state.lastDrawn) el.classList.add("just-drawn");
-    if (meldOf.has(card)) el.classList.add("in-meld", meldOf.get(card) % 2 ? "meld-b" : "meld-a");
+    if (meldOf.has(card)) {
+      const fits = meldOf.get(card);
+      el.classList.add("in-meld", fits.length > 1 ? "meld-shared" : fits[0] % 2 ? "meld-b" : "meld-a");
+    }
     let onTap = null;                                        // what a plain tap or click does
     if (closable) {
       if (closable.has(index)) {
@@ -547,7 +556,8 @@ function animateChanges(rebuilt) {
 let scorePops = { deal: 0, points: null };    // the deal already queued, and points waiting to be shown
 function queueScorePops(newGame) {
   if (newGame) scorePops.points = null;                          // an old game's points are not shown
-  if (state.roundDetail && scorePops.deal !== state.deals) {     // a round result we have not queued yet
+  // A round result we have not queued yet (and not while lay-offs can still change the points)
+  if (state.roundDetail && !state.layoff && scorePops.deal !== state.deals) {
     scorePops = { deal: state.deals, points: state.roundDetail.map(d => d && d.points) };
   }
   if (!scorePops.points || state.showResults) return;
@@ -659,7 +669,7 @@ function renderControls() {
   document.getElementById("close-btn").textContent = closeButtonText(closeAllowed);
   document.getElementById("sort-btn").disabled = state.hands[0].length === 0;
   document.getElementById("next-btn").disabled =
-    !(roundOver && !state.awaitingReentry && !state.gameOver);
+    !(roundOver && !state.layoff && !state.awaitingReentry && !state.gameOver);
   document.getElementById("results-btn").disabled = !(roundOver && state.roundDetail);
 
   // Re-entry question, shown only while the human is out and must choose
@@ -728,17 +738,66 @@ function renderAnalysis() {
 // Shows, for every player in the round, how their cards split into melds and
 // leftover cards, what they scored, and their new total.
 
-// A labelled group of small cards ("Run", "Group" or "Left over")
-function resultGroup(cards, label, cls) {
+// A labelled group of small cards ("Run", "Group", "Left over" or "Laid off").
+// `laidBy` (optional) says, card by card, who laid that card off onto this meld
+// (undefined for the meld's own cards): those cards get a dashed outline and a tooltip.
+function resultGroup(cards, label, cls, laidBy = []) {
   const box = document.createElement("div");
   box.className = "res-group " + cls;
   const row = document.createElement("div");
   row.className = "res-cards-row";
-  cards.forEach(c => row.appendChild(createCardElement(c, true)));
+  cards.forEach((c, i) => {
+    const el = createCardElement(c, true);
+    if (laidBy[i] !== undefined) {
+      el.classList.add("laid");
+      el.title += t("card.laidBy", { who: laidBy[i] });
+    }
+    row.appendChild(el);
+  });
   const caption = document.createElement("div");
   caption.className = "res-label";
   caption.textContent = label;
   box.append(row, caption);
+  return box;
+}
+
+// Manual lay-off: the leftover card you picked in the results panel (an index into
+// your leftover cards), waiting for you to pick the meld it goes on. null = none picked.
+// Screen-only, like dragFrom, so it lives here and not in `state`.
+let layoffPick = null;
+
+// One meld on the results screen, with the cards laid off on it sorted in among its own.
+// While you lay off by hand: on another player's row, a click on the meld puts your picked
+// card there, and a click on a card you laid off takes it back.
+function resultMeld(d, m, index) {
+  // { card, by, laidIndex }: by and laidIndex are only set for laid-off cards
+  const all = [...m.cards.map(card => ({ card })),
+               ...m.laid.map((l, laidIndex) => ({ card: l.card, by: l.by, laidIndex }))]
+    .sort((a, b) => rankIndex(a.card) - rankIndex(b.card));
+  const box = resultGroup(all.map(x => x.card), meldName(m.type), "meld", all.map(x => x.by));
+  if (!awaitingLayoff() || d.p === 0) return box;
+
+  if (layoffPick !== null) {
+    box.classList.add("target");
+    // Hints on: show which melds your picked card fits (with Hints off you work it out yourself)
+    if (state.showHints && isMeld([...meldCards(m), state.roundDetail[0].unmatched[layoffPick]])) {
+      box.classList.add("fits");
+    }
+    box.addEventListener("click", () => {
+      const pick = layoffPick;
+      layoffPick = null;
+      humanLayOff(pick, d.p, index);              // re-renders, with a message if it did not fit
+    });
+  }
+  box.querySelectorAll(".card").forEach((el, i) => {
+    if (all[i].by !== 0) return;
+    el.classList.add("clickable");
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();                        // only take the card back, don't also lay one off
+      layoffPick = null;
+      humanTakeBack(d.p, index, all[i].laidIndex);
+    });
+  });
   return box;
 }
 
@@ -749,7 +808,8 @@ function resultRow(d) {
 
   const pts = d.chinchon ? t("res.chinchon") : (d.points > 0 ? `+${d.points}` : String(d.points));
   const gameEndedHere = state.roundResult.chinchon && CHINCHON_ENDS_GAME;
-  const total = gameEndedHere ? "" : t("res.total", { n: state.totals[d.p] });
+  // (no total while lay-offs are still going on: the round has not been scored yet)
+  const total = gameEndedHere || state.layoff ? "" : t("res.total", { n: state.totals[d.p] });
   const badges = (d.closer && !d.chinchon ? `<span class="badge">${t("res.badgeClosed")}</span>` : "") +
                  (!state.inGame[d.p] ? `<span class="badge out">${t("res.badgeOut")}</span>` : "");
   const head = document.createElement("div");
@@ -760,10 +820,24 @@ function resultRow(d) {
 
   const cards = document.createElement("div");
   cards.className = "res-cards";
-  d.melds.forEach(m => cards.appendChild(resultGroup(m.cards, meldName(m.type), "meld")));
+  d.melds.forEach((m, index) => cards.appendChild(resultMeld(d, m, index)));
   if (d.unmatched.length) {
-    const sum = d.unmatched.reduce((s, c) => s + cardPoints(c), 0);
-    cards.appendChild(resultGroup(d.unmatched, t("res.leftover", { n: sum }), "leftover"));
+    const box = resultGroup(d.unmatched, t("res.leftover", { n: pointsOfCards(d.unmatched) }), "leftover");
+    // Laying off by hand: a click on one of your leftover cards picks it (a second click drops it)
+    if (d.p === 0 && awaitingLayoff()) {
+      box.querySelectorAll(".card").forEach((el, i) => {
+        el.classList.add("clickable");
+        el.classList.toggle("picked", i === layoffPick);
+        el.addEventListener("click", () => {
+          layoffPick = layoffPick === i ? null : i;
+          render();
+        });
+      });
+    }
+    cards.appendChild(box);
+  }
+  if (d.laidOff.length) {
+    cards.appendChild(resultGroup(d.laidOff, t("res.laidOff", { n: pointsOfCards(d.laidOff) }), "laidoff"));
   }
   row.append(head, cards);
   return row;
@@ -774,6 +848,7 @@ function renderResults() {
   const detail = state.roundDetail;
   const show = state.phase === "roundOver" && state.showResults && detail;
   overlay.hidden = !show;
+  if (!awaitingLayoff()) layoffPick = null;      // a pick only lasts while you are laying off
   if (!show) return;
 
   const rr = state.roundResult;
@@ -791,7 +866,8 @@ function renderResults() {
   if (state.awaitingReentry) notice = `${reentryText()} ${notice}`;   // (a win is announced by the banner)
   document.getElementById("results-notice").textContent = notice;
 
-  document.getElementById("res-next").hidden     = state.awaitingReentry || state.gameOver;
+  document.getElementById("res-layoff-done").hidden = !awaitingLayoff();
+  document.getElementById("res-next").hidden     = Boolean(state.layoff) || state.awaitingReentry || state.gameOver;
   document.getElementById("res-reenter").hidden  = !state.awaitingReentry;
   document.getElementById("res-stayout").hidden  = !state.awaitingReentry;
   document.getElementById("res-newgame").hidden  = !state.gameOver;
@@ -900,7 +976,8 @@ function reentryText() {
    call fn". The human's cards get their own click handlers inside
    renderHand(), because those elements are rebuilt on every render.
    --------------------------------------------------------- */
-document.getElementById("new-game").addEventListener("click", () => newGame());
+// New game (in the Settings sheet) also closes the sheet, so you see the new deal
+document.getElementById("new-game").addEventListener("click", () => { setSettingsOpen(false); newGame(); });
 document.getElementById("draw-pile").addEventListener("click", () => humanDraw("deck"));
 document.getElementById("discard-pile").addEventListener("click", () => humanDraw("discard"));
 document.getElementById("close-btn").addEventListener("click", humanClose);
@@ -1007,6 +1084,7 @@ function syncSettingDropdowns() {
   document.getElementById("reshuffles").value = limitToOption(state.maxReshuffles);
   document.getElementById("round-limit").value = limitToOption(state.roundLimit);
   document.getElementById("reentries").value = limitToOption(state.maxReentries);
+  document.getElementById("layoff").value = state.layoffMode;
 }
 
 // The limit dropdowns use "none" for "no limit", which is null in state
@@ -1037,6 +1115,7 @@ function saveSettings() {
     "reshuffles":  limitToOption(state.maxReshuffles),
     "reentries":   limitToOption(state.maxReentries),
     "round-limit": limitToOption(state.roundLimit),
+    "layoff":      state.layoffMode,
   };
   try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings)); } catch (err) { /* not remembered; fine */ }
 }
@@ -1063,6 +1142,7 @@ function loadSettings() {
   state.maxReshuffles = optionToLimit(pick("reshuffles"));
   state.maxReentries  = optionToLimit(pick("reentries"));
   state.roundLimit    = optionToLimit(pick("round-limit"));
+  state.layoffMode    = pick("layoff");
   return Number(pick("cpu-count"));
 }
 
@@ -1090,7 +1170,8 @@ function loadGame() {
   animSeen = { deals: state.deals, drawLen: state.drawPile.length, discardLen: state.discardPile.length,
                handLen: state.hands.map(hand => hand.length),
                phase: state.phase, current: state.currentPlayer, gameOver: state.gameOver };
-  scorePops = { deal: state.deals, points: null };
+  // (saved in the middle of your lay-offs: the round is not scored yet, so its pop-ups are still to come)
+  scorePops = { deal: state.layoff ? 0 : state.deals, points: null };
   return true;
 }
 
@@ -1148,6 +1229,10 @@ document.getElementById("round-limit").addEventListener("change", (e) => {
   const limit = optionToLimit(e.target.value);
   askBeforeNewGame(() => t("confirm.rules"), () => { state.roundLimit = limit; newGame(); });
 });
+document.getElementById("layoff").addEventListener("change", (e) => {
+  const mode = e.target.value;
+  askBeforeNewGame(() => t("confirm.rules"), () => { state.layoffMode = mode; newGame(); });
+});
 document.getElementById("deck-yes").addEventListener("click", () => closeConfirm(true));
 document.getElementById("deck-no").addEventListener("click", () => closeConfirm(false));
 document.getElementById("reenter-yes").addEventListener("click", () => humanReenter(true));
@@ -1157,6 +1242,7 @@ document.getElementById("reenter-no").addEventListener("click", () => humanReent
 document.getElementById("results-btn").addEventListener("click", () => setResultsOpen(true));
 document.getElementById("res-hide").addEventListener("click", () => setResultsOpen(false));
 document.getElementById("res-next").addEventListener("click", nextRound);
+document.getElementById("res-layoff-done").addEventListener("click", humanLayoffDone);
 document.getElementById("res-reenter").addEventListener("click", () => humanReenter(true));
 document.getElementById("res-stayout").addEventListener("click", () => humanReenter(false));
 document.getElementById("res-newgame").addEventListener("click", () => newGame());

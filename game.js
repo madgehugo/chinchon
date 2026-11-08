@@ -55,6 +55,9 @@ const state = {
   maxReshuffles: MAX_RESHUFFLES, // reshuffles allowed per round (null = no limit); a setting
   roundLimit: null,  // rounds per game (null = no limit: play until one player is left); a setting
   maxReentries: null, // times each player may re-enter after elimination (null = no limit); a setting
+  layoffMode: "none", // laying off leftovers after a close: "auto" | "manual" | "none"; a setting
+                      // (the Node tools keep "none"; the browser starts from index.html, "auto")
+  layoff: null,       // while lay-offs are under way: { order: [players, in turn order], next: index into order }
 
   // What every player can see: cards a player took from the discard pile are
   // known to be in their hand until they discard them again. The smart-based CPUs
@@ -141,6 +144,7 @@ function startRound() {
   state.revealed = false;
   state.roundResult = null;
   state.roundDetail = null;
+  state.layoff = null;
   state.showResults = false;
 
   beginTurn();
@@ -414,8 +418,10 @@ function buildRoundDetail(closer, chinchon, points) {
       : ev.melds.map(m => ({ type: m.type, cards: [...m.cards].sort(byRank) }));
     return {
       p,
-      melds,
+      // `laid`: cards other players laid off onto this meld, as { card, by: player }
+      melds: melds.map(m => ({ ...m, laid: [] })),
       unmatched: isChinchon ? [] : [...ev.unmatched].sort(byRank),
+      laidOff: [],                                  // this player's cards that went onto others' melds
       points: points[p],                            // what this player scores this round
       closer: p === closer,
       chinchon: isChinchon,
@@ -427,6 +433,8 @@ function buildRoundDetail(closer, chinchon, points) {
 // `closer` discards their last card and the round ends. Everyone's hand is
 // evaluated: the closer gets their closing score (-10 bonus, or their
 // unmatched points); everyone else gets their own unmatched points.
+// With the lay-off rule on, the other players first lay off leftover cards
+// (see LAYING OFF below), and only then is the round scored.
 // scoreRound() then adds them to the running totals.
 function closeRound(closer, discardIndex) {
   state.closing = false;
@@ -441,13 +449,153 @@ function closeRound(closer, discardIndex) {
   state.showResults = true;
   state.phase = "roundOver";
   state.revealed = true;
+
+  // Nobody lays off after a Chinchón (the game is over) or a close with no unmatched cards (-10)
+  const layoffs = state.layoffMode !== "none" && !info.chinchon && info.closerScore !== CLOSE_BONUS;
+  state.layoff = layoffs ? { order: layoffOrder(closer), next: 0 } : null;
+  continueLayoffs();
+}
+
+// The second half of closeRound, once every lay-off is done: the round's points
+// (the leftovers each player still holds) are final, so announce and score them.
+function finishClose() {
+  const { closer, chinchon } = state.roundResult;
+  const points = state.roundResult.points.map((pts, p) =>
+    state.roundDetail[p] ? state.roundDetail[p].points : pts);
+  state.roundResult.points = points;
   render();
 
-  const headline = msg(whoKey(info.chinchon ? "sum.chinchon" : "sum.closed", closer), { who: closer });
-  state.summary = [headline, msg("sum.points", { list: pointsList(points, closer, info.chinchon) })];
+  const headline = msg(whoKey(chinchon ? "sum.chinchon" : "sum.closed", closer), { who: closer });
+  state.summary = [headline, msg("sum.points", { list: pointsList(points, closer, chinchon) })];
   setStatus(...state.summary);
 
-  scoreRound(closer, info, points);
+  scoreRound(closer, { chinchon }, points);
+}
+
+/* ---------------------------------------------------------
+   LAYING OFF (the "Lay off leftovers" setting, state.layoffMode)
+   ---------------------------------------------------------
+   After a close, the other players take turns, clockwise from the closer, to
+   lay off leftover cards onto any other player's melds (the closer's or another
+   player's), including cards laid off before them. Each laid-off card no longer
+   counts against its owner. The CPUs always lay off as well as they can
+   (bestLayoff in rules.js); so do you in "auto" mode. In "manual" mode play stops
+   at your turn until you have placed your cards and pressed Done.
+   Everything happens in state.roundDetail (the results screen); the hands stay as they were.
+   --------------------------------------------------------- */
+
+// Who lays off, in turn order: everyone who played the round except the closer, clockwise from the closer
+function layoffOrder(closer) {
+  const order = [];
+  for (let i = 1; i < state.numPlayers; i++) {
+    const p = (closer + i) % state.numPlayers;
+    if (state.roundDetail[p]) order.push(p);
+  }
+  return order;
+}
+
+// Play the lay-offs from state.layoff.next on. Stops (returns) at your turn in manual mode,
+// unless you have no leftover cards; humanLayoffDone() then carries on from there.
+function continueLayoffs() {
+  const lo = state.layoff;
+  while (lo && lo.next < lo.order.length) {
+    const p = lo.order[lo.next];
+    if (p === 0 && state.layoffMode === "manual" && state.roundDetail[0].unmatched.length > 0) {
+      render();
+      setStatus(msg("msg.layoff"));
+      return;
+    }
+    autoLayoff(p);
+    lo.next++;
+  }
+  state.layoff = null;
+  finishClose();
+}
+
+// True while the game is waiting for you to lay off your cards (manual mode)
+function awaitingLayoff() {
+  return state.layoff !== null && state.layoff.order[state.layoff.next] === 0;
+}
+
+// Every meld player p may lay off onto: the melds of every other player in the round,
+// each with the cards laid off on it so far. [{ owner, index, cards }, ...]
+function layoffTargets(p) {
+  const targets = [];
+  state.roundDetail.forEach((d, owner) => {
+    if (!d || owner === p) return;
+    d.melds.forEach((m, index) => targets.push({ owner, index, cards: meldCards(m) }));
+  });
+  return targets;
+}
+
+// All the cards of a meld on the results screen: its own and the ones laid off on it
+const meldCards = m => [...m.cards, ...m.laid.map(l => l.card)];
+
+// Unmatched points of a list of cards
+const pointsOfCards = cards => cards.reduce((sum, card) => sum + cardPoints(card), 0);
+
+// Player p lays off leftover card number `cardIndex` onto meld `index` of player `owner`.
+// Returns false, changing nothing, if the card does not fit there.
+function layOff(p, cardIndex, owner, index) {
+  const d = state.roundDetail[p];
+  const target = owner !== p && state.roundDetail[owner] && state.roundDetail[owner].melds[index];
+  const card = d.unmatched[cardIndex];
+  if (!target || !card || !isMeld([...meldCards(target), card])) return false;
+  d.unmatched.splice(cardIndex, 1);
+  d.laidOff.push(card);
+  target.laid.push({ card, by: p });
+  d.points = pointsOfCards(d.unmatched);
+  return true;
+}
+
+// Player p takes back laid-off card number `laidIndex` from meld `index` of player `owner`
+// (your undo in manual mode). Only allowed if the meld is still a meld without it.
+function takeBack(p, owner, index, laidIndex) {
+  const target = state.roundDetail[owner] && state.roundDetail[owner].melds[index];
+  const laid = target && target.laid[laidIndex];
+  if (!laid || laid.by !== p) return false;
+  const rest = meldCards(target).filter(card => card !== laid.card);
+  if (!isMeld(rest)) return false;                    // another card hangs on this one
+  const d = state.roundDetail[p];
+  target.laid.splice(laidIndex, 1);
+  // (found by key, not as the same object: after a saved game is restored, the copy in
+  // d.laidOff and the one on the meld are two separate objects)
+  d.laidOff.splice(d.laidOff.findIndex(card => cardKey(card) === cardKey(laid.card)), 1);
+  d.unmatched.push(laid.card);
+  d.unmatched.sort((a, b) => rankIndex(a) - rankIndex(b));
+  d.points = pointsOfCards(d.unmatched);
+  return true;
+}
+
+// The best lay-off for player p, played out card by card
+function autoLayoff(p) {
+  const d = state.roundDetail[p];
+  const targets = layoffTargets(p);
+  for (const { card, meld } of bestLayoff(d.unmatched, targets.map(tg => tg.cards))) {
+    layOff(p, d.unmatched.indexOf(card), targets[meld].owner, targets[meld].index);
+  }
+}
+
+// ---- Your lay-offs in manual mode (called from the results panel in ui.js) ----
+function humanLayOff(cardIndex, owner, index) {
+  if (!awaitingLayoff()) return false;
+  const ok = layOff(0, cardIndex, owner, index);
+  render();
+  setStatus(...(ok ? [] : [msg("msg.layoffNoFit", { card: state.roundDetail[0].unmatched[cardIndex] })]),
+            msg("msg.layoff"));
+  return ok;
+}
+function humanTakeBack(owner, index, laidIndex) {
+  if (!awaitingLayoff()) return false;
+  const ok = takeBack(0, owner, index, laidIndex);
+  render();
+  return ok;
+}
+// "Done": the players after you lay off, then the round is scored
+function humanLayoffDone() {
+  if (!awaitingLayoff()) return;
+  state.layoff.next++;
+  continueLayoffs();
 }
 
 /* ---------------------------------------------------------
@@ -583,7 +731,7 @@ function endGame(winner, reason) {
 
 // "Next round" button: rotate the starting player, then deal again
 function nextRound() {
-  if (state.phase !== "roundOver" || state.awaitingReentry || state.gameOver) return;
+  if (state.phase !== "roundOver" || state.layoff || state.awaitingReentry || state.gameOver) return;
   state.startPlayer = nextActivePlayer(state.startPlayer);
   startRound();
 }
@@ -597,7 +745,8 @@ function nextRound() {
    plain object and back; they never touch the page or the storage, so the Node
    tools can test them (and a future server could use them as they are).
    --------------------------------------------------------- */
-const SAVE_VERSION = 1;   // bump when the shape of `state` changes: older saves are then ignored
+const SAVE_VERSION = 2;   // bump when the shape of `state` changes: older saves are then ignored
+                          // (2: laying off, state.layoffMode and state.layoff)
 // Fields of `state` that describe this moment on screen rather than the game, so are not saved
 const UNSAVED_FIELDS = ["timer", "closing", "showSettings", "showHelp", "showScores"];
 

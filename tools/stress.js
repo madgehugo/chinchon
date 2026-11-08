@@ -8,7 +8,8 @@
    closes, re-enters); the CPUs play normally. After every move it checks
    that no card was lost or duplicated, and it checks that rounds end, hand
    sizes are right and nobody active is over the score limit. Games cycle through
-   the reshuffle, re-entry and round-limit settings, and it checks those rules too.
+   the reshuffle, re-entry, round-limit and lay-off settings, and it checks those rules too
+   (in manual lay-off mode the human lays off random cards, takes some back, then is Done).
    Now and then it saves the game and restores it (as the browser does when the
    app is closed and opened again) and keeps playing from the restored copy.
    Exits with a non-zero code if anything failed.
@@ -23,7 +24,7 @@ let totalErrors = 0;
 for (const size of [40, 48]) {
   g.setDeckSize(size);
   console.log("--- deck", size);
-  const stats = { games: 0, rounds: 0, chinchon: 0, humanOut: 0, endlessRound: 0, stuck: 0, errors: 0, stalemates: 0, tieBreaks: 0, winners: [0, 0, 0, 0], maxRoundTurns: 0, restores: 0 };
+  const stats = { games: 0, rounds: 0, chinchon: 0, humanOut: 0, endlessRound: 0, stuck: 0, errors: 0, stalemates: 0, tieBreaks: 0, layoffs: 0, winners: [0, 0, 0, 0], maxRoundTurns: 0, restores: 0 };
   const fail = (m, ...a) => { stats.errors++; if (stats.errors < 10) console.error("FAIL", m, ...a); };
   const audit = (label) => {
     const all = [...state.drawPile, ...state.discardPile, ...state.hands.flat()];
@@ -48,11 +49,30 @@ for (const size of [40, 48]) {
     g.resumeTurn();
   };
 
+  // After a round: every meld with cards laid off on it is still a meld, each player's points are
+  // what they still hold, nothing was laid off when the rule says it may not be, and every card of a
+  // hand appears exactly once on the results screen.
+  const checkLayoffs = () => {
+    const rr = state.roundResult;
+    state.roundDetail.forEach((d, p) => {
+      if (!d) return;
+      const shown = [...d.melds.flatMap(m => m.cards), ...d.unmatched, ...d.laidOff].map(c => c.suit + c.value).sort();
+      if (shown.join() !== state.hands[p].map(c => c.suit + c.value).sort().join()) fail("results lose or repeat a card", p);
+      for (const m of d.melds) if (!g.isMeld([...m.cards, ...m.laid.map(l => l.card)])) fail("laid-off meld is not a meld", p);
+      if (d.laidOff.length) {
+        stats.layoffs++;
+        if (state.layoffMode === "none" || p === rr.closer || rr.points[rr.closer] === -10) fail("laid off when not allowed", p);
+      }
+      if (p !== rr.closer && rr.points[p] !== d.unmatched.reduce((s, c) => s + g.cardPoints(c), 0)) fail("lay-off points", p);
+    });
+  };
+
   for (let n = 0; n < GAMES; n++) {
     state.cpuLevels = [...g.CPU_MODES[["easy", "medium", "hard", "mixed"][n % 4]]];
     state.maxReshuffles = [5, 0, 1, 2, 3, null][n % 6];       // cycle through the settings menus
     state.roundLimit = [null, 5, 10, 15, 20][Math.floor(n / 6) % 5];
     state.maxReentries = [null, 0, 1, 2][Math.floor(n / 2) % 4];
+    state.layoffMode = ["auto", "manual", "none"][n % 3];
     g.newGame(1 + Math.floor(n / 4) % 3); settle();   // cycle through 1, 2 and 3 CPUs
     let rounds = 0, ok = true;
     while (ok && !state.gameOver && rounds < 300) {
@@ -78,6 +98,22 @@ for (const size of [40, 48]) {
         }
         audit("turn");
       }
+      // Manual lay-off: the human tries random placements (most do not fit), takes some back, then is Done
+      if (ok && g.awaitingLayoff()) {
+        if (Math.random() < 0.1) roundTrip("your lay-off");
+        for (let k = 0; k < 20 && g.awaitingLayoff(); k++) {
+          const left = state.roundDetail[0].unmatched;
+          const targets = g.layoffTargets(0);
+          if (!left.length || !targets.length) break;
+          const tg = targets[Math.floor(Math.random() * targets.length)];
+          g.humanLayOff(Math.floor(Math.random() * left.length), tg.owner, tg.index);
+          const meld = state.roundDetail[tg.owner].melds[tg.index];
+          if (meld.laid.length && Math.random() < 0.2) g.humanTakeBack(tg.owner, tg.index, meld.laid.length - 1);
+        }
+        g.humanLayoffDone();
+      }
+      if (state.layoff) fail("lay-offs never finished", state.layoffMode);
+      if (ok && state.roundDetail) checkLayoffs();
       stats.maxRoundTurns = Math.max(stats.maxRoundTurns, turns);
       if (state.roundResult.closer === null) stats.stalemates++;   // no closer = stalemate
       // Nobody may close before everyone in the round has played once (closingAllowed)

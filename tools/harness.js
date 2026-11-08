@@ -39,6 +39,7 @@ globalThis.__game = {
   newGame, startRound, nextRound, humanDraw, humanDiscard, humanClose, humanReenter,
   drawCard, discardCard, endTurn, closeRound, closeOptions, moveCard, sortHand,
   cpuWantsReentry, snapshotGame, restoreGame, resumeTurn,
+  awaitingLayoff, layoffTargets, humanLayOff, humanTakeBack, humanLayoffDone, isMeld, cardPoints,
 };`;
   vm.runInNewContext(source, sandbox, { filename: "game-bundle.js" });
 

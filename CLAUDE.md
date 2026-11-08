@@ -39,6 +39,9 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 * Sort button defaults to sorting by number; the user can switch to suit.
 * CPU draws show as a toast that replaces the previous one and fades before the next turn; it must never become a
   list of moves (see "no move log" above).
+* Laying off (setting, default automatic): onto ANY other player's melds, not only the closer's; cards laid off
+  earlier can be built on, in turn order from the closer; never after a -10 close. In manual mode the step always shows
+  while you have leftover cards, even if none fit (the game must not reveal that).
 * No `alert`/`confirm`/`prompt` (they do not work when the game runs inside a published Claude artifact); use in-page
   bars like `#deck-confirm`.
 
