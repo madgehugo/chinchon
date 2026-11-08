@@ -206,6 +206,17 @@ function runTestsI18n() {
   currentLang = "es";
   check(playerName(0) === "Tú" && t("pile.discard", { n: 2 }) === "Descartes (2)", "Spanish text");
   check(t(whoKey("sum.closed", 1), { who: 1 }) === "CPU 1 cerró la ronda.", "who formatter + .cpu variant");
+
+  // A message about a player reads from the reader's side: you are player 0 (see messageKey)
+  currentLang = "en";
+  check(tm(msg("msg.turn", { who: 0 })).startsWith("Your turn") && tm(msg("msg.turn", { who: 2 })) === "CPU 2 is playing...",
+        "msg.turn: .you form for you, .cpu form for the others");
+  check(tm(msg("sum.closed", { who: 0 })) === "You closed the round.", "sum.closed picks the .you form");
+  // Online nicknames are shown as typed; seat 0 is still "You"
+  const savedNames = state.names;
+  state.names = ["Ana", "Luis", null, null];
+  check(playerName(0) === "You" && playerName(1) === "Luis" && playerName(2) === "CPU 2", "nicknames, with CPU n for the rest");
+  state.names = savedNames;
   currentLang = savedLang;
 
   done();

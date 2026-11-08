@@ -40,8 +40,8 @@ function setDeckSize(size) {
 
 const SUIT_SYMBOL = { oros: "🪙", copas: "🏆", espadas: "🗡️", bastos: "🪵" };
 
-const MAX_PLAYERS    = 4;   // seats at the table: player 0 = human, players 1-3 = CPUs
-const MIN_PLAYERS    = 2;   // the human plus at least one CPU
+const MAX_PLAYERS    = 4;   // seats at the table: player 0 = you, players 1-3 = CPUs (or, online, other people)
+const MIN_PLAYERS    = 2;   // you plus at least one other player
 // (how many seats are actually used in the current game is state.numPlayers, in game.js)
 const CARDS_PER_HAND = 7;
 // (player names are text, so they live in i18n.js: see playerName)

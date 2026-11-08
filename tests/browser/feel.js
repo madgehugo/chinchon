@@ -31,7 +31,7 @@ const { GAME_URL, OUT, makeChecker, noCpuClose, cpu1Closes } = require('./helper
   check(await page.evaluate(() => played.includes('draw') && played.includes('discard')), 'drawing and discarding play sounds');
   await page.waitForSelector('#toasts .toast', { timeout: 5000 });
   check((await page.locator('#toasts .toast').count()) === 1, 'a CPU draw shows exactly one toast');
-  check(await page.evaluate(() => document.getElementById('status').textContent === tm(msg('msg.playing', { who: state.currentPlayer }))),
+  check(await page.evaluate(() => document.getElementById('status').textContent === tm(msg('msg.turn', { who: state.currentPlayer }))),
         'the status line says which CPU is playing (the toast has the draw)');
   await page.waitForFunction(() => state.currentPlayer === 0, null, { timeout: 15000 });
   check(await page.evaluate(() => played.includes('turn')), 'your turn plays the turn sound');

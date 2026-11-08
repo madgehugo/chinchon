@@ -79,6 +79,52 @@ const STRINGS = {
     // ---- Table ----
     "player.you": "You",
     "player.cpu": "CPU {n}",
+    "seat.away": "away (CPU playing)",
+
+    // ---- Online play (net.js, the online sheet in ui.js; online.err.* come from the server) ----
+    "online.open": "Play online with friends",
+    "online.title": "Play online",
+    "online.intro": "Play with friends on their own phones or computers. One of you creates a room and shares its code. Empty seats are played by CPUs.",
+    "online.name": "Your name",
+    "online.createH": "Create a room",
+    "online.players": "Players at the table",
+    "online.rulesNote": "The room plays with your Settings: deck, CPU level and speed, and the rules.",
+    "online.create": "Create room",
+    "online.joinH": "Join a room",
+    "online.code": "Room code",
+    "online.join": "Join",
+    "online.share": "Share the link",
+    "online.shared": "Link copied: {url}",
+    "online.shareText": "Join my Chinchón game! Room {code}",
+    "online.codeLine": "Room code: {code}",
+    "online.chip": "Online · {code}",
+    "online.you": "you",
+    "online.host": "host",
+    "online.offline": "not connected",
+    "online.cpuSeat": "CPU (empty seat)",
+    "online.waitHost": "Waiting for {name} to start the game.",
+    "online.youStart": "Start when everyone is here. Empty seats are played by CPUs.",
+    "online.inGame": "The game is on. Close this panel to play.",
+    "online.connecting": "Connecting...",
+    "online.lost": "Connection lost. Reconnecting...",
+    "online.start": "Start game",
+    "online.leave": "Leave room",
+    "online.err.noServer": "Cannot reach the game server. Check your connection and try again.",
+    "online.err.badMessage": "The server did not understand that.",
+    "online.err.noRoom": "There is no room with that code (it may have ended).",
+    "online.err.badName": "Type a name first (letters and numbers).",
+    "online.err.badCode": "Type the 4-letter room code.",
+    "online.err.notInRoom": "You are not in a room.",
+    "online.err.inRoom": "You are already in a room. Leave it first.",
+    "online.err.busy": "The server is full right now. Try again later.",
+    "online.err.started": "That game has already started.",
+    "online.err.full": "That room is full.",
+    "online.err.noSeat": "Your seat in that room is gone.",
+    "online.err.notHost": "Only the player who created the room can start it.",
+    "online.err.notStarted": "The game has not started yet.",
+    "online.err.badMove": "That move was not understood.",
+    "online.err.notOver": "The game is not over yet.",
+    "online.err.server": "Something went wrong on the server.",
     "pile.draw": "Draw pile ({n})",
     "pile.discard": "Discard pile ({n})",
     "pile.reshuffles": "Reshuffles left: {n}",
@@ -116,21 +162,29 @@ const STRINGS = {
     "board.out": "OUT",
 
     // ---- Status line ----
-    "msg.yourTurn": "Your turn: click the draw pile or the top discard to take a card.",
-    "msg.yourTurnDeckDone": "Your turn: the draw pile is used up. Take the top discard to play on, or click the empty pile to end the round (everyone scores their hand).",
-    "msg.playing": "{who} is playing...",
-    "msg.tookDiscard": "{who} took {card} from the discard pile...",
-    "msg.drewDeck": "{who} drew from the draw pile...",
-    "msg.pickDiscard": "Click a card in your hand to discard it, or press Close round if you can.",
-    "msg.closing": "Closing: click the highlighted card you want to discard. (Press the button again to cancel.)",
+    // Messages with .you / .cpu forms name a player ({who}): the .you form is what that player
+    // reads, the .cpu form what everyone else reads (another human online, or a CPU). The form is
+    // picked when the message is shown (messageKey below), so game.js only stores who it is about.
     // .touch: the same prompts for touch screens ("tap" instead of "click"; see statusText in ui.js)
-    "msg.yourTurn.touch": "Your turn: tap the draw pile or the top discard to take a card.",
-    "msg.yourTurnDeckDone.touch": "Your turn: the draw pile is used up. Take the top discard to play on, or tap the empty pile to end the round (everyone scores their hand).",
-    "msg.pickDiscard.touch": "Tap a card in your hand to discard it, or press Close round if you can.",
+    "msg.turn.you": "Your turn: click the draw pile or the top discard to take a card.",
+    "msg.turn.cpu": "{who} is playing...",
+    "msg.turnDeckDone.you": "Your turn: the draw pile is used up. Take the top discard to play on, or click the empty pile to end the round (everyone scores their hand).",
+    "msg.turnDeckDone.cpu": "{who} is playing...",
+    "msg.tookDiscard.you": "Click a card in your hand to discard it, or press Close round if you can.",
+    "msg.tookDiscard.cpu": "{who} took {card} from the discard pile...",
+    "msg.drewDeck.you": "Click a card in your hand to discard it, or press Close round if you can.",
+    "msg.drewDeck.cpu": "{who} drew from the draw pile...",
+    "msg.closing": "Closing: click the highlighted card you want to discard. (Press the button again to cancel.)",
+    "msg.turn.you.touch": "Your turn: tap the draw pile or the top discard to take a card.",
+    "msg.turnDeckDone.you.touch": "Your turn: the draw pile is used up. Take the top discard to play on, or tap the empty pile to end the round (everyone scores their hand).",
+    "msg.tookDiscard.you.touch": "Tap a card in your hand to discard it, or press Close round if you can.",
+    "msg.drewDeck.you.touch": "Tap a card in your hand to discard it, or press Close round if you can.",
     "msg.closing.touch": "Closing: tap the highlighted card you want to discard. (Press the button again to cancel.)",
-    "msg.mayReenter": "You may re-enter below.",
-    "msg.layoff": "Lay off: in the round results, click one of your leftover cards, then the meld to put it on (click a card you laid off to take it back). Press Done when you have finished.",
-    "msg.layoff.touch": "Lay off: in the round results, tap one of your leftover cards, then the meld to put it on (tap a card you laid off to take it back). Press Done when you have finished.",
+    "msg.mayReenter.you": "You may re-enter below.",
+    "msg.mayReenter.cpu": "{who} is out and may re-enter: waiting for their answer.",
+    "msg.layoff.you": "Lay off: in the round results, click one of your leftover cards, then the meld to put it on (click a card you laid off to take it back). Press Done when you have finished.",
+    "msg.layoff.you.touch": "Lay off: in the round results, tap one of your leftover cards, then the meld to put it on (tap a card you laid off to take it back). Press Done when you have finished.",
+    "msg.layoff.cpu": "Waiting for {who} to lay off their cards...",
     "msg.layoffNoFit": "{card} does not fit on that meld.",
     "msg.pressNext": "Press Next round.",
     "msg.gameOver": "Game over! {winner} ({reason}).",
@@ -241,6 +295,9 @@ const STRINGS = {
     "help.settings.li9": "Language: English or Spanish. On your first visit it follows your browser's language.",
     "help.settings.li10": "Lay off leftovers: Automatic places your leftover cards on the table's melds as well as possible, Manual lets you place them yourself in the round results, Off turns the rule off. The CPUs always lay off when it is on. Starts a new game.",
     "help.settings.p": "Your settings and language are remembered on this device.",
+    "help.online.h": "Playing online",
+    "help.online.p1": "In Settings, choose Play online with friends. One player creates a room and shares its code or link, and the others join with it. The room plays with that player's Settings (deck, CPUs and rules), and CPUs play any empty seats.",
+    "help.online.p2": "If your connection drops, the game waits 30 seconds for you, then a CPU plays your seat until you are back: open the game again and you return to your seat. Leave room takes you back to your own game on this device.",
     "help.screen.h": "Hints, results and other help",
     "help.screen.li1": "Hints (the light-bulb button at the top): shows the melds in your hand, your unmatched points and whether you can close (and with which discard). Your melds get coloured bars (a striped bar marks a card that fits either meld) and the Close button shows your best score. Leave it off for the full challenge.",
     "help.screen.li2": "Round results: after each round, every hand is shown split into melds and leftover cards. Hide it to look at the table; the Round results button opens it again.",
@@ -305,6 +362,52 @@ const STRINGS = {
     // ---- Table ----
     "player.you": "Tú",
     "player.cpu": "CPU {n}",
+    "seat.away": "ausente (juega la CPU)",
+
+    // ---- Jugar en línea ----
+    "online.open": "Jugar en línea con amigos",
+    "online.title": "Jugar en línea",
+    "online.intro": "Juega con amigos, cada uno en su teléfono u ordenador. Uno crea una sala y comparte su código. Los asientos libres los juega la CPU.",
+    "online.name": "Tu nombre",
+    "online.createH": "Crear una sala",
+    "online.players": "Jugadores en la mesa",
+    "online.rulesNote": "La sala juega con tus Ajustes: mazo, nivel y velocidad de la CPU, y las reglas.",
+    "online.create": "Crear sala",
+    "online.joinH": "Unirse a una sala",
+    "online.code": "Código de la sala",
+    "online.join": "Unirse",
+    "online.share": "Compartir el enlace",
+    "online.shared": "Enlace copiado: {url}",
+    "online.shareText": "¡Únete a mi partida de Chinchón! Sala {code}",
+    "online.codeLine": "Código de la sala: {code}",
+    "online.chip": "En línea · {code}",
+    "online.you": "tú",
+    "online.host": "creó la sala",
+    "online.offline": "sin conexión",
+    "online.cpuSeat": "CPU (asiento libre)",
+    "online.waitHost": "Esperando a que {name} empiece la partida.",
+    "online.youStart": "Empieza cuando estén todos. Los asientos libres los juega la CPU.",
+    "online.inGame": "La partida está en marcha. Cierra este panel para jugar.",
+    "online.connecting": "Conectando...",
+    "online.lost": "Se perdió la conexión. Reconectando...",
+    "online.start": "Empezar partida",
+    "online.leave": "Salir de la sala",
+    "online.err.noServer": "No se puede conectar con el servidor del juego. Revisa tu conexión e inténtalo de nuevo.",
+    "online.err.badMessage": "El servidor no entendió el mensaje.",
+    "online.err.noRoom": "No hay ninguna sala con ese código (quizá ya terminó).",
+    "online.err.badName": "Escribe primero un nombre (letras y números).",
+    "online.err.badCode": "Escribe el código de 4 letras de la sala.",
+    "online.err.notInRoom": "No estás en ninguna sala.",
+    "online.err.inRoom": "Ya estás en una sala. Sal de ella primero.",
+    "online.err.busy": "El servidor está lleno ahora mismo. Inténtalo más tarde.",
+    "online.err.started": "Esa partida ya empezó.",
+    "online.err.full": "Esa sala está llena.",
+    "online.err.noSeat": "Tu asiento en esa sala ya no existe.",
+    "online.err.notHost": "Solo quien creó la sala puede empezar la partida.",
+    "online.err.notStarted": "La partida aún no ha empezado.",
+    "online.err.badMove": "No se entendió esa jugada.",
+    "online.err.notOver": "La partida aún no ha terminado.",
+    "online.err.server": "Algo falló en el servidor.",
     "pile.draw": "Mazo ({n})",
     "pile.discard": "Descartes ({n})",
     "pile.reshuffles": "Barajadas restantes: {n}",
@@ -341,21 +444,25 @@ const STRINGS = {
     "board.out": "ELIMINADO",
 
     // ---- Status line ----
-    "msg.yourTurn": "Tu turno: haz clic en el mazo o en la carta superior de los descartes para coger una carta.",
-    "msg.yourTurnDeckDone": "Tu turno: el mazo se agotó. Coge la carta superior de los descartes para seguir, o haz clic en el mazo vacío para terminar la ronda (cada uno anota su mano).",
-    "msg.playing": "{who} está jugando...",
-    "msg.tookDiscard": "{who} tomó {card} de los descartes...",
-    "msg.drewDeck": "{who} tomó una carta del mazo...",
-    "msg.pickDiscard": "Haz clic en una carta de tu mano para descartarla, o presiona Cerrar ronda si puedes.",
+    "msg.turn.you": "Tu turno: haz clic en el mazo o en la carta superior de los descartes para coger una carta.",
+    "msg.turn.cpu": "{who} está jugando...",
+    "msg.turnDeckDone.you": "Tu turno: el mazo se agotó. Coge la carta superior de los descartes para seguir, o haz clic en el mazo vacío para terminar la ronda (cada uno anota su mano).",
+    "msg.turnDeckDone.cpu": "{who} está jugando...",
+    "msg.tookDiscard.you": "Haz clic en una carta de tu mano para descartarla, o presiona Cerrar ronda si puedes.",
+    "msg.tookDiscard.cpu": "{who} tomó {card} de los descartes...",
+    "msg.drewDeck.you": "Haz clic en una carta de tu mano para descartarla, o presiona Cerrar ronda si puedes.",
+    "msg.drewDeck.cpu": "{who} tomó una carta del mazo...",
     "msg.closing": "Cerrando: haz clic en la carta resaltada que quieres descartar. (Presiona el botón otra vez para cancelar.)",
-    // .touch: the same prompts for touch screens ("tap" instead of "click"; see statusText in ui.js)
-    "msg.yourTurn.touch": "Tu turno: toca el mazo o la carta superior de los descartes para coger una carta.",
-    "msg.yourTurnDeckDone.touch": "Tu turno: el mazo se agotó. Coge la carta superior de los descartes para seguir, o toca el mazo vacío para terminar la ronda (cada uno anota su mano).",
-    "msg.pickDiscard.touch": "Toca una carta de tu mano para descartarla, o pulsa Cerrar ronda si puedes.",
+    "msg.turn.you.touch": "Tu turno: toca el mazo o la carta superior de los descartes para coger una carta.",
+    "msg.turnDeckDone.you.touch": "Tu turno: el mazo se agotó. Coge la carta superior de los descartes para seguir, o toca el mazo vacío para terminar la ronda (cada uno anota su mano).",
+    "msg.tookDiscard.you.touch": "Toca una carta de tu mano para descartarla, o pulsa Cerrar ronda si puedes.",
+    "msg.drewDeck.you.touch": "Toca una carta de tu mano para descartarla, o pulsa Cerrar ronda si puedes.",
     "msg.closing.touch": "Cerrando: toca la carta resaltada que quieres descartar. (Pulsa el botón otra vez para cancelar.)",
-    "msg.mayReenter": "Puedes volver a entrar más abajo.",
-    "msg.layoff": "Colocar: en los resultados de la ronda, haz clic en una de tus cartas sueltas y luego en la combinación donde ponerla (haz clic en una carta que colocaste para recuperarla). Pulsa Listo cuando termines.",
-    "msg.layoff.touch": "Colocar: en los resultados de la ronda, toca una de tus cartas sueltas y luego la combinación donde ponerla (toca una carta que colocaste para recuperarla). Pulsa Listo cuando termines.",
+    "msg.mayReenter.you": "Puedes volver a entrar más abajo.",
+    "msg.mayReenter.cpu": "{who} quedó fuera y puede volver a entrar: esperando su respuesta.",
+    "msg.layoff.you": "Colocar: en los resultados de la ronda, haz clic en una de tus cartas sueltas y luego en la combinación donde ponerla (haz clic en una carta que colocaste para recuperarla). Pulsa Listo cuando termines.",
+    "msg.layoff.you.touch": "Colocar: en los resultados de la ronda, toca una de tus cartas sueltas y luego la combinación donde ponerla (toca una carta que colocaste para recuperarla). Pulsa Listo cuando termines.",
+    "msg.layoff.cpu": "Esperando a que {who} coloque sus cartas...",
     "msg.layoffNoFit": "{card} no encaja en esa combinación.",
     "msg.pressNext": "Presiona Siguiente ronda.",
     "msg.gameOver": "¡Fin de la partida! {winner} ({reason}).",
@@ -466,6 +573,9 @@ const STRINGS = {
     "help.settings.li9": "Idioma: inglés o español. En tu primera visita se usa el idioma de tu navegador.",
     "help.settings.li10": "Colocar sueltas: Automático coloca tus cartas sueltas en las combinaciones de la mesa lo mejor posible, Manual te deja colocarlas tú en los resultados de la ronda, No desactiva la regla. Si está activada, las CPU siempre colocan. Empieza una partida nueva.",
     "help.settings.p": "Tu configuración y tu idioma se guardan en este dispositivo.",
+    "help.online.h": "Jugar en línea",
+    "help.online.p1": "En Ajustes, elige Jugar en línea con amigos. Un jugador crea una sala y comparte su código o enlace, y los demás se unen con él. La sala juega con los Ajustes de ese jugador (mazo, CPU y reglas), y la CPU juega los asientos libres.",
+    "help.online.p2": "Si se corta tu conexión, la partida te espera 30 segundos y luego la CPU juega por ti hasta que vuelvas: abre el juego otra vez y vuelves a tu asiento. Salir de la sala te devuelve a tu propia partida en este dispositivo.",
     "help.screen.h": "Pistas, resultados y otras ayudas",
     "help.screen.li1": "Pistas (el botón de la bombilla, arriba): muestra las combinaciones de tu mano, tus puntos sueltos y si puedes cerrar (y con qué descarte). Tus combinaciones llevan barras de color (una barra a rayas marca una carta que sirve para las dos combinaciones) y el botón Cerrar muestra tu mejor puntuación. Déjalo apagado para el reto completo.",
     "help.screen.li2": "Resultados de la ronda: tras cada ronda se muestra cada mano separada en combinaciones y cartas sueltas. Ocúltalos para ver la mesa; el botón Resultados de la ronda los vuelve a abrir.",
@@ -561,12 +671,23 @@ function plural(key, n, vars = {}) {
    (state.status, state.summary, state.notice) instead of finished sentences.
    --------------------------------------------------------- */
 const msg = (key, vars = {}) => ({ key, vars });
-const tm  = m => t(m.key, m.vars);                          // one message -> text
+const tm  = m => t(messageKey(m), m.vars);                  // one message -> text
 const tms = ms => ms.map(tm).join(" ");                     // several messages -> one line of text
 
 // "You" and "CPU 1" need different verbs ("You win" / "CPU 1 wins", "Ganaste" / "CPU 1 ganó"),
-// so those messages come in two versions, key.you and key.cpu.
+// so those messages come in two versions, key.you and key.cpu. (The .cpu form is the one
+// for anybody but you: a CPU, or another person in an online game.)
 const whoKey = (key, p) => `${key}.${p === 0 ? "you" : "cpu"}`;
 
-// Display name of a player: seat 0 is the human, the others are CPU 1, 2, 3
-const playerName = p => p === 0 ? t("player.you") : t("player.cpu", { n: p });
+// The key to look up for a message: for a message about a player (vars.who) whose key has
+// .you / .cpu forms, the form for whoever is reading it. game.js stores msg("msg.turn",
+// { who: 2 }) and it reads "Your turn..." to player 2 and "Ana is playing..." to the others.
+// (On this device you are always player 0; the online server renumbers the seats for each
+// player, so that is true there too.)
+const messageKey = m => ("who" in m.vars && `${m.key}.you` in STRINGS.en) ? whoKey(m.key, m.vars.who) : m.key;
+
+// Display name of a player: seat 0 is you; another seat is its online nickname if it has
+// one (state.names), else CPU 1, 2, 3. A nickname is what that person typed, so it is
+// used as it is, never translated (and ui.js escapes it before putting it into HTML).
+const playerName = p => p === 0 ? t("player.you")
+                      : (state.names && state.names[p]) || t("player.cpu", { n: p });

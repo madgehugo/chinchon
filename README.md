@@ -1,7 +1,8 @@
 # Chinchón
 
-A browser game of **Chinchón**, the Spanish card game: you against one to three CPU players.
-Plain HTML, CSS and JavaScript, with no build step, no framework and no libraries.
+A browser game of **Chinchón**, the Spanish card game: you against one to three CPU players, or online with friends.
+Plain HTML, CSS and JavaScript, with no build step, no framework and no libraries. (The online server in `server/`
+is a small Node program with one library; the game itself needs nothing.)
 
 **Play it:** `https://madgehugo.github.io/chinchon/` (GitHub Pages; replace the placeholders with your own).
 Or download the repo and open `index.html` in a browser. It works straight from disk.
@@ -56,6 +57,62 @@ Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
   listing, Data safety "no data collected", content rating, then a closed test (new personal accounts need 12 testers
   for 14 days) before production.
 
+## Online play
+
+Friends play on their own phones or computers. One player opens Settings → **Play online with friends**, types a
+name and creates a room; the room gets a 4-letter code (no I, L, O, 0 or 1, which look alike) and a link to share.
+The others open the link (or type the code), and the host presses Start. People take the first seats and CPUs the
+rest, and the room plays with the host's Settings (deck, CPU level and speed, and the rules).
+
+**How it works.** The game runs on a server, never on the players' devices: anything a page holds can be read by
+whoever uses it, so the deck and the other hands must stay on the server. `server/room.js` loads the real
+`rules.js`, `ai.js` and `game.js` into a sandbox for each room (as the benchmark tools do) and runs the game there with
+real timers. Every change is sent to each player as a **view** (`server/view.js`): `state` with the other hands and the
+draw pile replaced by face-down placeholders, and the seats renumbered so that the player is seat 0. Because `ui.js`
+already draws seat 0 as "You" at the bottom, it draws an online game with no changes. Moves go the other way as
+`ACTIONS` (`game.js`), the only door into the game, and each one is checked by type and by whether it is allowed.
+
+* **Leaving and coming back.** If a connection drops, the seat waits 30 seconds (`AWAY_AFTER_MS`), then a CPU plays
+  for that player (`state.seats[p] === "away"`) until they are back. Opening the game again rejoins the same seat with
+  a secret token kept in `localStorage`. Leave room gives the seat to the CPU for good and brings back your own game.
+* **Your own game** on the device is saved when an online game starts and comes back when you leave.
+* **Rooms live in memory.** A server restart ends the games in progress, and a room nobody has been connected to
+  for 30 minutes is thrown away.
+
+**Running the server on your computer** (for testing; you need Node.js):
+
+```bash
+cd server && npm install && npm start      # http://localhost:8080
+```
+
+The server also serves the game's files, so you can open `http://localhost:8080`. To test with phones, put them on
+the same Wi-Fi and open `http://<your computer's address>:8080` (on a Mac: System Settings → Wi-Fi → Details →
+IP address). On those addresses the page finds the server by itself. A page anywhere else can be pointed at a server
+with `?server=ws://address:8080` in its address.
+
+**Deploying the server** (the host is still to be chosen). It is an ordinary Node program, so any host that runs Node
+and allows WebSockets will do (Render, Fly.io, Railway, a VPS...):
+
+1. Run `npm install` and `npm start` in `server/`. It listens on `PORT` (default 8080), and `/health` answers "ok"
+   for hosts that check the server is up. The whole repo must be there, since the server loads the game files from it.
+2. The host must give it an **https** address: GitHub Pages is https, and browsers block an https page from talking
+   to an unencrypted `ws://` server, so the page connects with `wss://` (the encrypted form).
+3. Set the environment variable `ALLOWED_ORIGINS=https://madgehugo.github.io` (the address the game is published at;
+   several are separated by commas). Pages from other sites are refused.
+4. Put the server's address in `SERVER_URL` at the top of `net.js` (e.g. `"wss://chinchon-server.example.com"`),
+   push to `main`, and run `cd app && npm run sync` for the store apps.
+5. The store listings change: the privacy answers become "data is collected" (see `privacy.html`): the nickname you
+   type and your moves are sent to the server, used only to run the game, kept in memory only for the life of the
+   room, and never shared or sold. Not linked to your identity, not used for tracking.
+
+| In `server/` | What it is |
+| --- | --- |
+| `server.js` | The HTTP and WebSocket server: the message types (listed at the top), checking what pages send (nicknames, origins, message size, a rate limit), rooms by code, and serving the game files. |
+| `room.js` | One room: the lobby, the seats and their tokens, loading the engine and starting the game, players going away and coming back, and sending each player their view. |
+| `view.js` | `viewFor(state, seat)`: what one player may see, renumbered so that they are seat 0. |
+| `test.js` | Server tests (`npm test`): whole games with scripted players, a check that no view ever holds a card that player may not see, disconnect and rejoin, and the limits. |
+| `package.json` | Its one dependency, [`ws`](https://github.com/websockets/ws) (the WebSocket server), pinned to an exact version. |
+
 ## Features
 
 * **English and Spanish**, with a language dropdown at the top of the Settings sheet. The first visit follows the browser's language (Spanish if it starts with `es`, else English); after that the choice is remembered in `localStorage`. All text lives in `i18n.js`.
@@ -67,6 +124,8 @@ Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
   analysis under your hand, a coloured bar under each meld (striped in both colours
   for a card that fits either meld, such as the fourth 3 in 3-3-3-3 with 4-5-6 of that 3's suit), and the best closing score on the Close button.
 * 1 human vs 1, 2 or 3 CPUs (1 by default; the "CPUs" dropdown starts a new game). With 3 CPUs on the 40-card deck, the Settings panel suggests the 48-card deck (one button switches), since four players empty the 40-card draw pile quickly, with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
+* **Online play** (Settings → Play online with friends): 2-4 people, each on their own device, with CPUs in the empty
+  seats. See "Online play" below.
 * 40-card Spanish deck (1-7, 10-12) or 48-card deck (adds the 8s and 9s), which suits bigger groups.
 * Adjustable rules: how often the draw pile may be reshuffled in a round (0, 1, 2, 3, 5 or no limit, default 2; the board
   shows how many reshuffles are left), how many times each player may re-enter after elimination (0, 1, 2 or
@@ -147,19 +206,21 @@ Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
 | `i18n.js` | All the player-visible text in English and Spanish (`STRINGS`), `t(key, vars)`, `plural()`, `setLanguage()`, and the `msg()` helper for messages kept in `state`. |
 | `ai.js` | The CPU players: base strategies `greedy`, `smart` and `finish`, the easy/medium/hard levels built from them, and the tunable `SMART` settings. |
 | `CPU_EXPERIMENTS.md` | Ideas for a stronger CPU that were benchmarked and did not help, with their results. |
-| `game.js` | The game state (`state`), turns, rounds, scoring, elimination and re-entry. |
+| `game.js` | The game state (`state`), turns, rounds, scoring, elimination and re-entry, players leaving and coming back (online), and `ACTIONS`, the list of moves a player can make. |
+| `net.js` | Where your moves go (`act()`): into the game on this device, or to the online server; the connection, and putting the server's views into `state`. |
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
 | `sound.js` | Sound effects made in code with the Web Audio API (no audio files); only `ui.js` calls it. |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the panels, toasts and score pop-ups, startup. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons, and the store apps' icons and launch screens). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups, Chinchón fireworks and sound, saving and resuming, installing and offline play, the store app's back button and pause save); `helpers.js` holds what they share. |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups, Chinchón fireworks and sound, saving and resuming, installing and offline play, the store app's back button and pause save, two people playing online); `helpers.js` holds what they share. |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file (it plays the same, but cannot be installed as an app). |
 | `privacy.html` | The privacy policy page the app stores ask for (English and Spanish). Not part of the game. |
 | `app/` | The App Store and Google Play apps (see "Phone app" above). |
+| `server/` | The online server (see "Online play" above). |
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
 
 The scripts share one global scope, so the order of the `<script>` tags in `index.html` matters: each file may use what
-the files above it define (`rules.js, i18n.js, ai.js, game.js, tests.js, sound.js, ui.js`). They are plain scripts rather than ES modules so
+the files above it define (`rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, ui.js`). They are plain scripts rather than ES modules so
 the game also works from `file://`, where browsers block modules.
 
 ## How the pieces connect
@@ -168,13 +229,22 @@ the game also works from `file://`, where browsers block modules.
   in `rules.js` is the table size. `renderSeats()` in `ui.js` places the seats (1 CPU sits opposite you).
 * **`state`** (in `game.js`) holds everything that changes. Game logic writes to it; `render()` in `ui.js` only reads it
   and rebuilds the page. Nearly every action is "check it is allowed, change `state`, call `render()`".
+* **Seats and moves.** `state.seats` says who plays each seat: `"human"`, `"cpu"`, or `"away"` (an online player whose
+  connection dropped, played by the CPU). On one device it is you in seat 0 and CPUs. A player's moves are the
+  `ACTIONS` in `game.js` (draw, discard, close, order, lay off, take back, done, re-enter, next); `ui.js` never calls the
+  move functions itself but `act(name, ...)` in `net.js`, which runs the action for seat 0 or sends it to the server.
+  Cards in moves are named by key (`"o12"`, see `cardKey`), not by position. Closing mode (`state.closing`) is only how
+  your screen behaves, so it is not an action.
 * A **turn** is: draw, then discard one card or close. `state.phase` tracks this (`draw`, `discard`, `roundOver`).
 * **Text and languages.** Nothing in the game files is a finished sentence. A message is a key plus its data,
-  `msg("sum.closed.cpu", { who: 2 })`; `state.status`, `state.summary` and `state.notice` hold lists of these, and
+  `msg("sum.closed", { who: 2 })`; `state.status`, `state.summary` and `state.notice` hold lists of these, and
   `t()` turns them into words only when the page is drawn. That is why `setLanguage()` can call `render()` and have
   everything, including the status line written earlier, appear in the new language. Placeholders named `who`,
   `names`, `card`, `list`, ... hold data (a player number, a card) and are formatted by `FORMATTERS` in `i18n.js`.
-  Messages whose verb changes with the subject come as `key.you` and `key.cpu` (see `whoKey`); counts use
+  Messages whose verb changes with the subject come as `key.you` and `key.cpu`; the form is chosen when the message
+  is shown, from its `who` (see `messageKey`), so "Your turn" to player 2 is "Ana is playing..." to everyone else.
+  game.js only says who a message is about. Online nicknames are in `state.names` (shown by `playerName`; they are
+  what people typed, so `ui.js` escapes them before they go into HTML). Counts use
   `key.one` / `key.other` (see `plural`). Static HTML text carries `data-i18n="key"` (or `data-i18n-title`,
   `data-i18n-aria` for attributes), and `applyStaticText()` in `ui.js` fills it in.
 * **To add or change a text:** add the key to BOTH `en` and `es` in `STRINGS`. The unit test `runTestsI18n` fails if the two languages differ in keys
@@ -190,7 +260,7 @@ the game also works from `file://`, where browsers block modules.
   https or localhost only, and not in the store app. Every file the page loads must also be in `APP_FILES` in `sw.js`
   (`tests/browser/pwa.js` checks); `app/copy_web.js` uses the same list.
 * **Laying off** happens in `closeRound` (`game.js`) before the round is scored: `state.layoff` holds the turn
-  order and whose turn it is; `continueLayoffs()` plays the CPUs' lay-offs and stops at yours in manual mode, and
+  order and whose turn it is; `continueLayoffs()` plays the CPUs' lay-offs and stops at a human's in manual mode, and
   `humanLayoffDone()` carries on. Cards move only within `state.roundDetail` (the results screen), never in the
   hands; `finishClose()` then scores what each player still holds.
 * CPU turns have two timed beats (draw, then discard) so you can follow them. Decisions come from a **strategy** object in
@@ -242,7 +312,9 @@ node tools/gamebench.js 4000 hard medium 40 4 --jobs 8   # whole games: one A ag
 node tools/bench.js 3200 finish smart 48 --reshuffles 2   # 48-card deck, at most 2 reshuffles (gamebench: also --rounds, --reentries)
 node tools/bench.js 6400 "hard:takeMargin=1.5" hard --players 2 --jobs 8   # a 1v1 table (default 4 players)
 npm install && npx playwright install chromium    # once, for the browser tests
-npm run test:browser              # drag, touch, results panel, laying off, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound, resume, offline, store app
+cd server && npm install && cd ..  # once, for the online tests (the server's one library)
+npm run test:browser              # drag, touch, results panel, laying off, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound, resume, offline, store app, online
+cd server && npm test             # the online server: whole games, the hidden-card check, disconnects, limits
 node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png and the app/ icons (commit them)
 ```
 
@@ -267,6 +339,8 @@ node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png
   still knock a B out for the other). Each deal is played with A in every seat, so a fair share is exactly 1/players
   (25% with 4 players); `--control` gives the noise level (about 0.7 percentage points at 4,000 games, 0.3-0.4 paired).
   4,000 games take about 5 minutes with `--jobs 8`.
+* `stress.js` plays every other game with several human seats (as online), whose players sometimes go away and come
+  back, and tries moves that are not allowed (which must change nothing).
 * `stress.js` also saves and restores the game at random moments (through JSON, as the browser does) and keeps playing
   from the copy, so a field that does not survive saving shows up there.
 * After changing `ui.js` or `style.css`, run the browser tests and check the page at phone width (about 390px), in both
@@ -281,6 +355,7 @@ python3 build_single.py            # writes chinchon-single.html
 ## Deploying
 
 The site is served by GitHub Pages from the `main` branch root. Push to `main` and it redeploys in a minute or two.
+The online server is deployed separately (see "Online play").
 There is no build step, so what is in the repo is what is served. The store apps do not update this way: see
 "Phone app" above (sync, a new build number, upload, review).
 

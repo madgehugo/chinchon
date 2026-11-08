@@ -4,12 +4,13 @@
    tools/harness.js: run the game engine in Node (no browser)
    ---------------------------------------------------------
    Loads the game's own files (rules.js, i18n.js, ai.js, game.js, tests.js) into a
-   sandbox and replaces the page with do-nothing stubs. Timers are fake:
-   setTimeout just queues the callback and drain() runs the queue, so a whole
-   game (CPU turns included) plays out instantly.
+   sandbox and replaces the page with stand-ins (loadEngine). For the tools the
+   stand-ins do nothing and the timers are fake (loadGame), so a whole game (CPU
+   turns included) plays out instantly; the online server (server/room.js) uses
+   loadEngine with real timers instead.
    Also holds what bench.js and gamebench.js share: strategy specs, the turn
    loop, command-line parsing and splitting the work over processes.
-   Used by bench.js, gamebench.js and stress.js. ui.js is NOT loaded.
+   Used by bench.js, gamebench.js, stress.js and the server. ui.js and net.js are NOT loaded.
    ========================================================= */
 const fs = require("fs");
 const path = require("path");
@@ -19,31 +20,43 @@ const { fork } = require("child_process");          // to start worker processes
 const ROOT  = path.join(__dirname, "..");
 const FILES = ["rules.js", "i18n.js", "ai.js", "game.js", "tests.js"];   // same order as index.html
 
-function loadGame() {
-  const queue = [];                                  // pending fake timers
-  const sandbox = {
-    console,
-    setTimeout: (fn) => { queue.push(fn); return queue.length; },
-    clearTimeout: () => { queue.length = 0; },
-  };
+// Load the engine into a fresh sandbox. `hooks` replaces what the page would do:
+//   setTimeout / clearTimeout  the timers the engine uses for CPU turns
+//   render()                   called whenever state changed (instead of redrawing a page)
+//   status(messages)           called after setStatus() has stored the messages in state.status
+// Each call gives a separate game with its own `state` (the online server runs one per room).
+function loadEngine(hooks) {
+  const sandbox = { console, setTimeout: hooks.setTimeout, clearTimeout: hooks.clearTimeout, __hooks: hooks };
 
-  // The game's files, then stubs for the two functions game.js expects from
+  // The game's files, then stand-ins for the two functions game.js expects from
   // ui.js, then an object exposing what the tools need (top-level `const`s are
   // not visible from outside the sandbox otherwise).
   const source = FILES.map(f => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n") + `
-function render() {}
-function setStatus(...messages) { state.status = messages; }
+function render() { __hooks.render(); }
+function setStatus(...messages) { state.status = messages; __hooks.status(messages); }
 globalThis.__game = {
-  state, STRATEGIES, FINISH, SMART, CPU_MODES, SCORE_LIMIT,
-  setRandom, setDecisionRandom, makeSeededRandom, setDeckSize,
-  newGame, startRound, nextRound, humanDraw, humanDiscard, humanClose, humanReenter,
-  drawCard, discardCard, endTurn, closeRound, closeOptions, moveCard, sortHand,
-  cpuWantsReentry, snapshotGame, restoreGame, resumeTurn,
+  state, STRATEGIES, FINISH, SMART, CPU_MODES, SCORE_LIMIT, CPU_SPEEDS, MIN_PLAYERS, MAX_PLAYERS,
+  setRandom, setDecisionRandom, makeSeededRandom, setDeckSize, deckSize: () => DECK_SIZE,
+  newGame, startRound, nextRound, humanDraw, humanDiscard, humanCloseWith, humanReenter,
+  drawCard, discardCard, endTurn, closeRound, closeOptions, setHandOrder, sortedHand, cardKey,
+  cpuWantsReentry, snapshotGame, restoreGame, resumeTurn, seatAway, seatBack, runAction, ACTIONS,
   awaitingLayoff, layoffTargets, humanLayOff, humanTakeBack, humanLayoffDone, isMeld, cardPoints,
 };`;
   vm.runInNewContext(source, sandbox, { filename: "game-bundle.js" });
+  return sandbox.__game;
+}
 
-  const g = sandbox.__game;
+// The engine for the tools: nothing to draw, and fake timers. setTimeout just queues
+// the callback and drain() runs the queue, so a whole game (CPU turns included) plays
+// out instantly.
+function loadGame() {
+  const queue = [];                                  // pending fake timers
+  const g = loadEngine({
+    setTimeout: (fn) => { queue.push(fn); return queue.length; },
+    clearTimeout: () => { queue.length = 0; },
+    render: () => {},
+    status: () => {},
+  });
   g.clearQueue = () => { queue.length = 0; };
   // Run queued timers (CPU turns) until there are none left. Returns false if
   // it hit the safety limit, which would mean a turn loop that never ends.
@@ -142,4 +155,4 @@ function runSharded(jobs, runShard, report) {
   }
 }
 
-module.exports = { loadGame, registerSpec, playTurns, parseArgs, parseLimit, runSharded };
+module.exports = { loadEngine, loadGame, registerSpec, playTurns, parseArgs, parseLimit, runSharded };

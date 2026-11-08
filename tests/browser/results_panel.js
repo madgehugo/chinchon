@@ -19,7 +19,7 @@ const { GAME_URL, OUT, makeChecker, cpu1Closes } = require('./helpers');
     state.hands[0] = [c(12,'oros'),c(11,'copas'),c(10,'espadas'),c(12,'bastos'),c(7,'oros'),c(5,'copas'),c(3,'espadas')];
   });
   await cpu1Closes(page);
-  check(await read(() => state.awaitingReentry), 'A eliminated: asked to re-enter');
+  check(await read(() => state.reentryPending.includes(0)), 'A eliminated: asked to re-enter');
   check(await vis('#results'), 'A the results panel is open');
   check(await vis('#res-reenter') && await vis('#res-stayout'), 'A Re-enter and Stay out buttons shown');
   check(!(await vis('#res-next')), 'A Next round hidden while the question is open');

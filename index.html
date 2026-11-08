@@ -24,6 +24,7 @@
        i18n.js    the text in English and Spanish, and t() to look it up
        ai.js      the CPU players
        game.js    game state, turns, rounds and scoring
+       net.js     where your moves go: into the game, or to the online server
        tests.js   self-tests for the rules (results appear in the console)
        sound.js   sound effects, made in code (Web Audio)
        ui.js      drawing the table, clicks, dragging, startup
@@ -43,7 +44,11 @@
 <header id="topbar">
   <div class="brand">
     <h1 data-i18n="app.title">Chinchón</h1>
-    <span id="round-chip"></span>
+    <span class="chips">
+      <span id="round-chip"></span>
+      <!-- While you are in an online room: its code; a tap opens the online sheet (renderOnline in ui.js) -->
+      <button id="online-chip" hidden></button>
+    </span>
   </div>
   <div class="tools">
     <button id="scores-btn" class="secondary icon" aria-expanded="false" aria-controls="scores" data-i18n-title="btn.scores" data-i18n-aria="btn.scores" title="Scores" aria-label="Scores"><svg class="ui-icon" aria-hidden="true"><use href="#ico-scores"/></svg></button>
@@ -120,6 +125,9 @@
   <button id="reenter-no" data-i18n="btn.stayOut">Stay out</button>
 </div>
 
+<!-- Online: shown while the connection to the server is lost and being tried again -->
+<div id="conn-bar" hidden data-i18n="online.lost" role="status">Connection lost. Reconnecting...</div>
+
 <!-- Hints: how the evaluator sees your hand (see renderAnalysis) -->
 <div id="analysis"></div>
 
@@ -143,6 +151,8 @@
       <button id="deck-no" class="secondary" data-i18n="confirm.no">Keep playing</button>
     </div>
     <div id="settings">
+      <!-- Opens the online sheet; hidden when there is no server to play on (serverUrl in net.js) -->
+      <button id="online-open" class="secondary" data-i18n="online.open">Play online with friends</button>
       <label class="opt"><span data-i18n="lang.label">Language</span>
         <select id="lang">
           <option value="en">English</option>
@@ -227,6 +237,50 @@
       <!-- Keyboard help: style.css hides it on touch-only devices -->
       <p class="keys-help" data-i18n="set.keys">Keys: 1-8 discard · D draw pile · T take discard · C close · S sort · Enter next round · H help</p>
     </div>
+  </div>
+</div>
+
+<!-- Online: create a room or join one, then the list of players until the host starts.
+     A sheet like Settings, opened from Settings (or from the room chip in the top bar).
+     renderOnline in ui.js shows the part that fits the moment: #online-start before you
+     are in a room, #online-room once you are. -->
+<div id="online-sheet" class="overlay sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="online-title">
+    <div class="sheet-head">
+      <h2 id="online-title" data-i18n="online.title">Play online</h2>
+      <button id="online-close" class="secondary icon" data-i18n-aria="btn.closeHelp" data-i18n-title="btn.closeHelp" aria-label="Close" title="Close"><svg class="ui-icon" aria-hidden="true"><use href="#ico-close"/></svg></button>
+    </div>
+    <div id="online-start" class="online-part">
+      <p class="online-note" data-i18n="online.intro">Play with friends on their own phones or computers. One of you creates a room and shares its code. Empty seats are played by CPUs.</p>
+      <label class="opt"><span data-i18n="online.name">Your name</span>
+        <input id="online-name" maxlength="16" autocomplete="nickname" spellcheck="false">
+      </label>
+      <h3 data-i18n="online.createH">Create a room</h3>
+      <label class="opt"><span data-i18n="online.players">Players at the table</span>
+        <select id="online-players">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4" selected>4</option>
+        </select>
+      </label>
+      <p class="online-note" data-i18n="online.rulesNote">The room plays with your Settings: deck, CPU level and speed, and the rules.</p>
+      <button id="online-create" data-i18n="online.create">Create room</button>
+      <h3 data-i18n="online.joinH">Join a room</h3>
+      <div class="online-join">
+        <input id="online-code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" data-i18n-aria="online.code" aria-label="Room code" placeholder="ABCD">
+        <button id="online-join" class="secondary" data-i18n="online.join">Join</button>
+      </div>
+    </div>
+    <div id="online-room" class="online-part" hidden>
+      <p id="online-code-line"></p>
+      <button id="online-share" class="secondary" data-i18n="online.share">Share the link</button>
+      <p id="online-shared" class="online-note" hidden></p>
+      <ol id="online-people"></ol>
+      <p id="online-wait" class="online-note"></p>
+      <button id="online-startgame" data-i18n="online.start">Start game</button>
+      <button id="online-leave" class="secondary" data-i18n="online.leave">Leave room</button>
+    </div>
+    <p id="online-error" role="alert" hidden></p>
   </div>
 </div>
 
@@ -328,6 +382,10 @@
       </ul>
       <p data-i18n="help.settings.p"></p>
     </details>
+    <details><summary data-i18n="help.online.h"></summary>
+      <p data-i18n="help.online.p1"></p>
+      <p data-i18n="help.online.p2"></p>
+    </details>
     <details><summary data-i18n="help.screen.h"></summary>
       <ul>
         <li data-i18n="help.screen.li1"></li>
@@ -349,6 +407,7 @@
 <script src="i18n.js"></script>
 <script src="ai.js"></script>
 <script src="game.js"></script>
+<script src="net.js"></script>
 <script src="tests.js"></script>
 <script src="sound.js"></script>
 <script src="ui.js"></script>

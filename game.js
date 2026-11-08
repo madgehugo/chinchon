@@ -27,8 +27,8 @@ const CPU_SPEEDS = {
 const state = {
   drawPile:    [],   // array of cards; the LAST element is the top card
   discardPile: [],   // same convention
-  hands:       [],   // hands[0] = human's cards, hands[1..] = CPUs
-  numPlayers:  MAX_PLAYERS,   // seats in use this game (2-4): you plus 1-3 CPUs. All per-player arrays have this length.
+  hands:       [],   // hands[p] = player p's cards (on this device seat 0 is always you)
+  numPlayers:  MAX_PLAYERS,   // seats in use this game (2-4): you plus 1-3 others. All per-player arrays have this length.
                              // (the browser's first-visit defaults for this and the other settings are the
                              // `selected` options in index.html: 1 CPU, 2 reshuffles, 1 re-entry)
   currentPlayer: 0,  // index of whose turn it is
@@ -52,6 +52,7 @@ const state = {
   showSettings: false, // is the settings panel open?
   showHelp: false,   // is the help panel (rules, settings, keys) open?
   showScores: false, // is the scores panel open?
+  showOnline: false, // is the online panel (create / join a room) open?
   maxReshuffles: MAX_RESHUFFLES, // reshuffles allowed per round (null = no limit); a setting
   roundLimit: null,  // rounds per game (null = no limit: play until one player is left); a setting
   maxReentries: null, // times each player may re-enter after elimination (null = no limit); a setting
@@ -65,6 +66,11 @@ const state = {
   known: [[], [], [], []],
   // Which strategy each CPU uses (see STRATEGIES). Index 0 is the human.
   cpuLevels: [null, "hard", "hard", "hard"],
+  // Who plays each seat: "human" (waits for clicks, or for moves sent over the network),
+  // "cpu", or "away" (a human whose connection dropped in an online game: a CPU plays
+  // for them until they come back; see seatAway). On one device it is you plus CPUs.
+  seats: ["human", "cpu", "cpu", "cpu"],
+  names: [null, null, null, null],    // online nicknames by seat (null = "You" / "CPU n"; see playerName)
 
   // ---- Game-level state: lasts across rounds ----
   round: 0,
@@ -75,7 +81,7 @@ const state = {
   roundPoints: [null, null, null, null], // points from the last round (null = didn't play)
   entryScore: 0,                      // total a re-entering player starts with
   reentries: [0, 0, 0, 0],            // how many times each player has re-entered this game
-  awaitingReentry: false,             // true while the human must choose re-enter / stay out
+  reentryPending: [],                 // human players who are out and must still choose re-enter / stay out
   gameOver: false,
   winner: null,
   status: [],                         // messages (see msg in i18n.js) shown in the status line; set by setStatus()
@@ -90,19 +96,24 @@ const state = {
    --------------------------------------------------------- */
 // Start a brand-new GAME: reset all scores, then start round 1.
 // `cpuCount` (1-3) optionally changes how many CPUs play; omitted, it keeps the current number.
-function newGame(cpuCount) {
+// `table` (optional, used by the online server) says who sits where: { seats, names }, one
+// entry per seat. Without it, it is you in seat 0 and CPUs in the others.
+function newGame(cpuCount, table) {
   clearTimeout(state.timer);
   // The "New game" buttons call newGame(clickEvent), so only trust a plain number
   if (typeof cpuCount === "number") {
     state.numPlayers = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, cpuCount + 1));
   }
+  state.seats = table ? [...table.seats]
+                      : Array.from({ length: state.numPlayers }, (_, p) => p === 0 ? "human" : "cpu");
+  state.names = table ? [...table.names] : Array(state.numPlayers).fill(null);
   state.round = 0;
   state.totals = Array(state.numPlayers).fill(0);
   state.inGame = Array(state.numPlayers).fill(true);
   state.reentries = Array(state.numPlayers).fill(0);
   state.startPlayer = 0;                       // you play first in round 1
   state.roundPoints = Array(state.numPlayers).fill(null);
-  state.awaitingReentry = false;
+  state.reentryPending = [];
   state.gameOver = false;
   state.winner = null;
   state.summary = [];
@@ -252,27 +263,31 @@ function discardCard(player, cardIndex) {
   return card;
 }
 
-// ---- Rearranging your own hand (state changes only; ui.js handles the dragging) ----
-// Move the card at position `from` so that it ends up at position `to`
-function moveCard(from, to) {
-  const hand = state.hands[0];
-  const [card] = hand.splice(from, 1);     // take it out...
-  hand.splice(to, 0, card);                // ...and put it back at the new spot
+// ---- Rearranging a hand (state changes only; ui.js handles the dragging) ----
+// Put player p's hand in the order given by `keys` (card keys such as "o12", see cardKey
+// in rules.js). Cards are named by key, not by position, because over the network a
+// position can be out of date. Ignored unless `keys` names exactly the cards in the hand.
+function setHandOrder(p, keys) {
+  const hand = state.hands[p];
+  if (!hand || keys.length !== hand.length) return;
+  const byKey = new Map(hand.map(card => [cardKey(card), card]));
+  const ordered = keys.map(key => byKey.get(key));
+  if (ordered.some(card => !card) || new Set(keys).size !== keys.length) return;
+  hand.splice(0, hand.length, ...ordered);    // replace the contents, keeping the same array
   render();
 }
 
-// "Sort hand" button. The dropdown next to it picks the method:
+// A sorted copy of a hand, for the "Sort hand" button. The dropdown next to it picks the method:
 //   "number": by value (1..12), ties broken by suit. Good for spotting groups.
 //   "suit":   by suit, then by value. Good for spotting runs.
 // (sort() compares two cards at a time; a negative result puts `a` first, and
 // `x || y` means "use y only when x is 0", i.e. a tie-breaker.)
-function sortHand() {
+function sortedHand(hand, mode) {
   const bySuit  = (a, b) => SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
   const byValue = (a, b) => rankIndex(a) - rankIndex(b);
-  state.hands[0].sort(state.sortMode === "suit"
+  return [...hand].sort(mode === "suit"
     ? (a, b) => bySuit(a, b)  || byValue(a, b)
     : (a, b) => byValue(a, b) || bySuit(a, b));
-  render();
 }
 
 // Pass the turn to the next player. Order is clockwise around the table:
@@ -301,37 +316,67 @@ function nextActivePlayer(from) {
   return from;
 }
 
-// Show the table, then either wait for the human or schedule the CPU's move
+// Is seat p played by a person who is here (on this device or connected)? "away" seats
+// are humans who lost their connection: the CPU plays for them, so they count as not human.
+function isHuman(p) {
+  return state.seats[p] === "human";
+}
+
+// Show the table, then either wait for the human or schedule the CPU's move.
+// The status message names the player (`who`); i18n.js then says "Your turn..." to that
+// player and "Ana is playing..." to everyone else (see the .you / .cpu keys there).
 function beginTurn() {
   state.closing = false;     // never carry "closing mode" into another turn
   render();
-  if (state.currentPlayer === 0) {
-    // With the deck used up, clicking it ends the round: say so before it happens
-    setStatus(msg(deckIsFinished() ? "msg.yourTurnDeckDone" : "msg.yourTurn"));
-  } else {
-    setStatus(msg("msg.playing", { who: state.currentPlayer }));
+  // With the deck used up, clicking it ends the round: say so before it happens
+  setStatus(msg(deckIsFinished() ? "msg.turnDeckDone" : "msg.turn", { who: state.currentPlayer }));
+  if (!isHuman(state.currentPlayer)) {
     state.timer = setTimeout(cpuTurn, CPU_SPEEDS[state.cpuSpeed].draw);   // run cpuTurn() after a pause
   }
 }
 
-// ---- Human actions (called from click handlers) ----
+// ---- Human actions (called through ACTIONS below: from clicks, or from the network) ----
+// Each one first checks that the move is allowed (right player, right moment) and does
+// nothing otherwise, so a stale click or a message from a cheating client changes nothing.
 
-function humanDraw(source) {
-  if (state.currentPlayer !== 0 || state.phase !== "draw") return;   // not allowed now
+// The position of the card with key `key` in player p's hand, or -1
+const indexOfKey = (p, key) => state.hands[p].findIndex(card => cardKey(card) === key);
+
+function humanDraw(p, source) {
+  if (state.currentPlayer !== p || !isHuman(p) || state.phase !== "draw") return;   // not allowed now
   if (source === "discard" && state.discardPile.length === 0) return;
 
-  const card = drawCard(0, source);
+  const card = drawCard(p, source);
   if (!card) return;                     // null = stalemate already ended the round
   state.lastDrawn = card;                // objects compare by identity, so this marks exactly this card
   state.phase = "discard";
   render();
-  setStatus(msg("msg.pickDiscard"));
+  setStatus(drewMessage(p, source, card));
 }
 
-function humanDiscard(cardIndex) {
-  if (state.currentPlayer !== 0 || state.phase !== "discard") return;
-  discardCard(0, cardIndex);
+// What everyone is told about a draw: the player who drew is asked to discard, the others
+// see a toast "Ana drew from the draw pile..." (the .you / .cpu keys in i18n.js). The card
+// is only named when it came from the discard pile, where everyone saw it.
+function drewMessage(p, source, card) {
+  return source === "discard" ? msg("msg.tookDiscard", { who: p, card })
+                              : msg("msg.drewDeck", { who: p });
+}
+
+function humanDiscard(p, key) {
+  if (state.currentPlayer !== p || !isHuman(p) || state.phase !== "discard") return;
+  const index = indexOfKey(p, key);
+  if (index < 0) return;
+  discardCard(p, index);
   endTurn();
+}
+
+// Close the round by discarding the card with key `key`. Only a card that allows a
+// legal close is accepted (closeOptions); the round then ends (closeRound).
+function humanCloseWith(p, key) {
+  if (state.currentPlayer !== p || !isHuman(p) || state.phase !== "discard") return;
+  const index = indexOfKey(p, key);
+  if (!closeOptions(state.hands[p]).some(o => o.index === index)) return;
+  closeRound(p, index);
 }
 
 // Nobody may close during the first lap of a round: every player still in the
@@ -354,17 +399,6 @@ function closeOptions(hand) {
   return options;
 }
 
-// "Close round" button: switch into (or out of) closing mode. In closing mode
-// only the cards that allow a legal close are clickable; clicking one discards
-// it and closes the round.
-function humanClose() {
-  if (state.currentPlayer !== 0 || state.phase !== "discard") return;
-  if (!state.closing && closeOptions(state.hands[0]).length === 0) return;
-  state.closing = !state.closing;
-  render();
-  setStatus(msg(state.closing ? "msg.closing" : "msg.pickDiscard"));
-}
-
 // A CPU turn happens in two beats, with a pause between them (see CPU_SPEEDS):
 //   beat 1, cpuTurn():       draw a card and show where it came from
 //   beat 2, cpuFinishTurn(): close the round, or discard, then pass the turn
@@ -375,21 +409,20 @@ function cpuStrategy(p) {
 
 function cpuTurn() {
   const p = state.currentPlayer;
+  // Stale timer: an away player came back in the meantime and plays this turn themselves
+  if (state.phase !== "draw" || isHuman(p)) return;
   const source = cpuStrategy(p).chooseSource(p);
   const card = drawCard(p, source);
   if (!card) return;                      // null = stalemate ended the round
 
-  const took = source === "discard"
-    ? msg("msg.tookDiscard", { who: p, card })
-    : msg("msg.drewDeck", { who: p });
   state.phase = "discard";                // (this only matters to the human's buttons)
   render();                               // the discard pile / draw pile count change here
-  setStatus(took);
+  setStatus(drewMessage(p, source, card));
   state.timer = setTimeout(cpuFinishTurn, CPU_SPEEDS[state.cpuSpeed].discard);
 }
 
 function cpuFinishTurn() {
-  if (state.phase !== "discard" || state.currentPlayer === 0) return;   // stale timer
+  if (state.phase !== "discard" || isHuman(state.currentPlayer)) return;   // stale timer
   const p = state.currentPlayer;
   const strategy = cpuStrategy(p);
 
@@ -465,7 +498,8 @@ function finishClose() {
   state.roundResult.points = points;
   render();
 
-  const headline = msg(whoKey(chinchon ? "sum.chinchon" : "sum.closed", closer), { who: closer });
+  // (the .you / .cpu form is picked when the message is shown, so each player reads it from their side)
+  const headline = msg(chinchon ? "sum.chinchon" : "sum.closed", { who: closer });
   state.summary = [headline, msg("sum.points", { list: pointsList(points, closer, chinchon) })];
   setStatus(...state.summary);
 
@@ -494,15 +528,15 @@ function layoffOrder(closer) {
   return order;
 }
 
-// Play the lay-offs from state.layoff.next on. Stops (returns) at your turn in manual mode,
-// unless you have no leftover cards; humanLayoffDone() then carries on from there.
+// Play the lay-offs from state.layoff.next on. Stops (returns) at a human's turn in manual
+// mode, unless they have no leftover cards; humanLayoffDone() then carries on from there.
 function continueLayoffs() {
   const lo = state.layoff;
   while (lo && lo.next < lo.order.length) {
     const p = lo.order[lo.next];
-    if (p === 0 && state.layoffMode === "manual" && state.roundDetail[0].unmatched.length > 0) {
+    if (isHuman(p) && state.layoffMode === "manual" && state.roundDetail[p].unmatched.length > 0) {
       render();
-      setStatus(msg("msg.layoff"));
+      setStatus(msg("msg.layoff", { who: p }));
       return;
     }
     autoLayoff(p);
@@ -512,9 +546,9 @@ function continueLayoffs() {
   finishClose();
 }
 
-// True while the game is waiting for you to lay off your cards (manual mode)
-function awaitingLayoff() {
-  return state.layoff !== null && state.layoff.order[state.layoff.next] === 0;
+// True while the game is waiting for player p to lay off their cards (manual mode)
+function awaitingLayoff(p) {
+  return state.layoff !== null && state.layoff.order[state.layoff.next] === p;
 }
 
 // Every meld player p may lay off onto: the melds of every other player in the round,
@@ -576,24 +610,25 @@ function autoLayoff(p) {
   }
 }
 
-// ---- Your lay-offs in manual mode (called from the results panel in ui.js) ----
-function humanLayOff(cardIndex, owner, index) {
-  if (!awaitingLayoff()) return false;
-  const ok = layOff(0, cardIndex, owner, index);
+// ---- A human's lay-offs in manual mode (from the results panel in ui.js, through ACTIONS) ----
+// The leftover card is named by key, like the cards of a hand (see setHandOrder).
+// Returns false, changing nothing, when it is not p's turn to lay off or the card does not fit.
+function humanLayOff(p, key, owner, index) {
+  if (!awaitingLayoff(p) || !isHuman(p)) return false;
+  const cardIndex = state.roundDetail[p].unmatched.findIndex(card => cardKey(card) === key);
+  if (cardIndex < 0 || !layOff(p, cardIndex, owner, index)) return false;
   render();
-  setStatus(...(ok ? [] : [msg("msg.layoffNoFit", { card: state.roundDetail[0].unmatched[cardIndex] })]),
-            msg("msg.layoff"));
+  return true;
+}
+function humanTakeBack(p, owner, index, laidIndex) {
+  if (!awaitingLayoff(p) || !isHuman(p)) return false;
+  const ok = takeBack(p, owner, index, laidIndex);
+  render();
   return ok;
 }
-function humanTakeBack(owner, index, laidIndex) {
-  if (!awaitingLayoff()) return false;
-  const ok = takeBack(0, owner, index, laidIndex);
-  render();
-  return ok;
-}
-// "Done": the players after you lay off, then the round is scored
-function humanLayoffDone() {
-  if (!awaitingLayoff()) return;
+// "Done": the players after p lay off, then the round is scored
+function humanLayoffDone(p) {
+  if (!awaitingLayoff(p) || !isHuman(p)) return;
   state.layoff.next++;
   continueLayoffs();
 }
@@ -672,8 +707,8 @@ function scoreRound(closer, info, points) {
   // 3. Re-entry. The entry score is the highest total among players still in.
   state.entryScore = Math.max(...active.map(p => state.totals[p]));
   const returned = [];
-  for (let p = 1; p < state.numPlayers; p++) {          // CPUs decide automatically
-    if (!state.inGame[p] && canReenter(p) && cpuWantsReentry()) {
+  for (let p = 0; p < state.numPlayers; p++) {          // CPUs (and away players) decide automatically
+    if (!isHuman(p) && !state.inGame[p] && canReenter(p) && cpuWantsReentry()) {
       reenter(p);
       returned.push(p);
     }
@@ -683,14 +718,26 @@ function scoreRound(closer, info, points) {
   }
   state.notice = notes;
 
-  // The human, if out and still allowed back, must choose (buttons appear; see renderControls)
-  if (!state.inGame[0] && canReenter(0)) {
-    state.awaitingReentry = true;
-    render();
-    setStatus(...state.summary, ...state.notice, msg("msg.mayReenter"));
+  // Humans who are out and still allowed back must choose (buttons appear; see renderControls)
+  state.reentryPending = playersOut().filter(p => isHuman(p) && canReenter(p));
+  if (state.reentryPending.length) {
+    askReentry();
     return;
   }
   finishRoundScoring();
+}
+
+// Players who are out of the game, e.g. [1]
+function playersOut() {
+  return state.inGame.map((isIn, p) => isIn ? -1 : p).filter(p => p >= 0);
+}
+
+// Show the re-entry question to whoever still has to answer it (one message per player:
+// "You may re-enter below" to them, "Waiting for Ana..." to the others)
+function askReentry() {
+  render();
+  setStatus(...state.summary, ...state.notice,
+            ...state.reentryPending.map(p => msg("msg.mayReenter", { who: p })));
 }
 
 // Has player p any re-entries left under the re-entry limit?
@@ -705,12 +752,14 @@ function reenter(p) {
   state.reentries[p]++;
 }
 
-// Called when the human answers the re-entry question
-function humanReenter(wantsIn) {
-  if (!state.awaitingReentry) return;
-  state.awaitingReentry = false;
-  if (wantsIn) reenter(0);
-  finishRoundScoring();
+// Called when human player p answers the re-entry question. Once everyone has answered,
+// the round's scoring is finished.
+function humanReenter(p, wantsIn) {
+  if (!state.reentryPending.includes(p)) return;
+  state.reentryPending = state.reentryPending.filter(q => q !== p);
+  if (wantsIn) reenter(p);
+  if (state.reentryPending.length) askReentry();
+  else finishRoundScoring();
 }
 
 // 4. Wait for "Next round" (a game with one player left was already ended in step 2)
@@ -723,7 +772,7 @@ function finishRoundScoring() {
 function endGame(winner, reason) {
   state.gameOver = true;
   state.winner = winner;
-  state.awaitingReentry = false;
+  state.reentryPending = [];
   render();
   // Short on purpose: the round summary and totals are in the results panel
   setStatus(msg("msg.gameOver", { winner, reason }));
@@ -731,7 +780,7 @@ function endGame(winner, reason) {
 
 // "Next round" button: rotate the starting player, then deal again
 function nextRound() {
-  if (state.phase !== "roundOver" || state.layoff || state.awaitingReentry || state.gameOver) return;
+  if (state.phase !== "roundOver" || state.layoff || state.reentryPending.length || state.gameOver) return;
   state.startPlayer = nextActivePlayer(state.startPlayer);
   startRound();
 }
@@ -745,10 +794,11 @@ function nextRound() {
    plain object and back; they never touch the page or the storage, so the Node
    tools can test them (and a future server could use them as they are).
    --------------------------------------------------------- */
-const SAVE_VERSION = 2;   // bump when the shape of `state` changes: older saves are then ignored
-                          // (2: laying off, state.layoffMode and state.layoff)
+const SAVE_VERSION = 3;   // bump when the shape of `state` changes: older saves are then ignored
+                          // (2: laying off, state.layoffMode and state.layoff;
+                          //  3: several human seats, state.seats, state.names and state.reentryPending)
 // Fields of `state` that describe this moment on screen rather than the game, so are not saved
-const UNSAVED_FIELDS = ["timer", "closing", "showSettings", "showHelp", "showScores"];
+const UNSAVED_FIELDS = ["timer", "closing", "showSettings", "showHelp", "showScores", "showOnline"];
 
 // A copy of the game as a plain object, ready for JSON.stringify.
 // JSON.parse(JSON.stringify(x)) is a quick deep copy (like copy.deepcopy in Python)
@@ -788,19 +838,25 @@ function restoreGame(saved) {
   }
   state.timer = null;
   state.closing = false;
-  state.showSettings = state.showHelp = state.showScores = false;
-
-  // Re-link cards. In JS, `a === b` on two objects asks "the same object?" (like
-  // Python's `is`), and the game relies on that: state.lastDrawn must be the very card
-  // object in your hand, and state.known must hold the card objects in the hands
-  // (discardCard looks them up with indexOf). After JSON they are look-alike copies,
-  // so point them back at the real cards, found by their key ("o12" = 12 of oros).
-  const real = new Map([...state.drawPile, ...state.discardPile, ...state.hands.flat()]
-    .map(card => [cardKey(card), card]));
-  const relink = card => card && real.get(cardKey(card));
-  state.lastDrawn = relink(state.lastDrawn) || null;
-  state.known = state.known.map(cards => cards.map(relink).filter(Boolean));
+  state.showSettings = state.showHelp = state.showScores = state.showOnline = false;
+  relinkCards();
   return true;
+}
+
+// Re-link cards after state was filled from JSON (a saved game, or a view sent by the
+// online server). In JS, `a === b` on two objects asks "the same object?" (like Python's
+// `is`), and the game relies on that: state.lastDrawn must be the very card object in your
+// hand, and state.known must hold the card objects in the hands (discardCard looks them up
+// with indexOf). After JSON they are look-alike copies, so point them back at the real
+// cards, found by their key ("o12" = 12 of oros). Cards the online view hides from you
+// ({ hidden: true }, see server/view.js) have no key and are skipped; a known card that is
+// not on show stays the copy it is.
+function relinkCards() {
+  const all = [...state.drawPile, ...state.discardPile, ...state.hands.flat()].filter(card => card.suit);
+  const real = new Map(all.map(card => [cardKey(card), card]));
+  const relink = card => card && (real.get(cardKey(card)) || card);
+  state.lastDrawn = relink(state.lastDrawn) || null;
+  state.known = state.known.map(cards => cards.map(relink));
 }
 
 // Carry on playing after restoreGame(): draw the table, and if a CPU was on the move,
@@ -808,12 +864,103 @@ function restoreGame(saved) {
 function resumeTurn() {
   if (state.phase === "roundOver") {
     render();
-  } else if (state.currentPlayer !== 0 && state.phase === "discard") {
+  } else if (!isHuman(state.currentPlayer) && state.phase === "discard") {
     // The CPU had drawn and was about to discard: do its second beat
     render();
-    setStatus(msg("msg.playing", { who: state.currentPlayer }));
+    setStatus(msg("msg.turn", { who: state.currentPlayer }));
     state.timer = setTimeout(cpuFinishTurn, CPU_SPEEDS[state.cpuSpeed].discard);
   } else {
     beginTurn();   // your turn, or a CPU about to draw
   }
+}
+
+/* ---------------------------------------------------------
+   6. PLAYERS LEAVING AND COMING BACK (online games)
+   ---------------------------------------------------------
+   When an online player's connection drops for long enough, the server calls
+   seatAway(p): the seat is then played by the CPU (cpuStrategy) until seatBack(p).
+   Whatever the game was waiting for from that player happens straight away, so one
+   player leaving never stalls the game for the others. On one device these are
+   never called.
+   --------------------------------------------------------- */
+function seatAway(p) {
+  if (state.seats[p] !== "human") return;
+  state.seats[p] = "away";
+  if (state.reentryPending.includes(p)) {           // asked to re-enter: answer as a CPU would
+    humanReenter(p, cpuWantsReentry());
+  } else if (awaitingLayoff(p)) {                    // laying off by hand: lay off as a CPU would
+    autoLayoff(p);
+    state.layoff.next++;
+    continueLayoffs();
+  } else if (state.currentPlayer === p && state.phase !== "roundOver") {
+    // Their turn: the CPU takes the next beat (drawing, or discarding if they already drew)
+    clearTimeout(state.timer);
+    state.timer = setTimeout(state.phase === "draw" ? cpuTurn : cpuFinishTurn,
+                             CPU_SPEEDS[state.cpuSpeed].discard);
+    render();
+  } else {
+    render();
+  }
+}
+
+// The player is back. A CPU beat already scheduled for them finds the seat human again
+// and does nothing (see the checks at the top of cpuTurn and cpuFinishTurn), so if it is
+// their turn they simply carry on from where the CPU left it.
+function seatBack(p) {
+  if (state.seats[p] !== "away") return;
+  state.seats[p] = "human";
+  render();
+}
+
+/* ---------------------------------------------------------
+   7. ACTIONS: everything a human player can ask the game to do
+   ---------------------------------------------------------
+   The one doorway for a player's moves. On one device ui.js calls these for
+   seat 0 (through act() in net.js); in an online game the server calls them
+   for whichever seat sent the move. Each entry lists the TYPES of its arguments
+   (after the player), so the server can check a message from the network before
+   it gets anywhere near the game:
+     "source": "deck" or "discard"
+     "card":   a card key such as "o12"
+     "cards":  a list of card keys
+     "seat":   a seat number (the server turns the sender's numbering into the real one)
+     "count":  a small whole number
+     "bool":   true or false
+   The functions themselves check that the move is allowed right now.
+   --------------------------------------------------------- */
+const ACTIONS = {
+  draw:       { args: ["source"],                run: (p, source) => humanDraw(p, source) },
+  discard:    { args: ["card"],                  run: (p, key) => humanDiscard(p, key) },
+  close:      { args: ["card"],                  run: (p, key) => humanCloseWith(p, key) },
+  order:      { args: ["cards"],                 run: (p, keys) => setHandOrder(p, keys) },
+  layOff:     { args: ["card", "seat", "count"], run: (p, key, owner, index) => humanLayOff(p, key, owner, index) },
+  takeBack:   { args: ["seat", "count", "count"], run: (p, owner, index, laidIndex) => humanTakeBack(p, owner, index, laidIndex) },
+  layoffDone: { args: [],                        run: (p) => humanLayoffDone(p) },
+  reenter:    { args: ["bool"],                  run: (p, wantsIn) => humanReenter(p, wantsIn) },
+  next:       { args: [],                        run: (p) => { if (isHuman(p)) nextRound(); } },
+};
+
+// Does `value` have the argument type `type` (see the list above)?
+function isActionArg(type, value) {
+  const isKey = v => typeof v === "string" && v.length <= 3 && /^[ocbe]\d{1,2}$/.test(v);
+  const isCount = v => Number.isInteger(v) && v >= 0 && v < 100;
+  switch (type) {
+    case "source": return value === "deck" || value === "discard";
+    case "card":   return isKey(value);
+    case "cards":  return Array.isArray(value) && value.length <= 8 && value.every(isKey);
+    case "seat":   return Number.isInteger(value) && value >= 0 && value < state.numPlayers;
+    case "count":  return isCount(value);
+    case "bool":   return typeof value === "boolean";
+    default:       return false;
+  }
+}
+
+// Run action `name` for player p, if the arguments have the right types.
+// Returns what the action returned (false from a lay-off that did not fit), or false
+// when the request itself was malformed.
+function runAction(p, name, args) {
+  const action = Object.hasOwn(ACTIONS, name) ? ACTIONS[name] : null;   // (hasOwn: not "toString" and friends)
+  if (!action || !Array.isArray(args) || args.length !== action.args.length) return false;
+  if (!action.args.every((type, i) => isActionArg(type, args[i]))) return false;
+  return action.run(p, ...args);
 }

@@ -1,6 +1,6 @@
 # Chinchón: notes for Claude Code
 
-Browser Chinchón (Spanish card game), 1 human vs 3 CPUs. Plain HTML/CSS/JS, no build step, no dependencies.
+Browser Chinchón (Spanish card game), 1 human vs 1-3 CPUs, or online with friends (`server/`). Plain HTML/CSS/JS, no build step, no dependencies.
 The owner is an experienced Python/R programmer who is new to web languages and wants this codebase to be
 clean, readable and well commented so they can learn from it. Keep comments explanatory, and explain
 JS/CSS idioms briefly where they are not obvious to a Python/R programmer.
@@ -10,21 +10,33 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 ## Hard constraints
 
 * **Classic `<script>` tags in one shared global scope, no ES modules**, so the game works from `file://`.
-  Script order in `index.html` is `rules.js, i18n.js, ai.js, game.js, tests.js, sound.js, ui.js`; a file may only use what earlier
+  Script order in `index.html` is `rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, ui.js`; a file may only use what earlier
   files define at load time. `build_single.py` depends on the exact `<link>`/`<script src>` tag shapes in `index.html`.
-* **No libraries, no build step, no external requests** (the game itself; `app/` is the exception, below).
+* **No libraries, no build step, no external requests** (the game itself; `app/` and `server/` are the exceptions, below).
+  The one request the game makes is the online mode's WebSocket to the server (`serverUrl()` in `net.js`).
 * **Text and languages (English + Spanish):** no player-visible string in JS or `state`. Look text up with
   `t("key", vars)` / `plural()` from `i18n.js`; static HTML uses `data-i18n`. `state` stores messages as
   `msg(key, data)` (never finished sentences, never player names) so `setLanguage()` + `render()` redraws everything.
   `setStatus()` takes messages, not strings. Every new key goes into BOTH `en` and `es`. Tools and tests must not match on text: read `state`
   (e.g. `state.roundResult`). Console messages in `tests.js` and `tools/` stay English.
-* **Logic vs display:** `rules.js`, `ai.js`, `game.js` never touch the DOM except through `render()` and `setStatus()`
-  (defined in `ui.js`; stubbed in `tools/harness.js`). Keep it that way, because the Node tools rely on it.
+* **Logic vs display:** `rules.js`, `ai.js`, `game.js`, `net.js` never touch the DOM except through `render()` and `setStatus()`
+  (defined in `ui.js`; stubbed in `tools/harness.js`). Keep it that way, because the Node tools and the server rely on it.
+* **Moves go through `ACTIONS`** (`game.js`): `ui.js` calls `act(name, ...)` (`net.js`), never the move functions. Each
+  action lists its argument types and checks that the move is allowed: the server passes moves from the network straight
+  in. Cards in moves are named by `cardKey`, not by position. Screen-only modes (closing mode) are not actions.
+* **Seats:** never assume seat 0 is the only human; use `isHuman(p)` (`state.seats`: human / cpu / away). On a screen,
+  seat 0 is always the viewer (the server renumbers seats per player). A message about a player carries `who`, and if its
+  wording differs for "you" it has `.you` / `.cpu` keys, chosen when shown (`messageKey` in `i18n.js`).
+* **Online views:** a new field of `state` that is per seat, or that holds a seat number (also inside message vars), must
+  be renumbered in `viewFor` in `server/view.js`, and anything secret must be hidden there; `server/test.js` audits every
+  view for leaked cards. Nicknames (`state.names`) are user text: escape them before they go into innerHTML.
 * **State flow:** change `state`, then call `render()`. `render()` only reads `state`.
 * Files must not contain the text `</script` (the single-file bundler refuses it).
 * **Installable app:** a new file the page loads must also go into `APP_FILES` in `sw.js` (`tests/browser/pwa.js` checks).
   A new or renamed field of `state` needs `SAVE_VERSION` in `game.js` bumped, or old saved games load wrongly.
-* **Store apps (`app/`):** the only folder with dependencies (Capacitor); the game files never load anything from it.
+* **Online server (`server/`):** Node, with one pinned dependency (`ws`); it loads the game files through
+  `loadEngine` in `tools/harness.js`, one sandbox per room. The game files never load anything from it.
+* **Store apps (`app/`):** dependencies (Capacitor); the game files never load anything from it.
   Code for the native shell only runs behind `NATIVE_APP` in `ui.js` and talks to plugins through the bridge functions on
   `window.Capacitor` (no Capacitor JS library in the game). `tests/browser/native.js` fakes the shell. After changing
   game files run `cd app && npm run sync` before a native build. Do not edit `app/www/` (refilled from `sw.js`'s list).
@@ -73,7 +85,8 @@ A against a field of B's), since `bench.js` plays single rounds with all totals 
 node tools/stress.js 20                      # engine: random games on both decks, card audit (must print "stress test passed")
 node tools/bench.js 1600 smart greedy        # CPU strength
 node tools/gamebench.js 4000 hard medium 40 4 --jobs 8   # CPU strength over whole games (~5 min)
-npm run test:browser                         # needs: npm install && npx playwright install chromium
+npm run test:browser                         # needs: npm install && npx playwright install chromium, and cd server && npm install
+cd server && npm test                        # online server: whole games, hidden-card audit, disconnects, limits
 ```
 
 * Unit tests (`tests.js`) run on every page load and print to the browser console.
@@ -90,5 +103,6 @@ npm run test:browser                         # needs: npm install && npx playwri
 
 ## Deploying
 
-GitHub Pages serves `main` at the repo root. Push to `main`; nothing else to do. `chinchon-single.html` is a
+GitHub Pages serves `main` at the repo root. Push to `main`; nothing else to do. The online server is deployed
+separately (host not chosen yet; README "Online play"). `chinchon-single.html` is a
 build product and is git-ignored.

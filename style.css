@@ -117,6 +117,18 @@ body {
   border-radius: var(--r-pill);
   font-variant-numeric: tabular-nums;
 }
+.chips { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* The room chip (online games): looks like the round chip, in gold, and opens the online sheet */
+#online-chip {
+  margin: 0; min-height: 0;
+  padding: 3px 10px;
+  font-size: var(--fs-xs); font-weight: 700; white-space: nowrap;
+  color: var(--gold);
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-pill);
+  box-shadow: none;
+}
 .tools { display: flex; align-items: center; gap: 6px; }
 .tools button { margin: 0; }
 /* Button icons: line drawings (see ICON_SPRITE in ui.js), coloured by the button's text colour */
@@ -571,6 +583,20 @@ select {
   cursor: pointer;
 }
 
+/* Text boxes (the online sheet): the same pill as the dropdowns. 16px text, because
+   iPhones zoom the whole page in when you tap into a box with smaller text. */
+input {
+  min-height: 36px; min-width: 0;
+  padding: 6px 12px;
+  font: inherit; font-size: 16px; font-weight: 600;
+  color: var(--ink);
+  background: var(--paper);
+  border: 0;
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-1);
+}
+input:focus-visible { outline: 3px solid var(--info); outline-offset: 2px; }
+
 /* ---------- Under the table: play buttons, re-entry bar, hints ---------- */
 #analysis {
   width: min(960px, 100%);
@@ -635,6 +661,30 @@ select {
   border-radius: var(--r-md);
 }
 #reentry button, #deck-confirm button { margin: 0; white-space: nowrap; }   /* long Spanish labels must not wrap inside the button */
+/* Online: the connection dropped and is being tried again (a bar like the re-entry one, in red) */
+#conn-bar {
+  width: min(960px, 100%);
+  margin-bottom: 12px; padding: 10px 14px;
+  font-size: var(--fs-sm); font-weight: 600; text-align: center;
+  background: var(--bad-soft);
+  border: 1px solid var(--bad);
+  border-radius: var(--r-md);
+}
+
+/* ---------- The online sheet ---------- */
+.online-part { display: flex; flex-direction: column; gap: 10px; }
+.online-part button { margin: 0; }
+.online-part h3 { margin: 8px 0 0; font-size: var(--fs-sm); font-weight: 800; }
+.online-note { margin: 0; font-size: var(--fs-sm); color: var(--text-dim); overflow-wrap: anywhere; }
+#online-name { width: 10em; }
+.online-join { display: flex; gap: 10px; }
+#online-code { flex: 1; text-transform: uppercase; letter-spacing: 4px; font-weight: 800; }
+#online-code::placeholder { letter-spacing: 4px; color: #b5ab97; }
+#online-code-line { margin: 0; font-size: var(--fs-lg); font-weight: 800; letter-spacing: 1px; }
+#online-people { margin: 0; padding: 8px 10px 8px 34px; background: var(--glass-soft); border-radius: var(--r-md); line-height: 1.8; }
+#online-people li.offline, #online-people li.cpu { color: var(--text-dim); }
+#online-error { margin: 12px 0 0; padding: 8px 12px; font-size: var(--fs-sm);
+  background: var(--bad-soft); border-left: 3px solid var(--bad); border-radius: var(--r-sm); }
 
 /* The scoreboard, inside the Scores sheet */
 #scoreboard { font-size: var(--fs-sm); }
@@ -841,7 +891,7 @@ button, .pile, select, .card { -webkit-tap-highlight-color: transparent; }   /* 
   #topbar { padding: 8px 0 6px; gap: 8px; }
   .brand { flex-direction: column; gap: 2px; align-items: flex-start; }
   h1 { font-size: 1.15rem; }
-  #round-chip { padding: 1px 8px; font-size: .65rem; }
+  #round-chip, #online-chip { padding: 1px 8px; font-size: .65rem; }
   .tools { gap: 4px; }
   .tools button.icon { min-width: 40px; min-height: 40px; padding: 6px; }
   /* bottom sheet: full width, rounded only at the top, rising from the bottom edge */

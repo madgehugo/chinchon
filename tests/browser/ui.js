@@ -108,7 +108,7 @@ const closableHand = (page) => page.evaluate(() => {
   await page.waitForFunction(() => state.currentPlayer === 0 && state.phase === 'draw', null, { timeout: 15000 });
   await closableHand(page);
   await page.screenshot({ path: OUT + '/phone_hand8.png' });
-  await page.evaluate(() => { humanClose(); const o = closeOptions(state.hands[0])[0]; closeRound(0, o.index); });
+  await page.evaluate(() => { toggleClosing(); const o = closeOptions(state.hands[0])[0]; act('close', cardKey(state.hands[0][o.index])); });
   await page.screenshot({ path: OUT + '/phone_results.png' });
   check(await page.locator('#results').isVisible(), 'PHONE results panel opens');
 

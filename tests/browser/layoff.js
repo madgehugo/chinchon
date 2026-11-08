@@ -57,7 +57,7 @@ const { GAME_URL, OUT, makeChecker, noCpuClose } = require('./helpers');
 
   // --- D: manual: the round waits for you; place 7 then 10 of copas by tapping ---
   await closeWith('manual');
-  check(await read(() => awaitingLayoff()), 'D manual: waiting for you');
+  check(await read(() => awaitingLayoff(0)), 'D manual: waiting for you');
   check(await vis('#res-layoff-done') && !(await vis('#res-next')), 'D manual: Done instead of Next round');
   check(await page.locator('#next-btn').isDisabled(), 'D manual: the Next round button under the table is off');
   const yourLeftover = (n) => page.locator('.res-row').first().locator('.res-group.leftover .card').nth(n);

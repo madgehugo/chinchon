@@ -223,13 +223,13 @@ function renderHand(playerIndex) {
         el.classList.add("clickable", "close-option");
         el.title += info.chinchon ? t("card.closeChinchon")
                                   : t("card.closeScore", { n: info.closerScore });
-        onTap = () => { discardFrom = el.getBoundingClientRect(); closeRound(0, index); };
+        onTap = () => { discardFrom = el.getBoundingClientRect(); act("close", cardKey(card)); };
       } else {
         el.classList.add("dimmed");                          // this discard is not a legal close
       }
     } else if (canDiscard) {
       el.classList.add("clickable");                         // CSS highlights it
-      onTap = () => { discardFrom = el.getBoundingClientRect(); humanDiscard(index); };
+      onTap = () => { discardFrom = el.getBoundingClientRect(); act("discard", cardKey(card)); };
     }
     if (playerIndex === 0) makeInteractive(el, index, onTap);   // tap = act, drag = rearrange
     container.appendChild(el);
@@ -267,7 +267,7 @@ function glowMelds(container, meldOf) {
    rearranges. Pointer events cover mouse, touch and pen with ONE code path
    (the older HTML5 drag-and-drop API does not work on most phones).
    The ORDER of state.hands[0] is the order you see, so moving a card just
-   means moving it inside that array (moveCard in game.js) and re-rendering.
+   means asking for a new order (the "order" action, setHandOrder in game.js).
    --------------------------------------------------------- */
 const DRAG_THRESHOLD = 8;   // pixels the pointer must travel before a press counts as a drag
 let dragFrom = null;        // index of the card being pressed or dragged (null = idle);
@@ -345,7 +345,7 @@ function endGesture(e, completed) {
   if (g.ghost) g.ghost.remove();
 
   if (g.active) {
-    if (completed && g.target !== g.index) moveCard(g.index, g.target);   // re-renders
+    if (completed && g.target !== g.index) moveCard(g.index, g.target);   // re-renders (or the server's answer will)
     else render();                                                        // dropped in place
   } else if (completed && g.onTap) {
     g.onTap();                                  // a plain tap: discard / close
@@ -353,6 +353,37 @@ function endGesture(e, completed) {
     render();                                   // nothing to do; catch up on skipped redraws
   }
 }
+
+// Move the card at position `from` in your hand so that it ends up at position `to`
+function moveCard(from, to) {
+  const keys = state.hands[0].map(cardKey);
+  const [key] = keys.splice(from, 1);      // take it out...
+  keys.splice(to, 0, key);                 // ...and put it back at the new spot
+  act("order", keys);
+}
+
+// The "Sort hand" button (and choosing a sort method): sort by the method in state.sortMode
+function sortMyHand() {
+  if (state.hands[0].length === 0) return;
+  act("order", sortedHand(state.hands[0], state.sortMode).map(cardKey));
+}
+
+// "Close round" button: switch into (or out of) closing mode. In closing mode only the
+// cards that allow a legal close are clickable; clicking one discards it and closes the
+// round (the "close" action). Closing mode is only how YOUR screen behaves, so it is
+// not an action; renderStatus explains it while it is on.
+function toggleClosing() {
+  if (state.currentPlayer !== 0 || state.phase !== "discard") return;
+  if (!state.closing && closeOptions(state.hands[0]).length === 0) return;
+  state.closing = !state.closing;
+  render();
+}
+
+// Text that came from a person (an online nickname), made safe to put into innerHTML:
+// characters that mean something in HTML are written as entities, so "<b>" shows as
+// itself instead of turning the rest of the page bold.
+const HTML_ENTITIES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const escapeHtml = text => String(text).replace(/[&<>"']/g, ch => HTML_ENTITIES[ch]);
 
 // Draw the centre piles
 function renderPiles() {
@@ -425,10 +456,14 @@ function renderTurnIndicator() {
     // readers (aria-label), since the separate pieces would not make a sentence.
     seat.classList.toggle("out", !state.inGame[p]);
     const label = seat.querySelector(".seat-name");
-    const level = p === 0 ? "" : `<span class="seat-level">${t(`level.${state.cpuLevels[p] || "hard"}`)}</span>`;
+    // Under the name: a CPU's level, "away" for an online player whose seat the CPU is playing
+    // for the moment, and nothing for a person
+    const under = state.seats[p] === "cpu"  ? t(`level.${state.cpuLevels[p] || "hard"}`)
+                : state.seats[p] === "away" ? t("seat.away") : "";
+    const level = under ? `<span class="seat-level">${under}</span>` : "";
     label.innerHTML =
       `<span class="avatar suit-${SUITS[p]}">${decorIcon(SUITS[p])}</span>` +
-      `<span class="seat-text"><span class="seat-who">${playerName(p)}</span>${level}</span>` +
+      `<span class="seat-text"><span class="seat-who">${escapeHtml(playerName(p))}</span>${level}</span>` +
       `<span class="score-badge">${state.totals[p]}</span>` +
       (state.inGame[p] ? "" : `<span class="seat-out">${t("board.out")}</span>`);
     label.setAttribute("aria-label", t("seat.score", { name: playerName(p), n: state.totals[p] }) +
@@ -453,6 +488,7 @@ function render() {
   renderAnalysis();
   renderResults();
   renderToggles();
+  renderOnline();
   renderStatus();
   animateChanges(rebuilt);            // last, because it needs the new cards to be in the page
 }
@@ -797,7 +833,7 @@ function renderScoreboard() {
   const rows = Array.from({ length: state.numPlayers }, (_, p) => {
     const last = state.roundPoints[p];
     return `<tr class="${state.inGame[p] ? "" : "out"}">` +
-           `<td>${playerName(p)}</td><td>${state.totals[p]}</td>` +
+           `<td>${escapeHtml(playerName(p))}</td><td>${state.totals[p]}</td>` +
            `<td>${last === null ? "–" : last}</td>` +
            `<td class="col-status">${t(state.inGame[p] ? "board.in" : "board.out")}</td></tr>`;
   }).join("");
@@ -835,12 +871,12 @@ function renderControls() {
   document.getElementById("close-btn").textContent = closeButtonText(closeAllowed);
   document.getElementById("sort-btn").disabled = state.hands[0].length === 0;
   document.getElementById("next-btn").disabled =
-    !(roundOver && !state.layoff && !state.awaitingReentry && !state.gameOver);
+    !(roundOver && !state.layoff && !state.reentryPending.length && !state.gameOver);
   document.getElementById("results-btn").disabled = !(roundOver && state.roundDetail);
 
-  // Re-entry question, shown only while the human is out and must choose
+  // Re-entry question, shown only while you are out and must choose
   // (while the results panel is open, it asks the question itself)
-  document.getElementById("reentry").hidden = !(state.awaitingReentry && !state.showResults);
+  document.getElementById("reentry").hidden = !(state.reentryPending.includes(0) && !state.showResults);
   document.getElementById("reentry-text").textContent = reentryText();
   document.getElementById("draw-pile").classList.toggle("can-pick", drawing);
   document.getElementById("discard-pile").classList.toggle(
@@ -941,7 +977,7 @@ function resultMeld(d, m, index) {
                ...m.laid.map((l, laidIndex) => ({ card: l.card, by: l.by, laidIndex }))]
     .sort((a, b) => rankIndex(a.card) - rankIndex(b.card));
   const box = resultGroup(all.map(x => x.card), meldName(m.type), "meld", all.map(x => x.by));
-  if (!awaitingLayoff() || d.p === 0) return box;
+  if (!awaitingLayoff(0) || d.p === 0) return box;
 
   if (layoffPick !== null) {
     box.classList.add("target");
@@ -950,9 +986,11 @@ function resultMeld(d, m, index) {
       box.classList.add("fits");
     }
     box.addEventListener("click", () => {
-      const pick = layoffPick;
+      const card = state.roundDetail[0].unmatched[layoffPick];
       layoffPick = null;
-      humanLayOff(pick, d.p, index);              // re-renders, with a message if it did not fit
+      // A card that does not fit is refused here, with a message, before asking the game
+      if (isMeld([...meldCards(m), card])) act("layOff", cardKey(card), d.p, index);
+      else setStatus(msg("msg.layoffNoFit", { card }), msg("msg.layoff", { who: 0 }));
     });
   }
   box.querySelectorAll(".card").forEach((el, i) => {
@@ -961,7 +999,7 @@ function resultMeld(d, m, index) {
     el.addEventListener("click", (e) => {
       e.stopPropagation();                        // only take the card back, don't also lay one off
       layoffPick = null;
-      humanTakeBack(d.p, index, all[i].laidIndex);
+      act("takeBack", d.p, index, all[i].laidIndex);
     });
   });
   return box;
@@ -980,7 +1018,7 @@ function resultRow(d) {
                  (!state.inGame[d.p] ? `<span class="badge out">${t("res.badgeOut")}</span>` : "");
   const head = document.createElement("div");
   head.className = "res-head";
-  head.innerHTML = `<b>${name}</b>${badges}` +
+  head.innerHTML = `<b>${escapeHtml(name)}</b>${badges}` +
                    `<span class="res-pts${d.points < 0 || d.chinchon ? " good" : ""}">${pts}</span>` +
                    `<span class="res-total">${total}</span>`;
 
@@ -990,7 +1028,7 @@ function resultRow(d) {
   if (d.unmatched.length) {
     const box = resultGroup(d.unmatched, t("res.leftover", { n: pointsOfCards(d.unmatched) }), "leftover");
     // Laying off by hand: a click on one of your leftover cards picks it (a second click drops it)
-    if (d.p === 0 && awaitingLayoff()) {
+    if (d.p === 0 && awaitingLayoff(0)) {
       box.querySelectorAll(".card").forEach((el, i) => {
         el.classList.add("clickable");
         el.classList.toggle("picked", i === layoffPick);
@@ -1014,7 +1052,7 @@ function renderResults() {
   const detail = state.roundDetail;
   const show = state.phase === "roundOver" && state.showResults && detail;
   overlay.hidden = !show;
-  if (!awaitingLayoff()) layoffPick = null;      // a pick only lasts while you are laying off
+  if (!awaitingLayoff(0)) layoffPick = null;     // a pick only lasts while you are laying off
   if (!show) return;
 
   const rr = state.roundResult;
@@ -1029,13 +1067,14 @@ function renderResults() {
 
   renderGameOverBanner();
   let notice = tms(state.notice);
-  if (state.awaitingReentry) notice = `${reentryText()} ${notice}`;   // (a win is announced by the banner)
+  const askMe = state.reentryPending.includes(0);
+  if (askMe) notice = `${reentryText()} ${notice}`;   // (a win is announced by the banner)
   document.getElementById("results-notice").textContent = notice;
 
-  document.getElementById("res-layoff-done").hidden = !awaitingLayoff();
-  document.getElementById("res-next").hidden     = Boolean(state.layoff) || state.awaitingReentry || state.gameOver;
-  document.getElementById("res-reenter").hidden  = !state.awaitingReentry;
-  document.getElementById("res-stayout").hidden  = !state.awaitingReentry;
+  document.getElementById("res-layoff-done").hidden = !awaitingLayoff(0);
+  document.getElementById("res-next").hidden     = Boolean(state.layoff) || state.reentryPending.length > 0 || state.gameOver;
+  document.getElementById("res-reenter").hidden  = !askMe;
+  document.getElementById("res-stayout").hidden  = !askMe;
   document.getElementById("res-newgame").hidden  = !state.gameOver;
 }
 
@@ -1055,7 +1094,7 @@ function renderGameOverBanner() {
   // (state.inGame[b] - state.inGame[a]: true counts as 1 and false as 0, so players still in come first)
   const rows = order.map((p, i) =>
     `<li class="${p === state.winner ? "winner" : ""}${state.inGame[p] ? "" : " out"}">` +
-    `<span>${i + 1}. ${playerName(p)}</span><span>${state.totals[p]}</span></li>`).join("");
+    `<span>${i + 1}. ${escapeHtml(playerName(p))}</span><span>${state.totals[p]}</span></li>`).join("");
 
   const celebrate = state.winner === 0 || (state.roundResult && state.roundResult.chinchon);
   const pips = celebrate
@@ -1067,7 +1106,7 @@ function renderGameOverBanner() {
 
   banner.innerHTML =
     `${pips}<div class="banner-label">${t("res.gameOver")}</div>` +
-    `<div class="banner-win">${t(whoKey("res.noticeWin", state.winner), { who: state.winner })}</div>` +
+    `<div class="banner-win">${escapeHtml(t(whoKey("res.noticeWin", state.winner), { who: state.winner }))}</div>` +
     `<div class="banner-label">${t("res.standings")}</div><ol class="standings">${rows}</ol>`;
 }
 
@@ -1081,14 +1120,16 @@ function setResultsOpen(open) {
 // What a CPU drew is shown as a toast near the piles instead (see showToast).
 function setStatus(...messages) {
   state.status = messages;
-  messages.filter(m => TOAST_KEYS.includes(m.key)).forEach(showToast);
+  messages.filter(isToast).forEach(showToast);
   renderStatus();
 }
 
 // ---- Toasts: a short note over the table, one at a time, that fades by itself ----
-// Only for what a CPU just drew, so it is never a log of moves (the owner decided against
-// one): each toast replaces the last and is gone before the CPU's next turn.
+// Only for what another player (a CPU, or a person online) just drew, so it is never a log
+// of moves (the owner decided against one): each toast replaces the last and is gone before
+// the next turn. Your own draw is not a toast: it asks you to discard (the .you form).
 const TOAST_KEYS = ["msg.drewDeck", "msg.tookDiscard"];
+const isToast = m => TOAST_KEYS.includes(m.key) && m.vars.who !== 0;
 let toastMessage = null;       // the message on show (re-translated on a language switch)
 let toastTimer = null;
 function showToast(m) {
@@ -1113,15 +1154,17 @@ function showToast(m) {
 // pointer is a finger rather than a mouse. game.js does not need to know about any of this.
 const COARSE_POINTER = window.matchMedia("(pointer: coarse)");
 function statusText(m) {
-  const touchKey = `${m.key}.touch`;
+  const touchKey = `${messageKey(m)}.touch`;
   return COARSE_POINTER.matches && touchKey in STRINGS.en ? t(touchKey, m.vars) : tm(m);
 }
 
 // The toast messages are left out of the status line, which says "CPU 1 is playing..."
-// instead while the toast shows what that CPU drew
+// instead while the toast shows what that CPU drew. In closing mode (toggleClosing) the
+// line explains how to close instead.
 function renderStatus() {
-  let shown = state.status.filter(m => !TOAST_KEYS.includes(m.key));
-  if (shown.length === 0 && state.status.length > 0) shown = [msg("msg.playing", { who: state.currentPlayer })];
+  let shown = state.status.filter(m => !isToast(m));
+  if (shown.length === 0 && state.status.length > 0) shown = [msg("msg.turn", { who: state.currentPlayer })];
+  if (state.closing) shown = [msg("msg.closing")];
   document.getElementById("status").textContent = shown.map(statusText).join(" ");
 }
 
@@ -1144,11 +1187,11 @@ function reentryText() {
    --------------------------------------------------------- */
 // New game (in the Settings sheet) also closes the sheet, so you see the new deal
 document.getElementById("new-game").addEventListener("click", () => { setSettingsOpen(false); newGame(); });
-document.getElementById("draw-pile").addEventListener("click", () => humanDraw("deck"));
-document.getElementById("discard-pile").addEventListener("click", () => humanDraw("discard"));
-document.getElementById("close-btn").addEventListener("click", humanClose);
-document.getElementById("next-btn").addEventListener("click", nextRound);
-document.getElementById("sort-btn").addEventListener("click", sortHand);
+document.getElementById("draw-pile").addEventListener("click", () => act("draw", "deck"));
+document.getElementById("discard-pile").addEventListener("click", () => act("draw", "discard"));
+document.getElementById("close-btn").addEventListener("click", toggleClosing);
+document.getElementById("next-btn").addEventListener("click", () => act("next"));
+document.getElementById("sort-btn").addEventListener("click", sortMyHand);
 document.getElementById("hints-btn").addEventListener("click", () => {
   state.showHints = !state.showHints;
   render();
@@ -1165,6 +1208,7 @@ function setHelpOpen(open) {
 // Returns false if none was open.
 function closeTopPanel() {
   if (state.showHelp) setHelpOpen(false);             // the help opens on top of the others
+  else if (state.showOnline) setOnlineOpen(false);
   else if (state.showSettings) setSettingsOpen(false);
   else if (state.showScores) setScoresOpen(false);
   else if (state.showResults) setResultsOpen(false);
@@ -1202,7 +1246,7 @@ document.getElementById("lang").addEventListener("change", (e) => setLanguage(e.
 document.getElementById("sort-mode").addEventListener("change", (e) => {
   state.sortMode = e.target.value;
   saveSettings();
-  sortHand();
+  sortMyHand();
 });
 
 // CPU difficulty: takes effect from the next CPU move (no new game needed)
@@ -1283,6 +1327,13 @@ function saveSettings() {
     "round-limit": limitToOption(state.roundLimit),
     "layoff":      state.layoffMode,
   };
+  if (online.playing) {
+    // In an online game `state` holds the room's rules, not yours: only remember the two
+    // choices that are yours there (the sort method and sound), on top of what was saved
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)) || {}; } catch (err) { /* none */ }
+    Object.assign(settings, saved, { "sort-mode": settings["sort-mode"], "sound": settings.sound });
+  }
   try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings)); } catch (err) { /* not remembered; fine */ }
 }
 
@@ -1322,6 +1373,7 @@ function loadSettings() {
 const GAME_STORAGE_KEY = "chinchon-game";   // localStorage key for the saved game
 
 function saveGame() {
+  if (online.playing) return;     // an online game lives on the server; keep the game of this device as it was
   try { localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify(snapshotGame())); } catch (err) { /* not saved; fine */ }
 }
 
@@ -1401,17 +1453,20 @@ document.getElementById("layoff").addEventListener("change", (e) => {
 });
 document.getElementById("deck-yes").addEventListener("click", () => closeConfirm(true));
 document.getElementById("deck-no").addEventListener("click", () => closeConfirm(false));
-document.getElementById("reenter-yes").addEventListener("click", () => humanReenter(true));
-document.getElementById("reenter-no").addEventListener("click", () => humanReenter(false));
+document.getElementById("reenter-yes").addEventListener("click", () => act("reenter", true));
+document.getElementById("reenter-no").addEventListener("click", () => act("reenter", false));
 
 // Results panel buttons
 document.getElementById("results-btn").addEventListener("click", () => setResultsOpen(true));
 document.getElementById("res-hide").addEventListener("click", () => setResultsOpen(false));
-document.getElementById("res-next").addEventListener("click", nextRound);
-document.getElementById("res-layoff-done").addEventListener("click", humanLayoffDone);
-document.getElementById("res-reenter").addEventListener("click", () => humanReenter(true));
-document.getElementById("res-stayout").addEventListener("click", () => humanReenter(false));
-document.getElementById("res-newgame").addEventListener("click", () => newGame());
+document.getElementById("res-next").addEventListener("click", () => act("next"));
+document.getElementById("res-layoff-done").addEventListener("click", () => act("layoffDone"));
+document.getElementById("res-reenter").addEventListener("click", () => act("reenter", true));
+document.getElementById("res-stayout").addEventListener("click", () => act("reenter", false));
+document.getElementById("res-newgame").addEventListener("click", () => {
+  if (online.playing) sendOnline({ type: "again" });   // online: a new game for the same room
+  else newGame();
+});
 
 // Keyboard play (handy on a desktop). The keys call the same functions as the clicks:
 //   1-8 discard (or, in closing mode, close with) that card, counted from the left
@@ -1428,29 +1483,180 @@ document.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
   if (e.target.tagName === "BUTTON" && (key === "enter" || key === " ")) return;
   if (key === "h") { setHelpOpen(!state.showHelp); e.preventDefault(); return; }
-  if (state.showHelp || state.showSettings || state.showScores) return;
+  if (state.showHelp || state.showSettings || state.showScores || state.showOnline) return;
   if (key >= "1" && key <= "9" && key.length === 1) {
     const index = Number(key) - 1;
     const el = document.querySelectorAll("#hand-0 .card")[index];
     if (!el || state.currentPlayer !== 0 || state.phase !== "discard") return;
     if (state.closing && !closeOptions(state.hands[0]).some(o => o.index === index)) return;
     discardFrom = el.getBoundingClientRect();        // so the card slides from where it was
-    if (state.closing) closeRound(0, index); else humanDiscard(index);
+    act(state.closing ? "close" : "discard", cardKey(state.hands[0][index]));
   } else if (key === "d") {
-    humanDraw("deck");
+    act("draw", "deck");
   } else if (key === "t") {
-    humanDraw("discard");
+    act("draw", "discard");
   } else if (key === "c") {
-    humanClose();
+    toggleClosing();
   } else if (key === "s") {
-    if (state.hands[0].length > 0) sortHand();
+    sortMyHand();
   } else if (key === "enter") {
-    nextRound();                                     // does nothing unless a round just ended
+    act("next");                                     // does nothing unless a round just ended
   } else {
     return;                                          // not one of our keys: let the browser have it
   }
   e.preventDefault();
 });
+
+/* ---------------------------------------------------------
+   PLAYING ONLINE: the online sheet (create or join a room, the players in it)
+   ---------------------------------------------------------
+   The connection itself is in net.js (`online`, createRoom, joinRoom, leaveRoom);
+   this part draws `online` and passes the clicks on. Once the host starts, views
+   of the game arrive and the table shows the online game (applyView in net.js),
+   while the game on this device waits, saved, until you leave the room.
+   --------------------------------------------------------- */
+const NAME_STORAGE_KEY = "chinchon-name";   // localStorage: your online nickname
+// Settings that belong to the room in an online game, so they are locked while you play one
+const ROOM_SETTING_IDS = ["cpu-count", "cpu-mode", "cpu-speed", "deck-size", "deck-tip-btn",
+                          "reshuffles", "reentries", "round-limit", "layoff", "new-game"];
+
+function setOnlineOpen(open) {
+  state.showOnline = open;
+  if (open) online.error = online.code ? online.error : null;   // a fresh start shows no old problem
+  render();
+}
+
+function renderOnline() {
+  const inRoom = Boolean(online.code);
+  const chip = document.getElementById("online-chip");
+  chip.hidden = !inRoom;
+  if (inRoom) chip.textContent = t("online.chip", { code: online.code });
+  document.getElementById("online-open").hidden = !serverUrl();
+  document.getElementById("conn-bar").hidden = online.connection !== "lost";
+  for (const id of ROOM_SETTING_IDS) document.getElementById(id).disabled = online.playing;
+  if (online.playing) {
+    syncSettingDropdowns();                          // show the room's rules in the (locked) dropdowns
+    document.getElementById("deck-tip").hidden = true;   // (its button is locked too)
+  }
+
+  document.getElementById("online-sheet").hidden = !state.showOnline;
+  if (!state.showOnline) return;
+  const error = document.getElementById("online-error");
+  error.hidden = !online.error;
+  error.textContent = online.error ? t(online.error) : "";
+  document.getElementById("online-start").hidden = inRoom;
+  document.getElementById("online-room").hidden = !inRoom;
+  const busy = online.connection === "connecting";
+  document.getElementById("online-create").disabled = busy;
+  document.getElementById("online-join").disabled = busy;
+  if (!inRoom) return;
+
+  // In a room: its code, the players (names are what people typed, so textContent, never
+  // innerHTML), the empty seats the CPUs will take, and what happens next
+  const lobby = online.lobby;
+  document.getElementById("online-code-line").textContent = t("online.codeLine", { code: online.code });
+  const list = document.getElementById("online-people");
+  list.innerHTML = "";
+  if (lobby) {
+    lobby.people.forEach((person, i) => {
+      const tags = [i === lobby.you && t("online.you"), i === lobby.host && t("online.host"),
+                    !person.connected && t("online.offline")].filter(Boolean);
+      const li = document.createElement("li");
+      li.textContent = person.name + (tags.length ? ` (${tags.join(", ")})` : "");
+      li.classList.toggle("offline", !person.connected);
+      list.appendChild(li);
+    });
+    for (let i = lobby.people.length; i < lobby.players; i++) {
+      const li = document.createElement("li");
+      li.className = "cpu";
+      li.textContent = t("online.cpuSeat");
+      list.appendChild(li);
+    }
+  }
+  const isHost = lobby && lobby.you === lobby.host;
+  document.getElementById("online-wait").textContent =
+    !lobby || online.connection !== "open" ? t("online.connecting")
+    : lobby.started ? t("online.inGame")
+    : isHost        ? t("online.youStart")
+    :                 t("online.waitHost", { name: lobby.people[lobby.host].name });
+  document.getElementById("online-startgame").hidden = !(isHost && !lobby.started);
+}
+
+// The nickname typed in the sheet (remembered for next time), or null after saying what is wrong
+function onlineName() {
+  const name = document.getElementById("online-name").value.trim();
+  try { localStorage.setItem(NAME_STORAGE_KEY, name); } catch (err) { /* fine */ }
+  if (!name) { online.error = "online.err.badName"; render(); return null; }
+  return name;
+}
+
+// The address that opens this game straight at the join form of the room, or null when the
+// page was opened from a file (a file:// address means nothing on another device)
+function roomLink() {
+  if (location.protocol !== "http:" && location.protocol !== "https:") return null;
+  const params = new URLSearchParams({ room: online.code });
+  const server = new URLSearchParams(location.search).get("server");
+  if (server) params.set("server", server);
+  return `${location.origin}${location.pathname}?${params}`;
+}
+
+// Settings opens the online sheet (and closes itself); so does the room chip in the top bar
+document.getElementById("online-open").addEventListener("click", () => {
+  state.showSettings = false;
+  setOnlineOpen(true);
+});
+wirePanel("online-chip", "online-close", "online-sheet", setOnlineOpen, () => state.showOnline);
+
+document.getElementById("online-create").addEventListener("click", () => {
+  const name = onlineName();
+  if (!name) return;
+  // The room's game uses your settings (the server checks each value)
+  createRoom(name, {
+    players: Number(document.getElementById("online-players").value),
+    deckSize: DECK_SIZE, cpuMode: state.cpuMode, cpuSpeed: state.cpuSpeed,
+    maxReshuffles: state.maxReshuffles, maxReentries: state.maxReentries,
+    roundLimit: state.roundLimit, layoffMode: state.layoffMode,
+  });
+});
+document.getElementById("online-join").addEventListener("click", () => {
+  const name = onlineName();
+  if (!name) return;
+  const code = document.getElementById("online-code").value.trim().toUpperCase();
+  if (!/^[A-Z0-9]{4}$/.test(code)) { online.error = "online.err.badCode"; render(); return; }
+  joinRoom(code, name);
+});
+// Enter in the code box joins
+document.getElementById("online-code").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("online-join").click();
+});
+document.getElementById("online-startgame").addEventListener("click", () => sendOnline({ type: "start" }));
+document.getElementById("online-leave").addEventListener("click", () => leaveRoom());
+
+// Share the room: the phone's own share menu where there is one (navigator.share), else copy
+// the link. Both are promises (they finish later); .catch: the player closed the menu, fine.
+document.getElementById("online-share").addEventListener("click", () => {
+  const url = roomLink();
+  const text = t("online.shareText", { code: online.code });
+  const note = document.getElementById("online-shared");
+  if (navigator.share) {
+    navigator.share({ title: t("app.title"), text, url: url || undefined }).catch(() => {});
+  } else if (url && navigator.clipboard) {
+    navigator.clipboard.writeText(url)
+      .then(() => { note.textContent = t("online.shared", { url }); note.hidden = false; })
+      .catch(() => { note.textContent = url; note.hidden = false; });
+  } else {
+    note.textContent = url || text;        // nothing to share with: show it, to copy by hand
+    note.hidden = false;
+  }
+});
+
+// Back to the game on this device after an online game (leaveRoom in net.js calls this):
+// the game saved when the online one began, or a new one with your settings
+function restoreLocalGame() {
+  if (loadGame()) resumeTurn();
+  else newGame(loadSettings());
+  syncSettingDropdowns();
+}
 
 /* ---------------------------------------------------------
    START: run once when the page loads
@@ -1460,6 +1666,16 @@ const savedCpuCount = loadSettings();   // last visit's settings (or the default
 if (loadGame()) resumeTurn();         // carry on with the game left unfinished last time
 else newGame(savedCpuCount);          // or start a new one with those settings
 syncSettingDropdowns();      // after newGame, which sets the number of players
+
+// Online: your nickname from last time; back into the room you were in (a reload, or the
+// app was closed); or, opened from a shared link (?room=K7QF), the join form with its code
+try { document.getElementById("online-name").value = localStorage.getItem(NAME_STORAGE_KEY) || ""; } catch (err) { /* fine */ }
+resumeRoom();
+const linkedRoom = new URLSearchParams(location.search).get("room");
+if (linkedRoom && !online.code && serverUrl()) {
+  document.getElementById("online-code").value = linkedRoom.toUpperCase().slice(0, 4);
+  setOnlineOpen(true);
+}
 
 // The App Store / Google Play app (app/ in this repo) runs these same files inside a
 // native shell called Capacitor, which defines `window.Capacitor` before any script

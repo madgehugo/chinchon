@@ -63,7 +63,7 @@ function playRound(levels, start) {
   s.inGame = Array(PLAYERS).fill(true);
   s.totals = Array(PLAYERS).fill(0);
   s.gameOver = false;
-  s.awaitingReentry = false;
+  s.reentryPending = [];
   s.startPlayer = start;
   g.startRound();
   g.clearQueue();

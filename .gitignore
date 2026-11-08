@@ -3,5 +3,6 @@ package-lock.json
 *.zip
 chinchon-single.html
 .DS_Store*
-# ...except the store app's, which pins the exact native build (see "Phone app" in README.md)
+# ...except the store app's and the server's, which pin exact builds (see "Phone app" and "Online play" in README.md)
 !app/package-lock.json
+!server/package-lock.json

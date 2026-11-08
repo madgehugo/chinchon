@@ -67,7 +67,7 @@ function playGame(g, seat, seed) {
   while (!s.gameOver && rounds < MAX_ROUNDS) {
     rounds++;
     playTurns(g, seat);
-    if (s.awaitingReentry) g.humanReenter(g.cpuWantsReentry());   // seat 0 decides like a CPU
+    if (s.reentryPending.length) g.humanReenter(0, g.cpuWantsReentry());   // seat 0 decides like a CPU
     if (!s.gameOver) { g.nextRound(); g.clearQueue(); }
   }
   return { winner: s.gameOver ? s.winner : null, rounds };

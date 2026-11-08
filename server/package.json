@@ -1,0 +1,13 @@
+{
+  "name": "chinchon-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The online server for Chinchón: rooms, seats and the game engine, over WebSockets.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "ws": "8.22.0"
+  }
+}
