@@ -396,6 +396,9 @@ cd server && npm test             # the online server: whole games, the hidden-c
 node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png and the app/ icons (commit them)
 ```
 
+* **On GitHub** (`.github/workflows/test.yml`): every push to `main` and every pull request runs the stress test, the
+  server tests and the browser tests. The results are in the repo's Actions tab (or `gh run list`). A push goes live
+  before the checks finish, so look there after pushing.
 * Unit tests in `tests.js` run every time the page loads; open the console (F12) and look for
   "All ... tests passed" or "TEST FAILED: ...". Each browser test prints `ok` or `FAIL` per check and exits
   with an error if any check failed.
