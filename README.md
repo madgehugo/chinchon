@@ -40,7 +40,7 @@ until Capacitor moves to a newer one.)
 **After changing the game:** `cd app && npm run sync` (copies the files into both native projects), then build:
 `npm run ios` opens Xcode (choose a simulator or your phone, press Run); `npm run android` opens Android Studio (Run).
 After changing `icon.svg`, `node tools/make_icons.js` also redraws the native icons and launch screens.
-Inside the app `ui.js` sees `window.Capacitor` (`NATIVE_APP`): it skips the service worker, saves on the native `pause` event (Android's web view does not always report going to the background) and handles the back button.
+Inside the app `start.js` sees `window.Capacitor` (`NATIVE_APP`): it skips the service worker, saves on the native `pause` event (Android's web view does not always report going to the background) and handles the back button.
 
 **Versions:** each upload needs a higher build number. iOS: Xcode → the App target → General → Version and Build.
 Android: `versionName` and `versionCode` in `app/android/app/build.gradle`.
@@ -97,7 +97,7 @@ Friends play on their own phones or computers. One player opens Settings → **P
 name and creates a room; the room gets a 4-letter code (no I, L, O, 0 or 1, which look alike) and a link to share.
 The others open the link (or type the code), and the host presses Start. People take the first seats and CPUs the
 rest. The host chooses the room's rules in the create form: the deck, CPU level, and the rules from
-Settings (copies of those dropdowns, starting at the host's own Settings; `ROOM_RULES` in `ui.js`), plus a **time per
+Settings (copies of those dropdowns, starting at the host's own Settings; `ROOM_RULES` in `ui_online.js`), plus a **time per
 turn** (no limit (the default), 30 seconds, 1 minute or 2 minutes). The online sheet lists the room's rules for everyone.
 
 * **Next round waits for everyone.** Each person presses Next round (`state.ready`, `humanNext` in `game.js`), and
@@ -213,7 +213,7 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 * The end of a game opens the results with a banner: the winner and the final standings. A few suit symbols float up
   when you win or someone makes a Chinchón (not with reduced motion).
 * Easter egg: a Chinchón (anyone's) fills the whole screen with fireworks and emojis for about six seconds, with a
-  boom and crackle per burst (`launchFireworks` in `ui.js`, a particle system on a `<canvas>` that taps go through;
+  boom and crackle per burst (`launchFireworks` in `effects.js`, a particle system on a `<canvas>` that taps go through;
   not with reduced motion; a new deal stops it).
 * **Tutorial:** one guided round against a CPU, with a fixed deal, for new players. A coach box in the middle of
   the table says what to do (take the discard for a group, throw away a high card, draw, close with few points), the
@@ -269,7 +269,7 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 | `favicon.svg` | The small icon in the browser tab (two cards on the green table). |
 | `icon.svg`, `icons/` | The app icon for phones: `icon.svg` is the picture (full-bleed, cards inside the mask "safe zone"); `icons/*.png` are made from it by `tools/make_icons.js`. |
 | `manifest.webmanifest` | What a phone needs to install the game as an app: name, icons, colours, full-screen mode. |
-| `sw.js` | The service worker: keeps a copy of the files so the installed app opens offline (network first, cache as fallback). Not one of the page's `<script>` tags; `ui.js` registers it. |
+| `sw.js` | The service worker: keeps a copy of the files so the installed app opens offline (network first, cache as fallback). Not one of the page's `<script>` tags; `start.js` registers it. |
 | `style.css` | How it looks, including the phone layout (`@media` block at the end). |
 | `rules.js` | The rules: deck, shuffling, runs and groups, scoring, closing. No display code. |
 | `i18n.js` | All the player-visible text in English and Spanish (`STRINGS`), `t(key, vars)`, `plural()`, `setLanguage()`, and the `msg()` helper for messages kept in `state`. |
@@ -278,9 +278,12 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 | `game.js` | The game state (`state`), turns, rounds, scoring, elimination and re-entry, players leaving and coming back (online), and `ACTIONS`, the list of moves a player can make. |
 | `net.js` | Where your moves go (`act()`): into the game on this device, or to the online server; the connection, and putting the server's views into `state`. |
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
-| `sound.js` | Sound effects made in code with the Web Audio API (no audio files); only `ui.js` calls it. |
+| `sound.js` | Sound effects made in code with the Web Audio API (no audio files); only `ui.js` and `effects.js` call it. |
 | `tutorial.js` | The tutorial: the fixed deal, the scripted CPU (`STRATEGIES.tutorial`), the coach's steps, which moves are allowed, and the first-visit offer. Screen only, like `ui.js`. |
-| `ui.js` | Drawing the table, clicks, touch and mouse dragging, the panels, toasts and score pop-ups, startup. |
+| `ui.js` | Drawing the table (`render()`), clicks, touch and mouse dragging, the panels, toasts, saving settings and the game. |
+| `effects.js` | Card animations, sounds at the right moments, score pop-ups and the Chinchón fireworks (`animateChanges`, called at the end of `render()`). |
+| `ui_online.js` | The online screens: the online sheet (create or join a room, the room's rules, the people in it), the turn countdown, reactions, the tab title. |
+| `start.js` | Startup, run once after every other file has loaded: settings, the saved game, rejoining a room, the tutorial offer, the service worker and the store app's hooks. |
 | `social.html`, `icons/social.png` | The picture shown when the game's link is shared (the `og:` tags in `index.html`); `tools/make_social.js` screenshots the HTML into the PNG. Not loaded by the game. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons, and the store apps' icons and launch screens), `make_social.js` (draws the link-preview picture). |
 | `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups, Chinchón fireworks and sound, saving and resuming, the tutorial, installing and offline play, the store app's back button and pause save, two people playing online); `helpers.js` holds what they share. |
@@ -291,7 +294,8 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
 
 The scripts share one global scope, so the order of the `<script>` tags in `index.html` matters: each file may use what
-the files above it define (`rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, tutorial.js, ui.js`). They are plain scripts rather than ES modules so
+the files above it define (`rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, tutorial.js, ui.js, effects.js, ui_online.js, start.js`). A file may also call, from inside its functions, what later files define, as long as
+that only happens once `start.js` has run (`render()` in `ui.js` calls `animateChanges` from `effects.js`). They are plain scripts rather than ES modules so
 the game also works from `file://`, where browsers block modules.
 
 ## How the pieces connect
@@ -327,7 +331,7 @@ the game also works from `file://`, where browsers block modules.
   `localStorage` and save on `visibilitychange` / `pagehide`. **If you add or rename a field of `state`, bump
   `SAVE_VERSION`**, so an old save is ignored instead of loaded half-right. Cards are compared as objects
   (`state.lastDrawn`, `state.known`), so `restoreGame` re-links those to the card objects in the hands.
-* **Installing and offline.** `index.html` links `manifest.webmanifest` and the iOS icon; `ui.js` registers `sw.js` on
+* **Installing and offline.** `index.html` links `manifest.webmanifest` and the iOS icon; `start.js` registers `sw.js` on
   https or localhost only, and not in the store app. Every file the page loads must also be in `APP_FILES` in `sw.js`
   (`tests/browser/pwa.js` checks); `app/copy_web.js` uses the same list.
 * **The tutorial** belongs to the screen, like closing mode: its progress is the `tutorial` object in `tutorial.js`,
@@ -425,7 +429,7 @@ node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png
   order, and the round must not start before the last one has.
 * `stress.js` also saves and restores the game at random moments (through JSON, as the browser does) and keeps playing
   from the copy, so a field that does not survive saving shows up there.
-* After changing `ui.js` or `style.css`, run the browser tests and check the page at phone width (about 390px), in both
+* After changing `ui.js` (or the other screen files) or `style.css`, run the browser tests and check the page at phone width (about 390px), in both
   languages (Spanish labels are longer). `tools/stress.js` does not depend on any text: it reads `state.roundResult`.
 
 ## Building a single file

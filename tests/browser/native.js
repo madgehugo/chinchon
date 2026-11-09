@@ -1,4 +1,4 @@
-// Browser test: the parts of ui.js that only run inside the store app (needs Playwright; see README)
+// Browser test: the parts of start.js that only run inside the store app (needs Playwright; see README)
 // The real app runs the game inside Capacitor's native shell, which defines window.Capacitor.
 // Here a stand-in for it is put on the page before any of the game's scripts run, recording
 // what the game asks of it, and the test presses Android's back button by calling the

@@ -10,7 +10,7 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 ## Hard constraints
 
 * **Classic `<script>` tags in one shared global scope, no ES modules**, so the game works from `file://`.
-  Script order in `index.html` is `rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, tutorial.js, ui.js`; a file may only use what earlier
+  Script order in `index.html` is `rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, tutorial.js, ui.js, effects.js, ui_online.js, start.js`; a file may only use what earlier
   files define at load time. `build_single.py` depends on the exact `<link>`/`<script src>` tag shapes in `index.html`.
 * **No libraries, no build step, no external requests** (the game itself; `app/` and `server/` are the exceptions, below).
   The one request the game makes is the online mode's WebSocket to the server (`serverUrl()` in `net.js`).
@@ -37,7 +37,7 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 * **Online server (`server/`):** Node, with one pinned dependency (`ws`); it loads the game files through
   `loadEngine` in `tools/harness.js`, one sandbox per room. The game files never load anything from it.
 * **Store apps (`app/`):** dependencies (Capacitor); the game files never load anything from it.
-  Code for the native shell only runs behind `NATIVE_APP` in `ui.js` and talks to plugins through the bridge functions on
+  Code for the native shell only runs behind `NATIVE_APP` in `start.js` and talks to plugins through the bridge functions on
   `window.Capacitor` (no Capacitor JS library in the game). `tests/browser/native.js` fakes the shell. After changing
   game files run `cd app && npm run sync` before a native build. Do not edit `app/www/` (refilled from `sw.js`'s list).
 
