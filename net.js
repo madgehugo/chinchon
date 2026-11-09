@@ -16,7 +16,14 @@
    JSON objects with a `type` (the list is at the top of server/server.js).
    When the connection drops (a phone locks, the network changes), it is opened
    again by itself and you "rejoin" your seat with the token the server gave you.
-   The server waits 30 seconds for you before a CPU plays for you.
+   The server waits 30 seconds for you before a CPU plays for you. When the page
+   comes back to the screen it checks at once that the connection still works
+   (checkConnection), since a phone may have dropped it without noticing.
+
+   The server may be asleep (a free hosting plan stops it when nobody plays), and
+   then the first connection takes up to a minute. So the connection is opened as
+   soon as the online sheet opens (warmUpServer), and the sheet says the server is
+   waking up when it takes a while.
 
    This file never touches the page: it changes `online` and `state` and calls
    render(), like game.js. The online sheet in ui.js shows `online`.
@@ -31,6 +38,10 @@
 const SERVER_URL = "wss://chinchon.onrender.com";
 const ROOM_STORAGE_KEY = "chinchon-room";        // localStorage: { code, token } of the room you are in
 const RECONNECT_DELAYS_MS = [500, 1000, 2000, 4000, 8000];   // waits between tries after a dropped connection
+const WAKING_AFTER_MS = 5000;                    // connecting for longer than this: say the server is waking up
+const PONG_WAIT_MS = 4000;                       // checkConnection: no answer within this long means the connection is dead
+// Errors after which the room is gone for us: stop trying to get back in
+const ROOM_GONE_ERRORS = ["online.err.noRoom", "online.err.noSeat", "online.err.restart", "online.err.removed"];
 // Fields of `state` that belong to this screen, not to the game: a view from the server
 // never overwrites them (where your panels are, closing mode, how you sort your hand)
 const VIEWER_FIELDS = ["closing", "sortMode", "showHints", "showSettings", "showHelp", "showScores",
@@ -40,12 +51,18 @@ const VIEWER_FIELDS = ["closing", "sortMode", "showHints", "showSettings", "show
 const online = {
   socket: null,        // the WebSocket, while one is open or opening
   connection: "off",   // "off" | "connecting" | "open" | "lost" (dropped; trying again)
+  waking: false,       // true while connecting has taken longer than WAKING_AFTER_MS
   code: null,          // the room you are in ("K7QF"), or null
   token: null,         // your secret for coming back to your seat (never shown to anybody)
   lobby: null,         // the last list of players from the server (see sendLobby in server/room.js)
   error: null,         // the last problem, as a text key ("online.err...") for the online sheet
   playing: false,      // true once a view has arrived: the table shows the online game
   tries: 0,            // reconnection attempts since the connection dropped
+  queued: null,        // a create or join waiting for the connection to open...
+  asking: false,       // ...or sent, and waiting for the server's answer
+  turnEndsAt: null,    // when your time for this turn runs out (Date.now() time), or null if no limit is running
+  reaction: null,      // the latest reaction from anyone: { who, id, n } (n counts them, so ui.js shows each once)
+  lastPong: 0,         // when the server last answered a ping (checkConnection)
 };
 
 // Do move `name` (one of ACTIONS in game.js) with its arguments, as you (seat 0).
@@ -79,24 +96,30 @@ function serverUrl() {
   return SERVER_URL || null;
 }
 
-// Open the connection, then send `first` (create or join) or, if we are in a room
-// already, rejoin it
-function connectOnline(first) {
+// Open the connection, then, if we are in a room already, rejoin it, or else send the
+// create or join waiting in online.queued (if any)
+function connectOnline() {
   const url = serverUrl();
   if (!url) { online.error = "online.err.noServer"; render(); return; }
   if (online.socket) online.socket.close();
   online.connection = "connecting";
+  online.waking = false;
   render();
   let socket;
   try { socket = new WebSocket(url); } catch (err) { online.connection = "off"; online.error = "online.err.noServer"; render(); return; }
   online.socket = socket;
+  // Still not open after a few seconds: the server is probably starting up (see the top of this file)
+  setTimeout(() => {
+    if (online.socket === socket && socket.readyState === WebSocket.CONNECTING) { online.waking = true; render(); }
+  }, WAKING_AFTER_MS);
 
   // (addEventListener with an arrow function, like the click handlers in ui.js)
   socket.addEventListener("open", () => {
     online.connection = "open";
+    online.waking = false;
     online.tries = 0;
     if (online.code && online.token) sendOnline({ type: "rejoin", code: online.code, token: online.token });
-    else if (first) sendOnline(first);
+    else sendQueued();
     render();
   });
   socket.addEventListener("message", (e) => {
@@ -107,33 +130,82 @@ function connectOnline(first) {
   socket.addEventListener("close", () => {
     if (online.socket !== socket) return;          // an old connection we replaced
     online.socket = null;
+    online.waking = false;
     if (online.code) {
       // In a room: keep trying, more slowly each time (backoff)
       online.connection = "lost";
       const wait = RECONNECT_DELAYS_MS[Math.min(online.tries, RECONNECT_DELAYS_MS.length - 1)];
       online.tries++;
-      setTimeout(() => { if (online.code && !online.socket) connectOnline(null); }, wait);
+      setTimeout(() => { if (online.code && !online.socket) connectOnline(); }, wait);
     } else {
       online.connection = "off";
-      if (first && !online.error) online.error = "online.err.noServer";   // never got in
+      // A create or join that never got an answer: the server could not be reached
+      if ((online.queued || online.asking) && !online.error) online.error = "online.err.noServer";
+      online.queued = null;
+      online.asking = false;
     }
     render();
   });
+}
+
+// Send the create or join that was waiting for the connection
+function sendQueued() {
+  if (!online.queued) return;
+  sendOnline(online.queued);
+  online.queued = null;
+  online.asking = true;
+}
+
+// Open the connection without joining anything yet, so that a sleeping server starts
+// waking up while you type your name (ui.js calls this when the online sheet opens)
+function warmUpServer() {
+  if (!online.socket && !online.code && serverUrl()) connectOnline();
+}
+
+// The page is back on the screen (or the device is back online): make sure the connection
+// to our room still works. A dropped one is opened again now rather than after the backoff
+// wait; an open one is asked for a "pong", and if none comes, it was dead and is replaced.
+function checkConnection() {
+  if (!online.code) return;
+  if (!online.socket) { connectOnline(); return; }
+  if (online.socket.readyState !== WebSocket.OPEN) return;      // (still connecting)
+  const socket = online.socket, asked = Date.now();
+  sendOnline({ type: "ping" });
+  setTimeout(() => {
+    if (online.socket === socket && online.lastPong < asked) {
+      online.socket = null;                        // so its "close" event is ignored...
+      socket.close();
+      connectOnline();                             // ...and a new connection takes over
+    }
+  }, PONG_WAIT_MS);
 }
 
 function sendOnline(message) {
   if (online.socket && online.socket.readyState === WebSocket.OPEN) online.socket.send(JSON.stringify(message));
 }
 
-// Create a room (you are its host) or join one with its code
+// Create a room (you are its host) or join one with its code. The message goes at once if
+// the connection is open, when it opens if it is opening, or else on a new connection.
 function createRoom(name, settings) {
-  online.error = null;
-  connectOnline({ type: "create", name, settings });
+  askServer({ type: "create", name, settings });
 }
 function joinRoom(code, name) {
-  online.error = null;
-  connectOnline({ type: "join", code, name });
+  askServer({ type: "join", code, name });
 }
+function askServer(message) {
+  online.error = null;
+  online.queued = message;
+  if (online.socket && online.socket.readyState === WebSocket.OPEN) sendQueued();
+  else if (!online.socket) connectOnline();
+  render();
+}
+
+// Room messages from ui.js: "I'm back", a reaction, and the host's tools (see server/server.js)
+const sendBack      = ()     => sendOnline({ type: "back" });
+const sendReaction  = id     => sendOnline({ type: "react", id });
+const setRoomPlayers = n     => sendOnline({ type: "players", players: n });
+const removePlayer  = seat   => sendOnline({ type: "remove", seat });
+const makeHost      = seat   => sendOnline({ type: "host", seat });
 
 // Leave the room for good, and go back to the game on this device
 function leaveRoom() {
@@ -145,6 +217,7 @@ function leaveRoom() {
   online.connection = "off";
   online.lobby = null;
   online.playing = false;
+  online.turnEndsAt = null;
   if (wasPlaying) restoreLocalGame();   // (ui.js: the game you had before going online)
   render();
 }
@@ -157,7 +230,7 @@ function resumeRoom() {
   if (!saved || typeof saved.code !== "string" || typeof saved.token !== "string" || !serverUrl()) return;
   online.code = saved.code;
   online.token = saved.token;
-  connectOnline(null);
+  connectOnline();
 }
 
 function rememberRoom() {
@@ -177,23 +250,39 @@ function handleServerMessage(m) {
       online.code = m.code;
       online.token = m.token;
       online.error = null;
+      online.asking = false;
       rememberRoom();
       break;
     case "lobby":
       online.lobby = m;
       break;
     case "view":
+      // How long you have for this turn, as a time on this device's own clock (the two
+      // clocks need not agree, so the server sends "milliseconds from now")
+      online.turnEndsAt = m.turnLeft === null || m.turnLeft === undefined ? null : Date.now() + m.turnLeft;
       applyView(m.state);
       return;                                      // (applyView draws the table itself)
+    case "react":
+      online.reaction = { who: m.who, id: m.id, n: (online.reaction ? online.reaction.n : 0) + 1 };
+      break;
+    case "pong":
+      online.lastPong = Date.now();
+      return;                                      // (nothing to redraw)
     case "error":
       online.error = m.key;
-      // Our room or seat is gone (the server restarted, or the room was thrown away): stop trying
-      if (m.key === "online.err.noRoom" || m.key === "online.err.noSeat") {
+      online.asking = false;
+      // Our room or seat is gone (the server restarted, the room was thrown away, the host
+      // removed us): stop trying, and go back to the game on this device
+      if (ROOM_GONE_ERRORS.includes(m.key)) {
         const wasPlaying = online.playing;
         forgetRoom();
         online.lobby = null;
         online.playing = false;
-        if (wasPlaying) restoreLocalGame();
+        online.turnEndsAt = null;
+        if (wasPlaying) {
+          restoreLocalGame();
+          state.showOnline = true;                 // the online sheet says what happened
+        }
       }
       break;
   }

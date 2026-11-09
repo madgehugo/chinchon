@@ -489,7 +489,9 @@ function render() {
   renderResults();
   renderToggles();
   renderOnline();
+  renderReactions();
   renderStatus();
+  renderTitle();
   animateChanges(rebuilt);            // last, because it needs the new cards to be in the page
 }
 
@@ -580,7 +582,12 @@ function animateChanges(rebuilt) {
   }
   if (now.gameOver && !prev.gameOver && state.winner === 0) playSound("win");
   if (now.phase === "draw" && now.current === 0 && now.deals === prev.deals &&
-      (prev.current !== 0 || prev.phase !== "draw")) playSound("turn");
+      (prev.current !== 0 || prev.phase !== "draw")) {
+    playSound("turn");
+    // Online, with the game in the background (friends were playing while you looked at
+    // something else): a short buzz too, where the phone allows it (renderTitle marks the tab)
+    if (online.playing && document.hidden && navigator.vibrate) navigator.vibrate(TURN_BUZZ_MS);
+  }
 
   queueScorePops(now.deals !== prev.deals && state.round === 1);   // true when a new game was dealt
   animSeen = now;
@@ -870,8 +877,7 @@ function renderControls() {
   document.getElementById("close-btn").disabled = !closeAllowed;
   document.getElementById("close-btn").textContent = closeButtonText(closeAllowed);
   document.getElementById("sort-btn").disabled = state.hands[0].length === 0;
-  document.getElementById("next-btn").disabled =
-    !(roundOver && !state.layoff && !state.reentryPending.length && !state.gameOver);
+  document.getElementById("next-btn").disabled = !(roundCanAdvance() && !state.ready[0]);
   document.getElementById("results-btn").disabled = !(roundOver && state.roundDetail);
 
   // Re-entry question, shown only while you are out and must choose
@@ -1072,7 +1078,13 @@ function renderResults() {
   document.getElementById("results-notice").textContent = notice;
 
   document.getElementById("res-layoff-done").hidden = !awaitingLayoff(0);
-  document.getElementById("res-next").hidden     = Boolean(state.layoff) || state.reentryPending.length > 0 || state.gameOver;
+  // Next round. Online, once you have pressed it, it says who the round is still waiting for.
+  const next = document.getElementById("res-next");
+  next.hidden = !roundCanAdvance();
+  next.disabled = state.ready[0];
+  next.textContent = state.ready[0]
+    ? t("res.waitingFor", { names: state.seats.map((x, p) => p).filter(p => isHuman(p) && !state.ready[p]) })
+    : t("btn.next");
   document.getElementById("res-reenter").hidden  = !askMe;
   document.getElementById("res-stayout").hidden  = !askMe;
   document.getElementById("res-newgame").hidden  = !state.gameOver;
@@ -1104,10 +1116,13 @@ function renderGameOverBanner() {
         `${decorIcon(SUITS[i % SUITS.length])}</span>`).join("")
     : "";
 
+  // Online: the games each player has won in this room so far (this one included)
+  const tally = roomTally();
   banner.innerHTML =
     `${pips}<div class="banner-label">${t("res.gameOver")}</div>` +
     `<div class="banner-win">${escapeHtml(t(whoKey("res.noticeWin", state.winner), { who: state.winner }))}</div>` +
-    `<div class="banner-label">${t("res.standings")}</div><ol class="standings">${rows}</ol>`;
+    `<div class="banner-label">${t("res.standings")}</div><ol class="standings">${rows}</ol>` +
+    (tally ? `<div class="banner-tally">${escapeHtml(t("online.tally", { tally }))}</div>` : "");
 }
 
 function setResultsOpen(open) {
@@ -1397,8 +1412,14 @@ function loadGame() {
 // locked phone) or shown again; "pagehide" when it is being left or closed. Those
 // are the last moments a phone reliably gives a page, so that is when we save.
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") saveGame();
+  if (document.visibilityState === "hidden") { saveGame(); return; }
+  // Back on screen: an online connection may have died meanwhile (checkConnection in
+  // net.js), and the title may still say "Your turn" (renderTitle)
+  checkConnection();
+  render();
 });
+// The device is back on the network (after flight mode, a tunnel...): reconnect now
+window.addEventListener("online", () => checkConnection());
 window.addEventListener("pagehide", saveGame);
 
 function closeConfirm(accepted) {
@@ -1519,10 +1540,30 @@ const NAME_STORAGE_KEY = "chinchon-name";   // localStorage: your online nicknam
 // Settings that belong to the room in an online game, so they are locked while you play one
 const ROOM_SETTING_IDS = ["cpu-count", "cpu-mode", "cpu-speed", "deck-size", "deck-tip-btn",
                           "reshuffles", "reentries", "round-limit", "layoff", "new-game"];
+const TURN_WARN_MS = 15000;      // the turn bar shows in the last this-many milliseconds of your time
+const TURN_TICK_MS = 250;        // how often the turn bar's countdown is redrawn
+const TURN_BUZZ_MS = 200;        // the buzz when your turn comes while the game is in the background
+const REACTION_SHOW_MS = 2500;   // how long a reaction stays by the seat of whoever sent it
+// The room's rules as the online sheet lists them: [setting, label key, how its value reads].
+// (`??` = "if null or undefined, use this instead")
+const showLimit = v => v === null ? t("set.noLimit") : String(v);
+const ROOM_RULES = [
+  ["deckSize",      "set.deck",         v => t(`set.deck.${v}`)],
+  ["cpuMode",       "set.level",        v => t(`level.${v}`)],
+  ["cpuSpeed",      "set.speed",        v => t(`set.speed.${v}`)],
+  ["maxReshuffles", "set.reshuffles",   showLimit],
+  ["maxReentries",  "set.reentries",    showLimit],
+  ["roundLimit",    "set.rounds",       showLimit],
+  ["layoffMode",    "set.layoff",       v => t(`set.layoff.${v}`)],
+  ["turnLimit",     "online.turnLimit", v => t(`online.turn.${v ?? "none"}`)],
+];
 
 function setOnlineOpen(open) {
   state.showOnline = open;
-  if (open) online.error = online.code ? online.error : null;   // a fresh start shows no old problem
+  if (open) {
+    online.error = online.code ? online.error : null;   // a fresh start shows no old problem
+    warmUpServer();                                     // (net.js) a sleeping server starts waking up now
+  }
   render();
 }
 
@@ -1534,6 +1575,9 @@ function renderOnline() {
   document.getElementById("online-open").hidden = !serverUrl();
   document.getElementById("online-top").hidden = !serverUrl() || inRoom;   // (in a room the chip takes its place)
   document.getElementById("conn-bar").hidden = online.connection !== "lost";
+  // Your seat is played by a CPU while you are connected: your time for a turn ran out
+  document.getElementById("away-bar").hidden = !(online.playing && state.seats[0] === "away");
+  renderTurnBar();
   for (const id of ROOM_SETTING_IDS) document.getElementById(id).disabled = online.playing;
   if (online.playing) {
     syncSettingDropdowns();                          // show the room's rules in the (locked) dropdowns
@@ -1545,42 +1589,164 @@ function renderOnline() {
   const error = document.getElementById("online-error");
   error.hidden = !online.error;
   error.textContent = online.error ? t(online.error) : "";
+  document.getElementById("online-waking").hidden = !online.waking;
   document.getElementById("online-start").hidden = inRoom;
   document.getElementById("online-room").hidden = !inRoom;
-  const busy = online.connection === "connecting";
+  const busy = Boolean(online.queued || online.asking);   // a create or join is on its way
   document.getElementById("online-create").disabled = busy;
   document.getElementById("online-join").disabled = busy;
   if (!inRoom) return;
 
-  // In a room: its code, the players (names are what people typed, so textContent, never
-  // innerHTML), the empty seats the CPUs will take, and what happens next
   const lobby = online.lobby;
+  const isHost = Boolean(lobby) && lobby.you === lobby.host;
   document.getElementById("online-code-line").textContent = t("online.codeLine", { code: online.code });
-  const list = document.getElementById("online-people");
-  list.innerHTML = "";
-  if (lobby) {
-    lobby.people.forEach((person, i) => {
-      const tags = [i === lobby.you && t("online.you"), i === lobby.host && t("online.host"),
-                    !person.connected && t("online.offline")].filter(Boolean);
-      const li = document.createElement("li");
-      li.textContent = person.name + (tags.length ? ` (${tags.join(", ")})` : "");
-      li.classList.toggle("offline", !person.connected);
-      list.appendChild(li);
-    });
-    for (let i = lobby.people.length; i < lobby.players; i++) {
-      const li = document.createElement("li");
-      li.className = "cpu";
-      li.textContent = t("online.cpuSeat");
-      list.appendChild(li);
-    }
-  }
-  const isHost = lobby && lobby.you === lobby.host;
+  renderPeople(lobby, isHost);
+
+  // The number of seats: the host may change it between games
+  const between = lobby && (!lobby.started || lobby.gameOver);
+  document.getElementById("online-seats-row").hidden = !(isHost && between);
+  if (lobby) document.getElementById("online-seats").value = String(lobby.players);
+
+  // What happens next
+  const me = lobby && lobby.people[lobby.you];
+  const host = lobby && lobby.people[lobby.host];
   document.getElementById("online-wait").textContent =
     !lobby || online.connection !== "open" ? t("online.connecting")
-    : lobby.started ? t("online.inGame")
-    : isHost        ? t("online.youStart")
-    :                 t("online.waitHost", { name: lobby.people[lobby.host].name });
+    : !lobby.started ? (isHost ? t("online.youStart") : t("online.waitHost", { name: host ? host.name : "" }))
+    : !me.playing    ? t("online.waitNext")
+    : lobby.gameOver ? t("online.gameOver")
+    :                  t("online.inGame");
   document.getElementById("online-startgame").hidden = !(isHost && !lobby.started);
+
+  // The room's rules (a <dl>: pairs of <dt> name and <dd> value)
+  const rules = document.getElementById("online-rules");
+  rules.innerHTML = "";
+  if (lobby) {
+    for (const [key, label, show] of ROOM_RULES) {
+      const dt = document.createElement("dt"), dd = document.createElement("dd");
+      dt.textContent = t(label);
+      dd.textContent = show(lobby.settings[key]);
+      rules.append(dt, dd);
+    }
+  }
+}
+
+// The players in the room (names are what people typed, so textContent, never innerHTML),
+// then the empty seats the CPUs take. The host gets Make host and Remove by the others.
+// Redrawn only when something in it changed: views arrive all through a game, and a
+// button rebuilt under your finger would lose your tap.
+let peopleDrawn = null;            // what the list shows now (as JSON), to spot a change
+function renderPeople(lobby, isHost) {
+  const drawn = JSON.stringify([lobby, currentLang]);
+  if (drawn === peopleDrawn) return;
+  peopleDrawn = drawn;
+  const list = document.getElementById("online-people");
+  list.innerHTML = "";
+  if (!lobby) return;
+  let present = 0;
+  lobby.people.forEach((person, i) => {
+    if (person.left) return;       // left for good: a CPU plays their seat until the next game
+    present++;
+    const tags = [i === lobby.you && t("online.you"), i === lobby.host && t("online.host"),
+                  !person.connected && t("online.offline"),
+                  lobby.started && !person.playing && t("online.nextGame"),
+                  person.wins > 0 && plural("online.wins", person.wins)].filter(Boolean);
+    const li = document.createElement("li");
+    li.classList.toggle("offline", !person.connected);
+    const name = document.createElement("span");
+    name.textContent = person.name + (tags.length ? ` (${tags.join(", ")})` : "");
+    li.appendChild(name);
+    if (isHost && i !== lobby.you) {
+      li.append(personButton("online.makeHost", () => makeHost(i)),
+                personButton("online.remove", () => removePlayer(i)));
+    }
+    list.appendChild(li);
+  });
+  for (let i = present; i < lobby.players; i++) {
+    const li = document.createElement("li");
+    li.className = "cpu";
+    li.textContent = t("online.cpuSeat");
+    list.appendChild(li);
+  }
+}
+function personButton(key, onClick) {
+  const button = document.createElement("button");
+  button.className = "secondary small";
+  button.textContent = t(key);
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+// "Ana 2 · Luis 1 · CPUs 0": the games won in this room, for the game-over banner
+// (online only; "" otherwise). The CPUs are only listed if they play or have won.
+function roomTally() {
+  const lobby = online.lobby;
+  if (!online.playing || !lobby) return "";
+  const people = lobby.people.filter(person => person.playing && !person.left);
+  const parts = people.map(person => `${person.name} ${person.wins}`);
+  if (lobby.players > people.length || lobby.cpuWins > 0) parts.push(`${t("online.tallyCpus")} ${lobby.cpuWins}`);
+  return parts.join(" · ");
+}
+
+// The bar under the table in the last seconds of your time for a turn
+function renderTurnBar() {
+  const left = online.playing && online.turnEndsAt !== null ? online.turnEndsAt - Date.now() : null;
+  const bar = document.getElementById("turn-bar");
+  bar.hidden = left === null || left > TURN_WARN_MS;
+  if (!bar.hidden) bar.textContent = t("online.turnLeft", { n: Math.max(0, Math.ceil(left / 1000)) });
+}
+setInterval(renderTurnBar, TURN_TICK_MS);   // the countdown moves between renders too
+
+// ---- Reactions: the smiley button and the emoji by the seats ----
+// A reaction shows by the seat of whoever sent it, then fades. Each seat shows one at
+// a time (a new one replaces the last), so it never becomes a list.
+let reactPickerOpen = false;       // is the row of emoji open?
+let reactionShown = 0;             // online.reaction.n of the last reaction put on the table
+function renderReactions() {
+  const btn = document.getElementById("react-btn");
+  btn.hidden = !online.playing;
+  if (!online.playing) reactPickerOpen = false;
+  btn.setAttribute("aria-expanded", String(reactPickerOpen));
+  document.getElementById("react-picker").hidden = !reactPickerOpen;
+
+  const r = online.reaction;
+  if (!r || r.n === reactionShown) return;
+  reactionShown = r.n;
+  if (!online.playing || r.who >= state.numPlayers) return;
+  const seat = document.getElementById(`seat-${r.who}`);
+  const old = seat.querySelector(".reaction");
+  if (old) old.remove();
+  const bubble = document.createElement("div");
+  bubble.className = "reaction";
+  bubble.textContent = REACTIONS[r.id] || "";
+  seat.appendChild(bubble);
+  setTimeout(() => bubble.remove(), REACTION_SHOW_MS);
+}
+// The emoji buttons, made once from REACTIONS (i18n.js)
+REACTIONS.forEach((emoji, id) => {
+  const button = document.createElement("button");
+  button.className = "secondary icon";
+  button.textContent = emoji;
+  button.addEventListener("click", () => {
+    sendReaction(id);                                  // (net.js)
+    reactPickerOpen = false;
+    render();
+  });
+  document.getElementById("react-picker").appendChild(button);
+});
+document.getElementById("react-btn").addEventListener("click", () => {
+  reactPickerOpen = !reactPickerOpen;
+  render();
+});
+document.getElementById("away-back").addEventListener("click", () => sendBack());
+document.getElementById("online-seats").addEventListener("change", (e) => setRoomPlayers(Number(e.target.value)));
+
+// The tab's title. Online, while the game is in the background and it is your move, it
+// says so, so that you see it from another tab (and on the phone's list of open apps).
+function renderTitle() {
+  const yourMove = online.playing && document.hidden && state.phase !== "roundOver" &&
+                   state.currentPlayer === 0 && isHuman(0);
+  document.title = yourMove ? t("online.titleTurn") : t("app.title");
 }
 
 // The nickname typed in the sheet (remembered for next time), or null after saying what is wrong
@@ -1620,6 +1786,7 @@ document.getElementById("online-create").addEventListener("click", () => {
     deckSize: DECK_SIZE, cpuMode: state.cpuMode, cpuSpeed: state.cpuSpeed,
     maxReshuffles: state.maxReshuffles, maxReentries: state.maxReentries,
     roundLimit: state.roundLimit, layoffMode: state.layoffMode,
+    turnLimit: optionToLimit(document.getElementById("online-turn").value),
   });
 });
 document.getElementById("online-join").addEventListener("click", () => {

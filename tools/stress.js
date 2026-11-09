@@ -183,7 +183,12 @@ for (const size of [40, 48]) {
       }
       if (state.gameOver) break;
       maybeBack();
-      g.runAction(pick(state.seats.map((x, q) => q).filter(human)), "next", []);
+      // Every person presses Next round, in any order; the round starts only after the last one
+      const people = state.seats.map((x, q) => q).filter(human).sort(() => Math.random() - 0.5);
+      people.forEach((p, i) => {
+        if (i > 0 && state.phase !== "roundOver") fail("the next round started before everyone pressed Next round");
+        g.runAction(p, "next", []);
+      });
       if (state.phase === "roundOver") fail("Next round did not start a round");
     }
     if (state.gameOver) { stats.games++; stats.winners[state.winner]++; if (state.roundResult.chinchon) stats.chinchon++; }

@@ -130,7 +130,11 @@
   <button id="close-btn" data-i18n="btn.close" disabled>Close round</button>
   <button id="next-btn" data-i18n="btn.next" disabled>Next round</button>
   <button id="results-btn" class="secondary" data-i18n="btn.results" disabled>Round results</button>
+  <!-- Online only: opens #react-picker, a row of emoji to send the table (REACTIONS in i18n.js) -->
+  <button id="react-btn" class="secondary icon" aria-expanded="false" aria-controls="react-picker" data-i18n-title="online.react" data-i18n-aria="online.react" title="Send a reaction" aria-label="Send a reaction" hidden><span aria-hidden="true">😊</span></button>
 </div>
+<!-- The emoji buttons are made by ui.js from REACTIONS -->
+<div id="react-picker" hidden></div>
 
 <!-- Only visible while you are eliminated and must choose (see renderControls) -->
 <div id="reentry" hidden>
@@ -141,6 +145,13 @@
 
 <!-- Online: shown while the connection to the server is lost and being tried again -->
 <div id="conn-bar" hidden data-i18n="online.lost" role="status">Connection lost. Reconnecting...</div>
+<!-- Online: your time for this turn is running out (the room has a time per turn; see renderTurnBar) -->
+<div id="turn-bar" hidden role="timer"></div>
+<!-- Online: a CPU is playing your seat because your time ran out; the button gives it back -->
+<div id="away-bar" hidden>
+  <span data-i18n="online.awayBar">A CPU is playing for you.</span>
+  <button id="away-back" data-i18n="online.back">I'm back</button>
+</div>
 
 <!-- Hints: how the evaluator sees your hand (see renderAnalysis) -->
 <div id="analysis"></div>
@@ -277,6 +288,15 @@
           <option value="4" selected>4</option>
         </select>
       </label>
+      <!-- "none" stands for no limit (null in the room's settings, see SETTING_CHOICES in server/room.js) -->
+      <label class="opt"><span data-i18n="online.turnLimit">Time per turn</span>
+        <select id="online-turn">
+          <option value="none" data-i18n="online.turn.none" selected>No limit</option>
+          <option value="30" data-i18n="online.turn.30">30 seconds</option>
+          <option value="60" data-i18n="online.turn.60">1 minute</option>
+          <option value="120" data-i18n="online.turn.120">2 minutes</option>
+        </select>
+      </label>
       <p class="online-note" data-i18n="online.rulesNote">The room plays with your Settings: deck, CPU level and speed, and the rules.</p>
       <button id="online-create" data-i18n="online.create">Create room</button>
       <h3 data-i18n="online.joinH">Join a room</h3>
@@ -289,11 +309,23 @@
       <p id="online-code-line"></p>
       <button id="online-share" class="secondary" data-i18n="online.share">Share the link</button>
       <p id="online-shared" class="online-note" hidden></p>
+      <!-- The players; the host also gets Make host and Remove buttons by the others' names -->
       <ol id="online-people"></ol>
+      <!-- Only for the host, between games: how many seats the table has -->
+      <label class="opt" id="online-seats-row"><span data-i18n="online.players">Players at the table</span>
+        <select id="online-seats">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </label>
       <p id="online-wait" class="online-note"></p>
       <button id="online-startgame" data-i18n="online.start">Start game</button>
+      <h3 data-i18n="online.rulesH">This room's rules</h3>
+      <dl id="online-rules"></dl>
       <button id="online-leave" class="secondary" data-i18n="online.leave">Leave room</button>
     </div>
+    <p id="online-waking" class="online-note" data-i18n="online.waking" role="status" hidden>The game server is waking up. This can take up to a minute.</p>
     <p id="online-error" role="alert" hidden></p>
   </div>
 </div>

@@ -71,8 +71,16 @@ try { ({ startServer } = require('../../server/server')); } catch (err) {
   await luis.fill('#online-name', 'Luis');
   await luis.click('#online-join');
   await ana.waitForFunction(() => online.lobby && online.lobby.people.length === 2);
+  await luis.waitForFunction(() => online.lobby && online.lobby.people.length === 2);
   check(!(await luis.isVisible('#online-startgame')), 'only the host can start');
   check((await luis.textContent('#online-wait')).includes('Ana'), 'Luis is told who will start the game');
+  check(await luis.locator('#online-rules dd').count() === 8 && (await luis.textContent('#online-rules')).includes('Sin límite'),
+        "the lobby lists the room's rules, in Luis's language (time per turn: no limit by default)");
+  check(await ana.locator('#online-people button').count() === 2 && await luis.locator('#online-people button').count() === 0,
+        'the host gets Make host and Remove by the other player; Luis gets no buttons');
+  check(await ana.isVisible('#online-seats-row') && !(await luis.isVisible('#online-seats-row')), 'only the host can change the seats');
+  check(await noOverflow(ana), "the host's lobby fits at 390px");
+  await ana.screenshot({ path: `${OUT}/online-host-en-390.png` });
   check(await noOverflow(luis), 'the online sheet fits at 390px (Spanish)');
   await luis.screenshot({ path: `${OUT}/online-lobby-es-390.png` });
 
@@ -112,12 +120,48 @@ try { ({ startServer } = require('../../server/server')); } catch (err) {
   await ana.screenshot({ path: `${OUT}/online-table-en-390.png` });
   await luis.screenshot({ path: `${OUT}/online-table-es-390.png` });
 
+  // ---- A reaction: Ana sends one, Luis sees it by her seat ----
+  await ana.click('#react-btn');
+  check(await ana.isVisible('#react-picker'), 'the smiley button opens the row of emoji');
+  check(await noOverflow(ana), '...which fits at 390px');
+  await ana.screenshot({ path: `${OUT}/online-react-en-390.png` });
+  await ana.locator('#react-picker button').nth(1).click();
+  await luis.waitForSelector('#seat-3 .reaction', { timeout: 3000 });
+  await luis.waitForTimeout(400);                // (the pop-up animation, for the screenshot)
+  await luis.screenshot({ path: `${OUT}/online-reaction-es-390.png` });
+  check(await luis.textContent('#seat-3 .reaction') === await luis.evaluate(() => REACTIONS[1]), "Luis sees Ana's reaction by her seat");
+  check(!(await ana.isVisible('#react-picker')), '...and Ana\'s row of emoji closes');
+
+  // ---- Luis's time runs out (done by the server here): a bar gives him his seat back ----
+  const room = [...server.rooms.values()][0];
+  room.game.seatAway(1);
+  await luis.waitForSelector('#away-bar', { state: 'visible' });
+  await luis.click('#away-back');
+  await luis.waitForFunction(() => state.seats[0] === 'human');
+  check(!(await luis.isVisible('#away-bar')), '"I\'m back" gives Luis his seat back');
+
   // ---- Luis reloads: same seat, same hand ----
   const hand = await luis.evaluate(() => state.hands[0].map(cardKey).sort().join(' '));
   await luis.reload();
   await luis.waitForFunction(() => online.playing && online.connection === 'open');
   check(await luis.evaluate(() => state.hands[0].map(cardKey).sort().join(' ')) === hand, 'after a reload: back in the seat, same hand');
   check(await seatText(luis, 3) === 'Ana', '...with the table the same way round');
+
+  // ---- End of a round: Next round waits for both ----
+  await ana.waitForFunction(() => state.currentPlayer === 0 && state.phase === 'draw', null, { timeout: 20000 });
+  await ana.click('#draw-pile');
+  await ana.waitForFunction(() => state.phase === 'discard');
+  room.game.closeRound(0, 0);                    // (the server closes for Ana: no need for a real close here)
+  await ana.waitForSelector('#res-next', { state: 'visible' });
+  await luis.waitForSelector('#res-next', { state: 'visible' });
+  const deals = await ana.evaluate(() => state.deals);
+  await ana.click('#res-next');
+  await ana.waitForFunction(() => state.ready[0]);
+  check((await ana.textContent('#res-next')).includes('Luis') && await ana.isDisabled('#res-next'), 'Ana is told the round waits for Luis');
+  await ana.screenshot({ path: `${OUT}/online-waiting-en-390.png` });
+  await luis.click('#res-next');
+  await ana.waitForFunction(d => state.deals === d + 1, deals);
+  check(true, '...and it starts once he presses it too');
 
   // ---- Ana leaves: back to her own game; Luis sees her seat played by the CPU ----
   await ana.click('#online-chip');

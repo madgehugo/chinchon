@@ -33,7 +33,7 @@ const HIDDEN = Object.freeze({ hidden: true });
 // (it lives in rules.js, not in state, and the page needs it to judge runs).
 function viewFor(state, me, deckSize) {
   const n = state.numPlayers;
-  const seat = p => (p === null || p === undefined) ? p : (p - me + n) % n;   // real seat -> viewer's seat
+  const seat = p => (p === null || p === undefined) ? p : viewerSeat(p, me, n);   // real seat -> viewer's seat
   const turn = list => list.map((_, i) => list[(i + me) % n]);                // per-seat array, renumbered
   const copy = value => JSON.parse(JSON.stringify(value));                     // deep copy (see snapshotGame)
 
@@ -50,7 +50,7 @@ function viewFor(state, me, deckSize) {
   view.lastDrawn = mine ? copy(state.lastDrawn) : null;
 
   // ---- 2. Renumber the seats so that this player is seat 0 ----
-  for (const key of ["hands", "totals", "inGame", "roundPoints", "reentries", "known", "seats", "names"]) {
+  for (const key of ["hands", "totals", "inGame", "roundPoints", "reentries", "known", "seats", "names", "ready"]) {
     view[key] = turn(view[key]);
   }
   view.cpuLevels = turn(view.cpuLevels.slice(0, n));
@@ -89,9 +89,14 @@ function renumberVars(vars, seat) {
   return out;
 }
 
-// The other way round: a seat number in a move a player sent (their numbering) -> the real seat
-function realSeat(viewerSeat, me, n) {
-  return (viewerSeat + me) % n;
+// Real seat p as player `me` sees it (out of n seats), e.g. who sent a reaction (room.js)
+function viewerSeat(p, me, n) {
+  return (p - me + n) % n;
 }
 
-module.exports = { viewFor, realSeat };
+// The other way round: a seat number in a move a player sent (their numbering) -> the real seat
+function realSeat(seenSeat, me, n) {
+  return (seenSeat + me) % n;
+}
+
+module.exports = { viewFor, viewerSeat, realSeat };

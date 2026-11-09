@@ -12,9 +12,12 @@
      - each player sees the table from their own seat (seat 0 = you)
      - moves that are not allowed, and messages that are malformed, change nothing
      - a player whose connection drops is played by the CPU, and gets the same
-       seat back with their token
+       seat back with their token; a connection that stops answering pings is closed
+     - the next round waits for everyone (or starts anyway after a while), the turn
+       limit, reactions, joining during a game, the room's tally of wins
+     - the host's tools: seats, removing a player, handing the room over
      - the limits: nickname cleaning, unknown rooms, full rooms, the host, origins,
-       flooding
+       flooding, tries per address; and the goodbye when the server stops
    Exits with a non-zero code if anything failed.
    ========================================================= */
 
@@ -23,6 +26,10 @@ process.env.AWAY_AFTER_MS = "300";
 process.env.LOBBY_LEAVE_MS = "300";
 process.env.CPU_DELAY_MS = "2";
 process.env.RATE_PER_SECOND = "1000";     // (read by server.js) the scripted players move every few ms
+process.env.NEXT_ROUND_WAIT_MS = "300";
+process.env.SECOND_MS = "10";             // a turn limit of "30 seconds" lasts 300 ms
+process.env.HEARTBEAT_MS = "100";
+process.env.ROOM_TRIES_PER_MINUTE = "60";
 
 const WebSocket = require("ws");
 const { loadGame } = require("../tools/harness");
@@ -78,11 +85,11 @@ function auditView(state, me, view) {
 function connect(port, origin) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(`ws://localhost:${port}`, origin ? { origin } : {});
-    const client = { socket, inbox: [], view: null, lobby: null, token: null, code: null, errors: [], closedWith: null };
+    const client = { socket, inbox: [], view: null, turnLeft: null, lobby: null, token: null, code: null, errors: [], closedWith: null };
     socket.on("message", (data) => {
       const m = JSON.parse(data);
       client.inbox.push(m);
-      if (m.type === "view") client.view = m.state;
+      if (m.type === "view") { client.view = m.state; client.turnLeft = m.turnLeft; }
       if (m.type === "lobby") client.lobby = m;
       if (m.type === "joined") { client.token = m.token; client.code = m.code; }
       if (m.type === "error") client.errors.push(m.key);
@@ -224,7 +231,7 @@ async function main() {
   send(back, { type: "rejoin", code, token: "wrong" });
   await until(() => back.errors.length);
   check(back.errors.includes("online.err.noSeat"), "a wrong token gets no seat");
-  send(back, { type: "rejoin", code, token: luisToken });
+  send(back, { type: "rejoin", code: ` ${code.toLowerCase()} `, token: luisToken });
   check(await until(() => back.view && back.view.seats[0] === "human" && back.view.names[0] === "Luis"), "rejoin with the token: same seat, human again");
   check(await until(() => ana.view.seats[1] === "human"), "Ana sees him back");
 
@@ -233,16 +240,25 @@ async function main() {
   const ended = await until(() => ana.view.gameOver && back.view.gameOver, 60000);
   check(ended, "a whole game is played to the end");
   check(ana.view.winner === (back.view.winner + 1) % 4, "both see the same winner, each from their own seat");
-  // A new game in the same room
-  const deals = ana.view.deals;
-  send(back, { type: "again" });
-  check(await until(() => ana.view.deals > deals && !ana.view.gameOver), "\"again\" deals a new game for the same table");
+  check(await until(() => ana.lobby.cpuWins + ana.lobby.people.reduce((sum, p) => sum + p.wins, 0) === 1),
+        "the room's tally counts the game's winner");
 
-  // ---- Full room, and joining after the start ----
+  // ---- Joining after the start: you wait, then play from the next game ----
   const late = await connect(port);
   send(late, { type: "join", code, name: "Late" });
-  await until(() => late.errors.length);
-  check(late.errors.includes("online.err.started"), "nobody can join a game that has started");
+  await until(() => late.lobby && late.lobby.people.length === 3);
+  await sleep(50);
+  check(late.view === null && late.lobby.started && !late.lobby.people[2].playing && late.lobby.gameOver,
+        "someone joining after the start waits (no view of the game they are not in)");
+  // A new game in the same room deals them in
+  const deals = ana.view.deals;
+  autoplay(late);
+  send(back, { type: "again" });
+  check(await until(() => ana.view.deals > deals && !ana.view.gameOver), "\"again\" deals a new game for the same table");
+  check(await until(() => late.view && late.view.names[0] === "Late" && ana.view.names[2] === "Late" && ana.view.seats[2] === "human"),
+        "...with the newcomer in the next seat");
+
+  // ---- Full room ----
   const solo = await connect(port), other = await connect(port), third = await connect(port);
   send(solo, { type: "create", name: "Solo", settings: { players: 2 } });
   await until(() => solo.code);
@@ -258,15 +274,95 @@ async function main() {
   send(other, { type: "start" });
   check(await until(() => other.view && other.view.names[0] === "Other"), "the new host can start (seat numbers moved up)");
 
+  // ---- Next round waits for everyone; reactions; the turn limit ----
+  const pia = await connect(port), teo = await connect(port);
+  send(pia, { type: "create", name: "Pia", settings: { players: 2, turnLimit: 30 } });
+  await until(() => pia.code);
+  send(teo, { type: "join", code: pia.code, name: "Teo" });
+  await until(() => teo.lobby);
+  check(pia.lobby.settings.turnLimit === 30 && teo.lobby.settings.deckSize === 40, "the lobby tells everyone the room's rules");
+  send(pia, { type: "start" });
+  await until(() => pia.view && teo.view);
+  // Each plays until the round is over, and then never again
+  const untilRoundOver = c => { let over = false; return () => over || (over = c.view.phase === "roundOver"); };
+  autoplay(pia, untilRoundOver(pia));
+  autoplay(teo, untilRoundOver(teo));
+  check(await until(() => pia.view.phase === "roundOver" && teo.view.phase === "roundOver" && !pia.view.layoff, 20000), "the two play a round");
+  const deal = pia.view.deals;
+  send(pia, { type: "action", name: "next", args: [] });
+  check(await until(() => teo.view.ready[1]), "Teo sees that Pia pressed Next round");
+  await sleep(50);
+  check(pia.view.phase === "roundOver" && pia.view.deals === deal, "the next round waits for Teo...");
+  check(await until(() => pia.view.deals === deal + 1, 2000), "...but starts anyway once he made Pia wait long enough");
+
+  send(pia, { type: "react", id: 2 });
+  send(pia, { type: "react", id: 3 });                       // too soon after the first: dropped
+  send(teo, { type: "react", id: 99 });
+  await until(() => teo.errors.includes("online.err.badMessage"));
+  await sleep(50);
+  const reacts = c => c.inbox.filter(m => m.type === "react");
+  check(reacts(pia).length === 1 && reacts(pia)[0].who === 0 && reacts(teo).length === 1 && reacts(teo)[0].who === 1 && reacts(teo)[0].id === 2,
+        "a reaction reaches the table, from the sender's seat; one too soon after it is dropped");
+
+  // Whoever's turn it is now does nothing: after the turn limit the CPU plays for them
+  const slow = pia.view.currentPlayer === 0 ? pia : teo;
+  check(await until(() => slow.turnLeft > 0) && slow.turnLeft <= 300, "the player whose turn it is is told how long they have");
+  check(await until(() => slow.view.seats[0] === "away", 2000), "when the time is up, the CPU plays for them");
+  send(slow, { type: "back" });
+  check(await until(() => slow.view.seats[0] === "human"), "\"I'm back\" gives them their seat again");
+
+  // ---- The host's tools ----
+  const host = await connect(port), j1 = await connect(port), j2 = await connect(port);
+  send(host, { type: "create", name: "Host", settings: { players: 3 } });
+  await until(() => host.code);
+  send(j1, { type: "join", code: host.code, name: "Uno" });
+  await until(() => j1.lobby);
+  send(j2, { type: "join", code: host.code, name: "Dos" });
+  await until(() => host.lobby && host.lobby.people.length === 3);
+  send(host, { type: "players", players: 2 });
+  send(j1, { type: "players", players: 4 });
+  await until(() => host.errors.length && j1.errors.length);
+  check(host.errors.includes("online.err.seatsTaken") && j1.errors.includes("online.err.notHost"),
+        "fewer seats than people, or a change by someone else, is refused");
+  send(host, { type: "remove", seat: 2 });
+  check(await until(() => j2.errors.includes("online.err.removed") && host.lobby.people.length === 2), "the host can remove a player");
+  send(host, { type: "players", players: 2 });
+  check(await until(() => j1.lobby.players === 2), "...and change the number of seats");
+  send(host, { type: "host", seat: 1 });
+  check(await until(() => j1.lobby.host === 1 && j1.lobby.you === 1), "...and hand the room to another player");
+
+  // ---- A connection that stops answering pings is closed ----
+  const ghost = await connect(port);
+  send(ghost, { type: "ping" });
+  check(await until(() => ghost.inbox.some(m => m.type === "pong")), "a ping message gets a pong");
+  send(ghost, { type: "join", code: host.code, name: "Ghost" });
+  await until(() => j1.lobby.people.length === 2 && ghost.errors.includes("online.err.full"));
+  send(j1, { type: "players", players: 3 });
+  await until(() => j1.lobby.players === 3);
+  send(ghost, { type: "join", code: host.code, name: "Ghost" });
+  await until(() => j1.lobby.people.length === 3);
+  ghost.socket.pause();                                      // stops reading, so it never answers a ping
+  check(await until(() => j1.lobby.people[2] && !j1.lobby.people[2].connected, 2000), "a silent connection is closed by the heartbeat");
+
   // ---- Flooding ----
   const flood = await connect(port);
   for (let i = 0; i < 100; i++) send(flood, { type: "leave" });
   check(await until(() => flood.closedWith === 4008), "a connection that floods the server is closed");
 
+  // ---- Too many tries at rooms from one address ----
+  const guesser = await connect(port);
+  for (let i = 0; i < 70; i++) {
+    send(guesser, { type: "join", code: "ZZZZ", name: "Guess" });
+    if (i % 10 === 9) await sleep(20);                     // (slower than the flood limit)
+  }
+  check(await until(() => guesser.errors.includes("online.err.tooMany")), "an address trying too many rooms is told to wait");
+
   check(auditFailures === 0 && audited > 100, `hidden-card audit: ${audited} views checked, nothing leaked`);
 
-  for (const c of [lone, ana, back, late, solo, other, third]) c.socket.terminate();
-  await server.close();
+  // ---- The server stops: everyone is told why ----
+  await server.shutdown();
+  check(pia.errors.includes("online.err.restart") && pia.closedWith === 1012, "when the server stops, every player is told it restarted");
+  for (const c of [lone, ana, back, late, solo, other, third, pia, teo, host, j1, j2, ghost, guesser]) c.socket.terminate();
   console.log(failures ? `${failures} FAILED` : "server tests passed");
   process.exit(failures ? 1 : 0);
 }

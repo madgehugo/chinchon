@@ -82,6 +82,7 @@ const state = {
   entryScore: 0,                      // total a re-entering player starts with
   reentries: [0, 0, 0, 0],            // how many times each player has re-entered this game
   reentryPending: [],                 // human players who are out and must still choose re-enter / stay out
+  ready: [false, false, false, false], // after a round: who has pressed Next round (online, every person must; see humanNext)
   gameOver: false,
   winner: null,
   status: [],                         // messages (see msg in i18n.js) shown in the status line; set by setStatus()
@@ -156,6 +157,7 @@ function startRound() {
   state.roundResult = null;
   state.roundDetail = null;
   state.layoff = null;
+  state.ready = Array(state.numPlayers).fill(false);
   state.showResults = false;
 
   beginTurn();
@@ -778,9 +780,30 @@ function endGame(winner, reason) {
   setStatus(msg("msg.gameOver", { winner, reason }));
 }
 
-// "Next round" button: rotate the starting player, then deal again
+// Is the round over and scored, with nothing left to answer, so that the next one may start?
+function roundCanAdvance() {
+  return state.phase === "roundOver" && !state.layoff && !state.reentryPending.length && !state.gameOver;
+}
+
+// Has every person at the table pressed Next round? (CPUs and away players never hold it up)
+function everyoneReady() {
+  return state.seats.every((seat, p) => seat !== "human" || state.ready[p]);
+}
+
+// Player p pressed "Next round". In an online game every person must press it, so that
+// nobody's look at the results is cut short by a quicker player; on one device there is
+// only you, so the next round starts at once.
+function humanNext(p) {
+  if (!isHuman(p) || !roundCanAdvance()) return;
+  state.ready[p] = true;
+  if (everyoneReady()) nextRound();
+  else render();
+}
+
+// Start the next round: rotate the starting player, then deal again. (The online server
+// also calls this directly when someone has waited too long for the others; see room.js.)
 function nextRound() {
-  if (state.phase !== "roundOver" || state.layoff || state.reentryPending.length || state.gameOver) return;
+  if (!roundCanAdvance()) return;
   state.startPlayer = nextActivePlayer(state.startPlayer);
   startRound();
 }
@@ -794,9 +817,10 @@ function nextRound() {
    plain object and back; they never touch the page or the storage, so the Node
    tools can test them (and a future server could use them as they are).
    --------------------------------------------------------- */
-const SAVE_VERSION = 3;   // bump when the shape of `state` changes: older saves are then ignored
+const SAVE_VERSION = 4;   // bump when the shape of `state` changes: older saves are then ignored
                           // (2: laying off, state.layoffMode and state.layoff;
-                          //  3: several human seats, state.seats, state.names and state.reentryPending)
+                          //  3: several human seats, state.seats, state.names and state.reentryPending;
+                          //  4: state.ready, for Next round with several people)
 // Fields of `state` that describe this moment on screen rather than the game, so are not saved
 const UNSAVED_FIELDS = ["timer", "closing", "showSettings", "showHelp", "showScores", "showOnline"];
 
@@ -898,6 +922,8 @@ function seatAway(p) {
     state.timer = setTimeout(state.phase === "draw" ? cpuTurn : cpuFinishTurn,
                              CPU_SPEEDS[state.cpuSpeed].discard);
     render();
+  } else if (roundCanAdvance() && everyoneReady()) {  // the others were only waiting for them to press Next round
+    nextRound();
   } else {
     render();
   }
@@ -937,7 +963,7 @@ const ACTIONS = {
   takeBack:   { args: ["seat", "count", "count"], run: (p, owner, index, laidIndex) => humanTakeBack(p, owner, index, laidIndex) },
   layoffDone: { args: [],                        run: (p) => humanLayoffDone(p) },
   reenter:    { args: ["bool"],                  run: (p, wantsIn) => humanReenter(p, wantsIn) },
-  next:       { args: [],                        run: (p) => { if (isHuman(p)) nextRound(); } },
+  next:       { args: [],                        run: (p) => humanNext(p) },
 };
 
 // Does `value` have the argument type `type` (see the list above)?

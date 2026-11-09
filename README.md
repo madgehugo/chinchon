@@ -96,7 +96,26 @@ Friends play on their own phones or computers. One player opens Settings → **P
 **Play with friends** in the top bar; phones have no room for it), types a
 name and creates a room; the room gets a 4-letter code (no I, L, O, 0 or 1, which look alike) and a link to share.
 The others open the link (or type the code), and the host presses Start. People take the first seats and CPUs the
-rest, and the room plays with the host's Settings (deck, CPU level and speed, and the rules).
+rest, and the room plays with the host's Settings (deck, CPU level and speed, and the rules) plus a **time per turn**
+chosen when creating the room (no limit (the default), 30 seconds, 1 minute or 2 minutes). The online sheet lists the
+room's rules for everyone.
+
+* **Next round waits for everyone.** Each person presses Next round (`state.ready`, `humanNext` in `game.js`), and
+  the button then says who the round is still waiting for. Once someone has pressed it, the others get 90 seconds
+  (`NEXT_ROUND_WAIT_MS` in `server/room.js`) before the round starts anyway. On one device you are the only person,
+  so it starts at once.
+* **Time per turn.** When a person's time runs out (a turn, their lay-offs, or the re-entry question), a CPU plays
+  for them, as for a dropped connection, and a bar under the table offers **I'm back**; any move of theirs also
+  gives the seat back. The last 15 seconds show as a countdown. (`watchWaits` in `server/room.js`.)
+* **Joining late.** Anyone may join while there is a free place, even during a game: they wait in the lobby and are
+  dealt in when someone presses New game. The seats of players who left for good go to newcomers (or the CPUs) then.
+* **The host's tools,** between games: the number of seats; and at any time: Remove a player (during a game a CPU
+  plays their seat to the end) and Make host. If the host leaves, the next person takes over.
+* **Reactions.** The smiley button by the play buttons sends one of a few emoji (`REACTIONS` in `i18n.js`), which pops
+  up by the sender's seat and fades. Emoji only, so nothing needs translating or checking; one per 1.5 seconds each.
+* **Your turn in the background.** While the game is in another tab or app, the tab's title says it is your turn,
+  and a phone that allows it buzzes.
+* **The room's tally:** games won by each person (and by the CPUs) in this room, in the lobby and on the game-over banner.
 
 **How it works.** The game runs on a server, never on the players' devices: anything a page holds can be read by
 whoever uses it, so the deck and the other hands must stay on the server. `server/room.js` loads the real
@@ -109,6 +128,13 @@ already draws seat 0 as "You" at the bottom, it draws an online game with no cha
 * **Leaving and coming back.** If a connection drops, the seat waits 30 seconds (`AWAY_AFTER_MS`), then a CPU plays
   for that player (`state.seats[p] === "away"`) until they are back. Opening the game again rejoins the same seat with
   a secret token kept in `localStorage`. Leave room gives the seat to the CPU for good and brings back your own game.
+  The server pings every connection every 15 seconds and closes one that stops answering (a phone that lost its signal
+  without a goodbye), so that wait starts at once; a page coming back on screen checks its own connection with a
+  `ping` message and reconnects straight away if it is dead (`checkConnection` in `net.js`).
+* **A sleeping server.** Render's free plan stops the server when nobody plays, and the first connection then takes up
+  to a minute. The page connects as soon as the online sheet opens, and says the server is waking up if it takes a while.
+* **Restarts.** When the server is stopped (a push to `main` redeploys it), it tells every player first, and their
+  pages go back to their own games with that message rather than retrying a room that is gone.
 * **Your own game** on the device is saved when an online game starts and comes back when you leave.
 * **Rooms live in memory.** A server restart ends the games in progress, and a room nobody has been connected to
   for 30 minutes is thrown away.
@@ -144,10 +170,10 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 
 | In `server/` | What it is |
 | --- | --- |
-| `server.js` | The HTTP and WebSocket server: the message types (listed at the top), checking what pages send (nicknames, origins, message size, a rate limit), rooms by code, and serving the game files. |
-| `room.js` | One room: the lobby, the seats and their tokens, loading the engine and starting the game, players going away and coming back, and sending each player their view. |
+| `server.js` | The HTTP and WebSocket server: the message types (listed at the top), checking what pages send (nicknames, origins, message size, a rate limit per connection and a limit on room tries per address), rooms by code, the heartbeat, telling players when it stops, and serving the game files. |
+| `room.js` | One room: the lobby, the seats and their tokens, the host's tools, loading the engine and starting the game, players going away and coming back, joining late, the turn limit and the wait for Next round, reactions, the tally of wins, and sending each player their view. |
 | `view.js` | `viewFor(state, seat)`: what one player may see, renumbered so that they are seat 0. |
-| `test.js` | Server tests (`npm test`): whole games with scripted players, a check that no view ever holds a card that player may not see, disconnect and rejoin, and the limits. |
+| `test.js` | Server tests (`npm test`): whole games with scripted players, a check that no view ever holds a card that player may not see, disconnect and rejoin, the heartbeat, Next round, the turn limit, reactions, joining late, the host's tools, the limits, and stopping. |
 | `package.json` | Its one dependency, [`ws`](https://github.com/websockets/ws) (the WebSocket server), pinned to an exact version. |
 
 ## Features
@@ -378,7 +404,8 @@ node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png
   (25% with 4 players); `--control` gives the noise level (about 0.7 percentage points at 4,000 games, 0.3-0.4 paired).
   4,000 games take about 5 minutes with `--jobs 8`.
 * `stress.js` plays every other game with several human seats (as online), whose players sometimes go away and come
-  back, and tries moves that are not allowed (which must change nothing).
+  back, and tries moves that are not allowed (which must change nothing). Each person presses Next round in a random
+  order, and the round must not start before the last one has.
 * `stress.js` also saves and restores the game at random moments (through JSON, as the browser does) and keeps playing
   from the copy, so a field that does not survive saving shows up there.
 * After changing `ui.js` or `style.css`, run the browser tests and check the page at phone width (about 390px), in both
