@@ -95,7 +95,9 @@ const state = {
 // `cpuCount` (1-3) optionally changes how many CPUs play; omitted, it keeps the current number.
 // `table` (optional, used by the online server) says who sits where: { seats, names }, one
 // entry per seat. Without it, it is you in seat 0 and CPUs in the others.
-function newGame(cpuCount, table) {
+// `deck` (optional, used by the tutorial) is the first round's deck in a fixed order
+// instead of a shuffled one (see startRound).
+function newGame(cpuCount, table, deck) {
   clearTimeout(state.timer);
   // The "New game" buttons call newGame(clickEvent), so only trust a plain number
   if (typeof cpuCount === "number") {
@@ -115,14 +117,16 @@ function newGame(cpuCount, table) {
   state.winner = null;
   state.summary = [];
   state.notice = [];
-  startRound();
+  startRound(deck);
 }
 
 // Start a new ROUND within the current game: shuffle, deal to the players
 // who are still in the game, flip the first discard, and begin the turns.
-function startRound() {
-  // Fresh shuffled deck
-  state.drawPile = shuffle(createDeck());
+// `deck` (optional) replaces the shuffle with a fixed order. Cards are dealt with pop(),
+// from the END of the array, so a fixed deck lists the last card to be drawn first.
+function startRound(deck) {
+  // Fresh shuffled deck (`[...deck]` copies the array, so the caller's stays as it was)
+  state.drawPile = deck ? [...deck] : shuffle(createDeck());
 
   // Empty hands for each player, e.g. [[], [], []]
   state.hands = Array.from({ length: state.numPlayers }, () => []);

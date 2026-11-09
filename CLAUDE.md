@@ -10,7 +10,7 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 ## Hard constraints
 
 * **Classic `<script>` tags in one shared global scope, no ES modules**, so the game works from `file://`.
-  Script order in `index.html` is `rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, ui.js`; a file may only use what earlier
+  Script order in `index.html` is `rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, tutorial.js, ui.js`; a file may only use what earlier
   files define at load time. `build_single.py` depends on the exact `<link>`/`<script src>` tag shapes in `index.html`.
 * **No libraries, no build step, no external requests** (the game itself; `app/` and `server/` are the exceptions, below).
   The one request the game makes is the online mode's WebSocket to the server (`serverUrl()` in `net.js`).

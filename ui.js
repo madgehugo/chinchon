@@ -212,6 +212,8 @@ function renderHand(playerIndex) {
     const el = createCardElement(card, faceUp);
     // The card you drew this turn gets a small gold dot until you discard
     if (canDiscard && card === state.lastDrawn) el.classList.add("just-drawn");
+    // In the tutorial, the card the coach talks about glows (tutorial.js)
+    if (playerIndex === 0 && isTutorialTarget(card)) el.classList.add("coach-target");
     if (meldOf.has(card)) {
       const fits = meldOf.get(card);
       el.classList.add("in-meld", fits.length > 1 ? "meld-shared" : fits[0] % 2 ? "meld-b" : "meld-a");
@@ -375,6 +377,7 @@ function sortMyHand() {
 function toggleClosing() {
   if (state.currentPlayer !== 0 || state.phase !== "discard") return;
   if (!state.closing && closeOptions(state.hands[0]).length === 0) return;
+  if (!tutorialAllows("closing")) { tutorialNudge(); return; }   // the tutorial wants another move
   state.closing = !state.closing;
   render();
 }
@@ -473,6 +476,7 @@ function renderTurnIndicator() {
 
 // Master render: redraw everything from state
 function render() {
+  advanceTutorial();                  // (tutorial.js) first, so the highlights below are for the right step
   applyStaticText();
   renderSeats();
   const rebuilt = [];                 // which hands were redrawn this time (the animations need it)
@@ -492,6 +496,7 @@ function render() {
   renderReactions();
   renderStatus();
   renderTitle();
+  renderTutorial();                   // (tutorial.js) after renderControls, whose buttons it may hide
   animateChanges(rebuilt);            // last, because it needs the new cards to be in the page
 }
 
@@ -1201,7 +1206,8 @@ function reentryText() {
    renderHand(), because those elements are rebuilt on every render.
    --------------------------------------------------------- */
 // New game (in the Settings sheet) also closes the sheet, so you see the new deal
-document.getElementById("new-game").addEventListener("click", () => { setSettingsOpen(false); newGame(); });
+// (in the tutorial: back to your own game first, so the new game has your settings)
+document.getElementById("new-game").addEventListener("click", () => { setSettingsOpen(false); endTutorial(); newGame(); });
 document.getElementById("draw-pile").addEventListener("click", () => act("draw", "deck"));
 document.getElementById("discard-pile").addEventListener("click", () => act("draw", "discard"));
 document.getElementById("close-btn").addEventListener("click", toggleClosing);
@@ -1266,6 +1272,7 @@ document.getElementById("sort-mode").addEventListener("change", (e) => {
 
 // CPU difficulty: takes effect from the next CPU move (no new game needed)
 document.getElementById("cpu-mode").addEventListener("change", (e) => {
+  endTutorial();                              // (tutorial.js) its CPU must not change; back to your game
   state.cpuMode = e.target.value;
   state.cpuLevels = [...CPU_MODES[state.cpuMode]];
   saveSettings();
@@ -1334,9 +1341,9 @@ function saveSettings() {
     "round-limit": limitToOption(state.roundLimit),
     "layoff":      state.layoffMode,
   };
-  if (online.playing) {
-    // In an online game `state` holds the room's rules, not yours: only remember the two
-    // choices that are yours there (the sort method and sound), on top of what was saved
+  if (online.playing || tutorial.active) {
+    // In an online game (or the tutorial) `state` holds the room's rules, not yours: only remember
+    // the two choices that are yours there (the sort method and sound), on top of what was saved
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)) || {}; } catch (err) { /* none */ }
     Object.assign(settings, saved, { "sort-mode": settings["sort-mode"], "sound": settings.sound });
@@ -1380,6 +1387,7 @@ const GAME_STORAGE_KEY = "chinchon-game";   // localStorage key for the saved ga
 
 function saveGame() {
   if (online.playing) return;     // an online game lives on the server; keep the game of this device as it was
+  if (tutorial.active) return;    // the tutorial's round is not a game to keep (tutorial.js)
   try { localStorage.setItem(GAME_STORAGE_KEY, JSON.stringify(snapshotGame())); } catch (err) { /* not saved; fine */ }
 }
 
@@ -1421,12 +1429,16 @@ function closeConfirm(accepted) {
   if (accepted && change) { change(); saveSettings(); } else syncSettingDropdowns();
 }
 
+// Is a game under way, worth asking about before it is replaced? (Not a fresh deal before your first move.)
+function gameInProgress() {
+  return state.round > 1 || state.totals.some(t => t !== 0) || state.hands[0].length > CARDS_PER_HAND;
+}
+
 // `question` is a function returning the text, so the bar can be written again if the
 // language is switched while it is open (see applyStaticText)
 function askBeforeNewGame(question, change) {
-  const inProgress = state.round > 1 || state.totals.some(t => t !== 0) ||
-                     state.hands[0].length > CARDS_PER_HAND;
-  if (!inProgress) { change(); saveSettings(); return; }
+  endTutorial();          // (tutorial.js) a new rule is for your own game: back to it first
+  if (!gameInProgress()) { change(); saveSettings(); return; }
   pendingChange = change;
   pendingQuestion = question;
   document.getElementById("deck-confirm-text").textContent = question();
@@ -1576,6 +1588,7 @@ function fillRulePicks() {
 }
 
 function setOnlineOpen(open) {
+  if (open) endTutorial();                    // (tutorial.js) going online starts from your own game
   state.showOnline = open;
   if (open) {
     online.error = online.code ? online.error : null;   // a fresh start shows no old problem
@@ -1853,7 +1866,8 @@ function restoreLocalGame() {
    --------------------------------------------------------- */
 if (typeof runSelfTests === "function") runSelfTests();   // results in the console (F12)
 const savedCpuCount = loadSettings();   // last visit's settings (or the defaults written in index.html)
-if (loadGame()) resumeTurn();         // carry on with the game left unfinished last time
+const resumed = loadGame();           // the game left unfinished last time, if any
+if (resumed) resumeTurn();            // carry on with it
 else newGame(savedCpuCount);          // or start a new one with those settings
 syncSettingDropdowns();      // after newGame, which sets the number of players
 
@@ -1866,6 +1880,8 @@ if (linkedRoom && !online.code && serverUrl()) {
   document.getElementById("online-code").value = linkedRoom.toUpperCase().slice(0, 4);
   setOnlineOpen(true);
 }
+// A first visit (no saved settings or game, not opened from a room link): offer the tutorial
+if (!resumed && !linkedRoom && !online.code) offerTutorial();
 
 // The App Store / Google Play app (app/ in this repo) runs these same files inside a
 // native shell called Capacitor, which defines `window.Capacitor` before any script

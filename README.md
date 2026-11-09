@@ -213,6 +213,10 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 * Easter egg: a Chinchón (anyone's) fills the whole screen with fireworks and emojis for about six seconds, with a
   boom and crackle per burst (`launchFireworks` in `ui.js`, a particle system on a `<canvas>` that taps go through;
   not with reduced motion; a new deal stops it).
+* **Tutorial:** one guided round against a CPU, with a fixed deal, for new players. A coach box in the middle of
+  the table says what to do (take the discard for a group, throw away a high card, draw, close with few points), the
+  card or pile to use glows, and other moves are refused. It is offered once on a first visit (a bar over the table)
+  and is always at the top of the Help panel. Your own game comes back when it ends (or Skip, or a reload).
 * A Help panel (the `?` button or the `H` key) explains the rules, every setting, Hints, the results screen and the
   keyboard keys, in fold-out sections (`<details>` elements in `index.html`; the text is the `help.*` keys in `i18n.js`).
 * The settings are remembered between visits (`localStorage`, like the language; see `saveSettings` in `ui.js`).
@@ -273,10 +277,11 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 | `net.js` | Where your moves go (`act()`): into the game on this device, or to the online server; the connection, and putting the server's views into `state`. |
 | `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
 | `sound.js` | Sound effects made in code with the Web Audio API (no audio files); only `ui.js` calls it. |
+| `tutorial.js` | The tutorial: the fixed deal, the scripted CPU (`STRATEGIES.tutorial`), the coach's steps, which moves are allowed, and the first-visit offer. Screen only, like `ui.js`. |
 | `ui.js` | Drawing the table, clicks, touch and mouse dragging, the panels, toasts and score pop-ups, startup. |
 | `social.html`, `icons/social.png` | The picture shown when the game's link is shared (the `og:` tags in `index.html`); `tools/make_social.js` screenshots the HTML into the PNG. Not loaded by the game. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons, and the store apps' icons and launch screens), `make_social.js` (draws the link-preview picture). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups, Chinchón fireworks and sound, saving and resuming, installing and offline play, the store app's back button and pause save, two people playing online); `helpers.js` holds what they share. |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups, Chinchón fireworks and sound, saving and resuming, the tutorial, installing and offline play, the store app's back button and pause save, two people playing online); `helpers.js` holds what they share. |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file (it plays the same, but cannot be installed as an app). |
 | `privacy.html` | The privacy policy page the app stores ask for (English and Spanish). Not part of the game. |
 | `app/` | The App Store and Google Play apps (see "Phone app" above). |
@@ -284,7 +289,7 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
 
 The scripts share one global scope, so the order of the `<script>` tags in `index.html` matters: each file may use what
-the files above it define (`rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, ui.js`). They are plain scripts rather than ES modules so
+the files above it define (`rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, tutorial.js, ui.js`). They are plain scripts rather than ES modules so
 the game also works from `file://`, where browsers block modules.
 
 ## How the pieces connect
@@ -323,6 +328,13 @@ the game also works from `file://`, where browsers block modules.
 * **Installing and offline.** `index.html` links `manifest.webmanifest` and the iOS icon; `ui.js` registers `sw.js` on
   https or localhost only, and not in the store app. Every file the page loads must also be in `APP_FILES` in `sw.js`
   (`tests/browser/pwa.js` checks); `app/copy_web.js` uses the same list.
+* **The tutorial** belongs to the screen, like closing mode: its progress is the `tutorial` object in `tutorial.js`,
+  never part of `state`, so it is not saved and the server never sees it. It saves your game (`saveGame`), then plays
+  a normal game whose first deck is given in a fixed order (`newGame(cpus, null, deck)`; `startRound` deals with
+  `pop()`, so the deck lists the last card first) against a CPU whose strategy is `tutorial`. `act()` in `net.js` and
+  `toggleClosing` ask `tutorialAllows()` before any move; `render()` moves the steps on (each step's `done()` reads
+  `state`) and draws the coach. While it runs, `saveGame` and `saveSettings` keep your own game and settings as they
+  were; New game, a rule change and going online end it first.
 * **Laying off** happens in `closeRound` (`game.js`) before the round is scored: `state.layoff` holds the turn
   order and whose turn it is; `continueLayoffs()` plays the CPUs' lay-offs and stops at a human's in manual mode, and
   `humanLayoffDone()` carries on. Cards move only within `state.roundDetail` (the results screen), never in the
@@ -377,7 +389,7 @@ node tools/bench.js 3200 finish smart 48 --reshuffles 2   # 48-card deck, at mos
 node tools/bench.js 6400 "hard:takeMargin=1.5" hard --players 2 --jobs 8   # a 1v1 table (default 4 players)
 npm install && npx playwright install chromium    # once, for the browser tests
 cd server && npm install && cd ..  # once, for the online tests (the server's one library)
-npm run test:browser              # drag, touch, results panel, laying off, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound, resume, offline, store app, online
+npm run test:browser              # drag, touch, results panel, laying off, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound, resume, tutorial, offline, store app, online
 cd server && npm test             # the online server: whole games, the hidden-card check, disconnects, limits
 node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png and the app/ icons (commit them)
 ```

@@ -913,6 +913,58 @@ button, .pile, select, .card { -webkit-tap-highlight-color: transparent; }   /* 
 .help-panel ul { padding-left: 1.2em; }
 .help-panel li { margin-bottom: 4px; }
 
+/* ---------- The tutorial (tutorial.js) ----------
+   The first-visit offer is a bar like the re-entry one. The coach box sits in the middle of
+   the table in place of the status line. On the last step (.floating) it is fixed to the
+   bottom of the screen above the panels (z-index over .overlay's 40), so it stays in view
+   over the results; the panels then get room at the bottom (--coach-h, its height, set by
+   renderTutorial) so it hides none of their buttons. */
+#tutorial-offer {
+  width: min(960px, 100%);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px;
+  margin-bottom: 12px; padding: 10px 14px;
+  font-size: var(--fs-sm); font-weight: 600;
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-md);
+}
+#tutorial-offer button { margin: 0; white-space: nowrap; }
+#tutorial-start { margin: 0 0 12px; }
+#coach {
+  width: min(34em, 100%);
+  box-sizing: border-box;
+  padding: 10px 14px 12px;
+  background: var(--panel);
+  border: 2px solid var(--gold);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-3);
+}
+.coach-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#coach-step { font-size: var(--fs-xs); font-weight: 700; color: var(--gold); }
+#coach-skip { margin: 0; min-height: 0; padding: 4px 12px; font-size: var(--fs-xs); }
+#coach-text { margin: 6px 0 0; font-size: var(--fs-sm); line-height: 1.45; }
+.coach-buttons { display: flex; justify-content: flex-end; gap: 10px; }
+.coach-buttons button { margin: 10px 0 0; }
+.coach-buttons button[hidden] { display: none; }
+#coach.floating {
+  position: fixed; z-index: 50;
+  left: 50%; bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: min(600px, calc(100% - 24px));
+}
+body.coach-floating .overlay { padding-bottom: calc(var(--coach-h, 160px) + 20px); }
+/* A move the tutorial does not want: the coach gives a little shake */
+#coach.nudge { animation: coach-nudge .4s ease-in-out; }
+@keyframes coach-nudge {
+  20%, 60% { translate: -6px 0; }
+  40%, 80% { translate: 6px 0; }
+}
+/* What the coach talks about: a card of yours, a pile or the Close button, with a pulsing gold ring */
+#seat-0 .card.coach-target, .pile.coach-target .card, .pile.coach-target .pile-empty, #close-btn.coach-target {
+  outline: 3px solid var(--gold); outline-offset: 3px;
+  animation: pick-pulse 1.2s ease-in-out infinite;
+}
+
 /* ---------- Reduced motion ----------
    When the system asks for less motion: no movement at all. Hovering a card still
    shows a shadow so it is not a dead end, and the "thinking" dots just stay shown. */
@@ -922,6 +974,8 @@ button, .pile, select, .card { -webkit-tap-highlight-color: transparent; }   /* 
   button:hover:not(:disabled), button:active:not(:disabled) { transform: none; }
   .pile.can-pick .card, .pile.can-pick .pile-empty, .seat.thinking .seat-who::after,
   .overlay, .panel, .toast { animation: none; }
+  #seat-0 .card.coach-target, .pile.coach-target .card, .pile.coach-target .pile-empty,
+  #close-btn.coach-target, #coach.nudge { animation: none; }
   .toast { transition: none; }
   .reaction { animation: none; }                      /* it still goes away, by ui.js */
   .confetti { display: none; }

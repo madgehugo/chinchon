@@ -38,6 +38,7 @@
        net.js     where your moves go: into the game, or to the online server
        tests.js   self-tests for the rules (results appear in the console)
        sound.js   sound effects, made in code (Web Audio)
+       tutorial.js the guided first round (coach, fixed deal, scripted CPU)
        ui.js      drawing the table, clicks, dragging, startup
        sw.js      offline copy for the installed app (not a <script> below; ui.js registers it)
        manifest.webmanifest, icons/   the app's name and icons when installed on a phone
@@ -74,6 +75,13 @@
   </div>
 </header>
 
+<!-- First visit only: offers the tutorial (offerTutorial in tutorial.js) -->
+<div id="tutorial-offer" hidden>
+  <span data-i18n="tut.offer">New to Chinchón? Learn the game in one short round.</span>
+  <button id="tutorial-yes" data-i18n="tut.start">Start the tutorial</button>
+  <button id="tutorial-no" class="secondary" data-i18n="tut.noThanks">No thanks</button>
+</div>
+
 <!-- =========================================================
      HTML: the skeleton. It contains EMPTY containers; JavaScript
      fills them with cards. Each id is how JS finds its element.
@@ -107,6 +115,20 @@
       </div>
     </div>
     <div id="status"></div>
+  <!-- The tutorial's coach: what to do now (renderTutorial in tutorial.js). It takes the
+         status line's place in the middle of the table; on the last step it floats at the
+         bottom of the screen, over the results panel. -->
+  <div id="coach" role="status" aria-live="polite" hidden>
+    <div class="coach-head">
+      <span id="coach-step"></span>
+      <button id="coach-skip" class="secondary" data-i18n="tut.skip">Skip tutorial</button>
+    </div>
+    <p id="coach-text"></p>
+    <div class="coach-buttons">
+      <button id="coach-next" data-i18n="tut.next">Next</button>
+      <button id="coach-end"></button>
+    </div>
+  </div>
   </div>
 
   <!-- A short note when a CPU draws (see showToast in ui.js); one at a time, it fades by itself -->
@@ -364,6 +386,8 @@
 <div id="help" class="overlay" hidden>
   <div class="panel help-panel" role="dialog" aria-modal="true" aria-labelledby="help-title">
     <h2 id="help-title" data-i18n="help.title">How to play</h2>
+    <!-- Learn by playing one guided round (tutorial.js); hidden in an online room -->
+    <button id="tutorial-start" data-i18n="tut.helpButton">Learn by playing: start the tutorial</button>
     <details open><summary data-i18n="help.aim.h"></summary>
       <p data-i18n="help.aim.p"></p>
     </details>
@@ -451,6 +475,7 @@
 <script src="net.js"></script>
 <script src="tests.js"></script>
 <script src="sound.js"></script>
+<script src="tutorial.js"></script>
 <script src="ui.js"></script>
 </body>
 </html>

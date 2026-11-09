@@ -69,6 +69,9 @@ const online = {
 // On one device this returns what the move returned (false = it was not allowed). Online it
 // returns true once the move is sent; the server's answer (a new view) redraws the table.
 function act(name, ...args) {
+  // The tutorial allows only the move its coach asks for (tutorialAllows in tutorial.js,
+  // which is loaded later but is there by the time anyone clicks)
+  if (!tutorialAllows(name, args)) { tutorialNudge(); return false; }
   if (!online.playing) return runAction(0, name, args);
   if (online.connection !== "open") return false;
   // Rearranging your hand shows at once rather than after the server's answer (a drag that
