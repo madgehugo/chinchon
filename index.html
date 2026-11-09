@@ -366,6 +366,17 @@
       <button id="scores-close" class="secondary icon" data-i18n-aria="btn.closeHelp" data-i18n-title="btn.closeHelp" aria-label="Close" title="Close"><svg class="ui-icon" aria-hidden="true"><use href="#ico-close"/></svg></button>
     </div>
     <div id="scoreboard"></div>
+    <!-- Your record over many games on this device, by CPU level (renderRecord in ui.js) -->
+    <section id="record" aria-labelledby="record-title">
+      <h3 id="record-title" data-i18n="stats.title">Your record</h3>
+      <div id="record-body"></div>
+      <div id="record-confirm" hidden>
+        <span data-i18n="stats.resetAsk">Clear your record on this device?</span>
+        <button id="record-yes" data-i18n="stats.resetYes">Clear</button>
+        <button id="record-no" class="secondary" data-i18n="stats.resetNo">Keep</button>
+      </div>
+      <button id="record-reset" class="secondary" data-i18n="stats.reset" hidden>Reset record</button>
+    </section>
   </div>
 </div>
 
@@ -438,6 +449,7 @@
         <li data-i18n="help.scores.li1"></li>
         <li data-i18n="help.scores.li2"></li>
         <li data-i18n="help.scores.li3"></li>
+        <li data-i18n="help.scores.li4"></li>
       </ul>
     </details>
     <details><summary data-i18n="help.deck.h"></summary>

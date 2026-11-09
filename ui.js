@@ -499,6 +499,8 @@ function render() {
   renderTurnIndicator();
   renderControls();
   renderScoreboard();
+  recordStats();                      // count a round or game that just finished (your record)
+  renderRecord();
   renderAnalysis();
   renderResults();
   renderToggles();
@@ -956,6 +958,7 @@ function setSettingsOpen(open) {
 }
 function setScoresOpen(open) {
   state.showScores = open;
+  document.getElementById("record-confirm").hidden = true;   // an unanswered "Clear your record?" goes away
   render();
 }
 // Wire one panel: its top-bar button toggles it, its close button and its background close it
@@ -1145,6 +1148,120 @@ document.addEventListener("visibilitychange", () => {
 // The device is back on the network (after flight mode, a tunnel...): reconnect now
 window.addEventListener("online", () => checkConnection());
 window.addEventListener("pagehide", saveGame);
+
+/* ---------------------------------------------------------
+   YOUR RECORD: your results over many games, by CPU level, kept on this device
+   ---------------------------------------------------------
+   Like the settings, this belongs to the screen, not to the game: it is
+   never part of `state`, so the saved game, the server and the tools do not
+   know about it. render() calls recordStats(), which looks at `state` and counts
+   a round once its points are final and a game once it is over. It counts games
+   against the CPUs on this device only: not online games, not the tutorial.
+   A round must never be counted twice, not even after a reload that brings the
+   same finished round back. So the stats remember a "fingerprint" of the last
+   round and game they counted: every card on the table, which is different
+   for every deal (see tableFingerprint).
+   --------------------------------------------------------- */
+const STATS_STORAGE_KEY = "chinchon-stats";   // localStorage key for the record
+const STATS_VERSION = 1;                      // bump if the shape of the record changes (old records are then dropped)
+
+// An empty record. `levels` gets one entry per CPU level played (state.cpuMode), made by levelStats.
+const emptyStats = () => ({ version: STATS_VERSION, lastRound: null, lastGame: null, levels: {} });
+
+// The record kept for one level: counts, plus the sum of your round points (for the
+// average) and your best (lowest) round
+const emptyLevelStats = () => ({ games: 0, wins: 0, rounds: 0, points: 0, best: null,
+                                 closes: 0, perfect: 0, chinchons: 0 });
+
+let stats = loadStats();
+
+function loadStats() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(STATS_STORAGE_KEY)); } catch (err) { /* none saved */ }
+  return saved && saved.version === STATS_VERSION && saved.levels ? saved : emptyStats();
+}
+function saveStats() {
+  try { localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats)); } catch (err) { /* not remembered; fine */ }
+}
+
+// The record for the level being played, made on first use
+function levelStats() {
+  if (!stats.levels[state.cpuMode]) stats.levels[state.cpuMode] = emptyLevelStats();
+  return stats.levels[state.cpuMode];
+}
+
+// Every card in every hand, in order: at the end of a round this is different for
+// every deal, so it tells "this round" apart from "a round already counted"
+const tableFingerprint = () => state.hands.map(hand => hand.map(cardKey).join("")).join("|");
+
+// Called by render(): count what has just finished, once
+function recordStats() {
+  if (online.playing || tutorial.active || state.phase !== "roundOver") return;
+  const result = state.roundResult;
+  // Points are final once the lay-offs are done (state.layoff is null again)
+  if (!result || state.layoff) return;
+  const mark = tableFingerprint();
+  let changed = false;
+
+  // A round you played in (roundDetail[0] is null when you sat it out, being out of the game)
+  if (stats.lastRound !== mark && state.roundDetail && state.roundDetail[0]) {
+    const s = levelStats(), pts = result.points[0];
+    s.rounds++;
+    s.points += pts;
+    if (s.best === null || pts < s.best) s.best = pts;
+    if (result.closer === 0) {
+      s.closes++;
+      if (result.chinchon) s.chinchons++;
+      else if (pts === CLOSE_BONUS) s.perfect++;      // closed with no unmatched cards: -10
+    }
+    stats.lastRound = mark;
+    changed = true;
+  }
+  if (state.gameOver && stats.lastGame !== mark) {
+    const s = levelStats();
+    s.games++;
+    if (state.winner === 0) s.wins++;
+    stats.lastGame = mark;
+    changed = true;
+  }
+  if (changed) saveStats();
+}
+
+// The "Your record" part of the Scores sheet: one row per level played
+function renderRecord() {
+  const levels = Object.keys(CPU_MODES).filter(level => stats.levels[level]);   // in the Settings order
+  document.getElementById("record-reset").hidden = levels.length === 0;
+  const box = document.getElementById("record-body");
+  if (levels.length === 0) { box.textContent = t("stats.none"); return; }
+
+  const all = emptyLevelStats();                        // the sums over every level, for the line under the table
+  const rows = levels.map(level => {
+    const s = stats.levels[level];
+    for (const key of ["closes", "perfect", "chinchons"]) all[key] += s[key];
+    const avg = s.rounds ? (s.points / s.rounds).toFixed(1) : "–";
+    return `<tr><td>${t(`level.${level}`)}</td><td>${s.wins} / ${s.games}</td>` +
+           `<td>${s.rounds}</td><td>${avg}</td><td>${s.best === null ? "–" : s.best}</td></tr>`;
+  }).join("");
+  box.innerHTML =
+    `<table><tr><th>${t("stats.level")}</th><th>${t("stats.won")}</th><th>${t("stats.rounds")}</th>` +
+    `<th>${t("stats.avg")}</th><th>${t("stats.best")}</th></tr>${rows}</table>` +
+    `<p>${t("stats.closes", { n: all.closes, perfect: all.perfect, chinchons: all.chinchons })}</p>`;
+}
+
+// "Reset record" asks first, with a bar in the sheet (no browser pop-ups; see #deck-confirm)
+document.getElementById("record-reset").addEventListener("click", () => {
+  document.getElementById("record-confirm").hidden = false;
+});
+document.getElementById("record-no").addEventListener("click", () => {
+  document.getElementById("record-confirm").hidden = true;
+});
+document.getElementById("record-yes").addEventListener("click", () => {
+  // Keep the fingerprints, so the round on the table now is not counted again
+  stats = { ...emptyStats(), lastRound: stats.lastRound, lastGame: stats.lastGame };
+  saveStats();
+  document.getElementById("record-confirm").hidden = true;
+  render();
+});
 
 function closeConfirm(accepted) {
   document.getElementById("deck-confirm").hidden = true;

@@ -222,6 +222,10 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 * A Help panel (the `?` button or the `H` key) explains the rules, every setting, Hints, the results screen and the
   keyboard keys, in fold-out sections (`<details>` elements in `index.html`; the text is the `help.*` keys in `i18n.js`).
 * The settings are remembered between visits (`localStorage`, like the language; see `saveSettings` in `ui.js`).
+* **Your record** (in the Scores sheet): games won, rounds, average and best round points by CPU level, and how often
+  you closed (with -10, with a Chinchón), over every game against the CPUs on this device. Online games and the
+  tutorial do not count. It is kept in `localStorage` apart from `state` (see "YOUR RECORD" in `ui.js`), and each
+  round is counted once, even after a reload; Reset record clears it.
 * A game in progress is saved whenever you leave the page (another app, the home screen, closing the tab) and continues
   where it was when you come back, even mid-way through a CPU's turn. New game starts afresh.
 * Installable on a phone, with offline play (see "Install on your phone" above).
@@ -286,7 +290,7 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 | `start.js` | Startup, run once after every other file has loaded: settings, the saved game, rejoining a room, the tutorial offer, the service worker and the store app's hooks. |
 | `social.html`, `icons/social.png` | The picture shown when the game's link is shared (the `og:` tags in `index.html`); `tools/make_social.js` screenshots the HTML into the PNG. Not loaded by the game. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons, and the store apps' icons and launch screens), `make_social.js` (draws the link-preview picture). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups, Chinchón fireworks and sound, saving and resuming, the tutorial, installing and offline play, the store app's back button and pause save, two people playing online); `helpers.js` holds what they share. |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups, Chinchón fireworks and sound, saving and resuming, your record, the tutorial, installing and offline play, the store app's back button and pause save, two people playing online); `helpers.js` holds what they share. |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file (it plays the same, but cannot be installed as an app). |
 | `privacy.html` | The privacy policy page the app stores ask for (English and Spanish). Not part of the game. |
 | `app/` | The App Store and Google Play apps (see "Phone app" above). |

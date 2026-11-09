@@ -761,12 +761,27 @@ button.info-btn[aria-expanded="true"] { color: var(--gold); }
   background: var(--bad-soft); border-left: 3px solid var(--bad); border-radius: var(--r-sm); }
 
 /* The scoreboard, inside the Scores sheet */
-#scoreboard { font-size: var(--fs-sm); }
-#scoreboard table { border-collapse: collapse; margin-top: 8px; width: 100%; font-variant-numeric: tabular-nums; }
-#scoreboard th { color: var(--text-dim); font-weight: 600; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .5px; }
-#scoreboard th, #scoreboard td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
-#scoreboard tr:last-child td { border-bottom: 0; }
+/* The scoreboard and "Your record" under it share the table look */
+#scoreboard, #record { font-size: var(--fs-sm); }
+#scoreboard table, #record table { border-collapse: collapse; margin-top: 8px; width: 100%; font-variant-numeric: tabular-nums; }
+#scoreboard th, #record th { color: var(--text-dim); font-weight: 600; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .5px; }
+#scoreboard th, #scoreboard td, #record th, #record td { text-align: left; padding: 5px 10px 5px 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+#scoreboard tr:last-child td, #record tr:last-child td { border-bottom: 0; }
 #scoreboard tr.out td { opacity: .5; }
+#record { margin-top: 22px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, .1); }
+#record h3 { margin: 0; font-size: var(--fs-sm); }
+#record p { margin: 8px 0 0; color: var(--text-dim); }
+#record-body { color: var(--text-dim); }
+#record-body table { color: var(--text); }
+#record-reset { margin-top: 12px; }
+#record-confirm {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  margin-top: 12px; padding: 10px 14px;
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-md);
+}
+#record-confirm button { margin: 0; white-space: nowrap; }
 
 /* ---------- Touch: dragging cards, and no accidental zoom ---------- */
 /* touch-action: none tells the browser "don't scroll or zoom when a finger
