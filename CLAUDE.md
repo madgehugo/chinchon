@@ -47,7 +47,7 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 * The player chooses which card to close with. Closing with no unmatched cards scores -10 (and is not a Chinchón).
 * Close rule: at least one meld and at most 7 unmatched points, any number of cards. No jokers.
 * Re-entry after elimination uses the highest current total among players still in.
-* CPU turns are deliberately slow by default so the player can follow discards (`CPU_SPEEDS` in `game.js`).
+* CPU turns are deliberately slow by default so the player can follow discards (`CPU_PAUSE` in `game.js`).
 * Sort button defaults to sorting by number; the user can switch to suit.
 * CPU draws show as a toast that replaces the previous one and fades before the next turn; it must never become a
   list of moves (see "no move log" above).

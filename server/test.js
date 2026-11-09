@@ -186,7 +186,7 @@ async function main() {
 
   // ---- Two people and two CPUs, manual lay-offs ----
   const ana = await connect(port), luis = await connect(port);
-  send(ana, { type: "create", name: "Ana", settings: { players: 4, cpuSpeed: "fast", layoffMode: "manual", roundLimit: 5, cpuMode: "mixed" } });
+  send(ana, { type: "create", name: "Ana", settings: { players: 4, layoffMode: "manual", roundLimit: 5, cpuMode: "mixed" } });
   await until(() => ana.code);
   send(luis, { type: "join", code: ana.code.toLowerCase(), name: "Luis" });
   await until(() => luis.lobby && luis.lobby.people.length === 2);

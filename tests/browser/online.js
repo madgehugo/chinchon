@@ -81,7 +81,7 @@ try { ({ startServer } = require('../../server/server')); } catch (err) {
   check((await luis.textContent('#online-rules')).includes('48 cartas') && (await luis.textContent('#online-rules')).includes('10'),
         'the room has the rules Ana chose in the form');
   check(await ana.inputValue('#deck-size') === '40', "...which did not change Ana's own Settings");
-  check(await luis.locator('#online-rules dd').count() === 8 && (await luis.textContent('#online-rules')).includes('Sin límite'),
+  check(await luis.locator('#online-rules dd').count() === 7 && (await luis.textContent('#online-rules')).includes('Sin límite'),
         "the lobby lists the room's rules, in Luis's language (time per turn: no limit by default)");
   check(await ana.locator('#online-people button').count() === 2 && await luis.locator('#online-people button').count() === 0,
         'the host gets Make host and Remove by the other player; Luis gets no buttons');

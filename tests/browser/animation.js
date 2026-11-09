@@ -25,7 +25,7 @@ const slidesDone = () => document.getAnimations().every(a => a.constructor.name 
     await page.evaluate(() => newGame(3));   // a full table, as these checks expect (the page starts with 1 CPU)
     await noCpuClose(page);
     await page.click('#settings-btn');
-    await page.selectOption('#cpu-speed', 'fast');
+    await page.evaluate(() => { CPU_PAUSE.draw = 450; CPU_PAUSE.discard = 350; });   // quicker CPUs
     const tag = reduced ? 'REDUCED' : 'NORMAL';
 
     // 1. dealing: start a new game and look straight away

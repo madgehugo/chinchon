@@ -1161,7 +1161,7 @@ function showToast(m) {
     toastMessage = null;
     el.classList.add("leaving");
     toastTimer = setTimeout(() => el.remove(), 250);
-  }, CPU_SPEEDS[state.cpuSpeed].discard + TOAST_EXTRA_MS);
+  }, CPU_PAUSE.discard + TOAST_EXTRA_MS);
 }
 
 // On a touch screen, a message with a ".touch" version (e.g. "msg.pickDiscard.touch", which
@@ -1272,12 +1272,6 @@ document.getElementById("cpu-mode").addEventListener("change", (e) => {
   render();                                   // refresh the seat labels
 });
 
-// CPU speed: also takes effect immediately
-document.getElementById("cpu-speed").addEventListener("change", (e) => {
-  state.cpuSpeed = e.target.value;
-  saveSettings();
-});
-
 // The Sound button turns sound on or off (sound.js); a card snap confirms that it is on
 document.getElementById("sound-btn").addEventListener("click", () => {
   setSoundOn(!soundOn);
@@ -1303,7 +1297,6 @@ let pendingQuestion = null;     // function giving the question text for the bar
 function syncSettingDropdowns() {
   document.getElementById("sort-mode").value = state.sortMode;
   document.getElementById("cpu-mode").value = state.cpuMode;
-  document.getElementById("cpu-speed").value = state.cpuSpeed;
   document.getElementById("deck-size").value = String(DECK_SIZE);
   document.getElementById("cpu-count").value = String(state.numPlayers - 1);
   document.getElementById("reshuffles").value = limitToOption(state.maxReshuffles);
@@ -1334,7 +1327,6 @@ function saveSettings() {
     "sort-mode":   state.sortMode,
     "cpu-count":   String(state.numPlayers - 1),
     "cpu-mode":    state.cpuMode,
-    "cpu-speed":   state.cpuSpeed,
     "sound":       soundOn ? "on" : "off",
     "deck-size":   String(DECK_SIZE),
     "reshuffles":  limitToOption(state.maxReshuffles),
@@ -1368,7 +1360,6 @@ function loadSettings() {
   state.sortMode      = pick("sort-mode");
   state.cpuMode       = pick("cpu-mode");
   state.cpuLevels     = [...CPU_MODES[state.cpuMode]];
-  state.cpuSpeed      = pick("cpu-speed");
   setSoundOn(saved.sound !== "off");          // a button, not a dropdown, so not through pick()
   setDeckSize(Number(pick("deck-size")));
   state.maxReshuffles = optionToLimit(pick("reshuffles"));
@@ -1538,7 +1529,7 @@ document.addEventListener("keydown", (e) => {
    --------------------------------------------------------- */
 const NAME_STORAGE_KEY = "chinchon-name";   // localStorage: your online nickname
 // Settings that belong to the room in an online game, so they are locked while you play one
-const ROOM_SETTING_IDS = ["cpu-count", "cpu-mode", "cpu-speed", "deck-size", "deck-tip-btn",
+const ROOM_SETTING_IDS = ["cpu-count", "cpu-mode", "deck-size", "deck-tip-btn",
                           "reshuffles", "reentries", "round-limit", "layoff", "new-game"];
 const TURN_WARN_MS = 15000;      // the turn bar shows in the last this-many milliseconds of your time
 const TURN_TICK_MS = 250;        // how often the turn bar's countdown is redrawn
@@ -1552,7 +1543,6 @@ const showLimit = v => v === null ? t("set.noLimit") : String(v);
 const ROOM_RULES = [
   ["deckSize",      "set.deck",         v => t(`set.deck.${v}`),         "deck-size"],
   ["cpuMode",       "set.level",        v => t(`level.${v}`),            "cpu-mode"],
-  ["cpuSpeed",      "set.speed",        v => t(`set.speed.${v}`),        "cpu-speed"],
   ["maxReshuffles", "set.reshuffles",   showLimit,                       "reshuffles"],
   ["maxReentries",  "set.reentries",    showLimit,                       "reentries"],
   ["roundLimit",    "set.rounds",       showLimit,                       "round-limit"],

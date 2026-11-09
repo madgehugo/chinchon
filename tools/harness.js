@@ -35,7 +35,7 @@ function loadEngine(hooks) {
 function render() { __hooks.render(); }
 function setStatus(...messages) { state.status = messages; __hooks.status(messages); }
 globalThis.__game = {
-  state, STRATEGIES, FINISH, SMART, CPU_MODES, SCORE_LIMIT, CPU_SPEEDS, MIN_PLAYERS, MAX_PLAYERS,
+  state, STRATEGIES, FINISH, SMART, CPU_MODES, SCORE_LIMIT, CPU_PAUSE, MIN_PLAYERS, MAX_PLAYERS,
   setRandom, setDecisionRandom, makeSeededRandom, setDeckSize, deckSize: () => DECK_SIZE,
   newGame, startRound, nextRound, roundCanAdvance, everyoneReady, REACTIONS, humanDraw, humanDiscard, humanCloseWith, humanReenter,
   drawCard, discardCard, endTurn, closeRound, closeOptions, setHandOrder, sortedHand, cardKey,

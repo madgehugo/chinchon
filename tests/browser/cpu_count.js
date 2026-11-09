@@ -11,7 +11,7 @@ const { GAME_URL, OUT, makeChecker } = require('./helpers');
     page.on('pageerror', e => errors.push(label + ': ' + e.message));
     await page.goto(GAME_URL);
     await page.click('#settings-btn');            // settings live in a collapsible panel
-    await page.selectOption('#cpu-speed', 'fast');
+    await page.evaluate(() => { CPU_PAUSE.draw = 450; CPU_PAUSE.discard = 350; });   // quicker CPUs
     for (const cpus of [1, 2, 3]) {
       if (!(await page.locator('#settings-sheet').isVisible())) await page.click('#settings-btn');
       await page.selectOption('#cpu-count', String(cpus));   // asks first once a game is under way

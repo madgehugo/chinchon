@@ -17,7 +17,7 @@ const { GAME_URL, makeChecker, noCpuClose } = require('./helpers');
   const handAnimations = () => page.evaluate(() => document.getAnimations()
     .filter(a => a.effect && a.effect.target && a.effect.target.closest('[id^="hand-"]')).length);
 
-  await page.evaluate(() => { state.cpuSpeed = 'fast'; newGame(2); });
+  await page.evaluate(() => { CPU_PAUSE.draw = 450; CPU_PAUSE.discard = 350; newGame(2); });
   await noCpuClose(page);
   await page.waitForFunction(() => state.currentPlayer === 0 && state.phase === 'draw', null, { timeout: 15000 });
 

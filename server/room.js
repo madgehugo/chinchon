@@ -48,7 +48,6 @@ const SETTING_CHOICES = {
   players:       [4, 2, 3],                       // seats at the table; people first, CPUs fill the rest
   deckSize:      [40, 48],
   cpuMode:       ["hard", "medium", "easy", "mixed"],
-  cpuSpeed:      ["normal", "slow", "fast"],
   maxReshuffles: [2, 0, 1, 3, 5, null],           // null = no limit (as in the Settings dropdowns)
   maxReentries:  [1, 0, 2, null],
   roundLimit:    [null, 5, 10, 15, 20],
@@ -236,11 +235,10 @@ class Room {
     const g = this.game, st = this.settings;
     // For the tests (test.js): CPU_DELAY_MS replaces every CPU pause, so games play out in seconds
     if (process.env.CPU_DELAY_MS) {
-      for (const row of Object.values(g.CPU_SPEEDS)) row.draw = row.discard = Number(process.env.CPU_DELAY_MS);
+      g.CPU_PAUSE.draw = g.CPU_PAUSE.discard = Number(process.env.CPU_DELAY_MS);
     }
     g.setDeckSize(st.deckSize);
     g.state.cpuMode = st.cpuMode;
-    g.state.cpuSpeed = st.cpuSpeed;
     g.state.maxReshuffles = st.maxReshuffles;
     g.state.maxReentries = st.maxReentries;
     g.state.roundLimit = st.roundLimit;

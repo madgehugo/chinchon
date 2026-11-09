@@ -12,12 +12,9 @@
 
 // A CPU turn has two beats so you can follow it: first it draws (you see which
 // pile it took from), then, after a pause, it discards. These are the pauses in
-// milliseconds before each beat; the "CPU speed" dropdown picks a row.
-const CPU_SPEEDS = {
-  slow:   { draw: 2000, discard: 1600 },
-  normal: { draw: 1200, discard: 1000 },
-  fast:   { draw:  450, discard:  350 },
-};
+// milliseconds before each beat. (An object, not two constants, so the tests can
+// shorten them: server/room.js and tests/browser/ change the numbers inside.)
+const CPU_PAUSE = { draw: 1200, discard: 1000 };
 
 /* ---------------------------------------------------------
    1. GAME STATE: one object holding everything that changes.
@@ -47,7 +44,6 @@ const state = {
   lastDrawn: null,   // the card you drew this turn (your hand marks it until you discard)
   sortMode: "number",// how the Sort button orders your hand: "number" or "suit"
   cpuMode: "hard",   // "easy" | "medium" | "hard" | "mixed" (see CPU_MODES)
-  cpuSpeed: "normal",// "slow" | "normal" | "fast" (see CPU_SPEEDS)
   showHints: false,  // is the hand analysis table visible? (off by default)
   showSettings: false, // is the settings panel open?
   showHelp: false,   // is the help panel (rules, settings, keys) open?
@@ -333,7 +329,7 @@ function beginTurn() {
   // With the deck used up, clicking it ends the round: say so before it happens
   setStatus(msg(deckIsFinished() ? "msg.turnDeckDone" : "msg.turn", { who: state.currentPlayer }));
   if (!isHuman(state.currentPlayer)) {
-    state.timer = setTimeout(cpuTurn, CPU_SPEEDS[state.cpuSpeed].draw);   // run cpuTurn() after a pause
+    state.timer = setTimeout(cpuTurn, CPU_PAUSE.draw);   // run cpuTurn() after a pause
   }
 }
 
@@ -401,7 +397,7 @@ function closeOptions(hand) {
   return options;
 }
 
-// A CPU turn happens in two beats, with a pause between them (see CPU_SPEEDS):
+// A CPU turn happens in two beats, with a pause between them (see CPU_PAUSE):
 //   beat 1, cpuTurn():       draw a card and show where it came from
 //   beat 2, cpuFinishTurn(): close the round, or discard, then pass the turn
 // The strategy (see STRATEGIES) makes the actual decisions.
@@ -420,7 +416,7 @@ function cpuTurn() {
   state.phase = "discard";                // (this only matters to the human's buttons)
   render();                               // the discard pile / draw pile count change here
   setStatus(drewMessage(p, source, card));
-  state.timer = setTimeout(cpuFinishTurn, CPU_SPEEDS[state.cpuSpeed].discard);
+  state.timer = setTimeout(cpuFinishTurn, CPU_PAUSE.discard);
 }
 
 function cpuFinishTurn() {
@@ -892,7 +888,7 @@ function resumeTurn() {
     // The CPU had drawn and was about to discard: do its second beat
     render();
     setStatus(msg("msg.turn", { who: state.currentPlayer }));
-    state.timer = setTimeout(cpuFinishTurn, CPU_SPEEDS[state.cpuSpeed].discard);
+    state.timer = setTimeout(cpuFinishTurn, CPU_PAUSE.discard);
   } else {
     beginTurn();   // your turn, or a CPU about to draw
   }
@@ -920,7 +916,7 @@ function seatAway(p) {
     // Their turn: the CPU takes the next beat (drawing, or discarding if they already drew)
     clearTimeout(state.timer);
     state.timer = setTimeout(state.phase === "draw" ? cpuTurn : cpuFinishTurn,
-                             CPU_SPEEDS[state.cpuSpeed].discard);
+                             CPU_PAUSE.discard);
     render();
   } else if (roundCanAdvance() && everyoneReady()) {  // the others were only waiting for them to press Next round
     nextRound();

@@ -24,7 +24,7 @@ const closableHand = (page) => page.evaluate(() => {
   await page.evaluate(() => newGame(3));   // a full table, as these checks expect (the page starts with 1 CPU)
   await noCpuClose(page);
   await page.click('#settings-btn');            // settings live in a collapsible panel
-  await page.selectOption('#cpu-speed', 'fast');
+  await page.evaluate(() => { CPU_PAUSE.draw = 450; CPU_PAUSE.discard = 350; });   // quicker CPUs
   await page.keyboard.press('Escape');          // close the settings sheet, which covers the table
 
   const before = await handNames(page);
@@ -75,7 +75,7 @@ const closableHand = (page) => page.evaluate(() => {
   await page.evaluate(() => newGame(3));
   await noCpuClose(page);
   await page.click('#settings-btn');
-  await page.selectOption('#cpu-speed', 'fast');
+  await page.evaluate(() => { CPU_PAUSE.draw = 450; CPU_PAUSE.discard = 350; });   // quicker CPUs
   await page.keyboard.press('Escape');          // close the settings sheet, which covers the table
   check(!(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)), 'PHONE no horizontal overflow');
   await page.screenshot({ path: OUT + '/phone_table.png', fullPage: true });

@@ -96,7 +96,7 @@ Friends play on their own phones or computers. One player opens Settings → **P
 **Play with friends** in the top bar; phones have no room for it), types a
 name and creates a room; the room gets a 4-letter code (no I, L, O, 0 or 1, which look alike) and a link to share.
 The others open the link (or type the code), and the host presses Start. People take the first seats and CPUs the
-rest. The host chooses the room's rules in the create form: the deck, CPU level and speed, and the rules from
+rest. The host chooses the room's rules in the create form: the deck, CPU level, and the rules from
 Settings (copies of those dropdowns, starting at the host's own Settings; `ROOM_RULES` in `ui.js`), plus a **time per
 turn** (no limit (the default), 30 seconds, 1 minute or 2 minutes). The online sheet lists the room's rules for everyone.
 
@@ -181,12 +181,12 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 * **English and Spanish**, with a language dropdown at the top of the Settings sheet. The first visit follows the browser's language (Spanish if it starts with `es`, else English); after that the choice is remembered in `localStorage`. All text lives in `i18n.js`.
 * A slim top bar holds the title, the current round and round icon buttons for Scores, Hints, Help, Sound (on/off) and Settings.
   Settings and Scores open as sheets (from the side on a desktop, from the bottom on a phone) that close with their
-  X button, Escape or a tap on the background. Settings has the dropdowns (language, sort mode, CPUs, level, speed, deck,
+  X button, Escape or a tap on the background. Settings has the dropdowns (language, sort mode, CPUs, level, deck,
   reshuffles per round, re-entries per player, rounds per game, lay off leftovers) and New game (which also closes the sheet). Under your hand are only the play
   buttons: Sort and Close (Next round and Round results once a round is over). Hints (off by default) shows the hand
   analysis under your hand, a coloured bar under each meld (striped in both colours
   for a card that fits either meld, such as the fourth 3 in 3-3-3-3 with 4-5-6 of that 3's suit), and the best closing score on the Close button.
-* 1 human vs 1, 2 or 3 CPUs (1 by default; the "CPUs" dropdown starts a new game). With 3 CPUs on the 40-card deck, the Settings panel suggests the 48-card deck (one button switches), since four players empty the 40-card draw pile quickly, with a CPU difficulty setting (easy, medium, hard, or mixed) and an adjustable CPU speed.
+* 1 human vs 1, 2 or 3 CPUs (1 by default; the "CPUs" dropdown starts a new game). With 3 CPUs on the 40-card deck, the Settings panel suggests the 48-card deck (one button switches), since four players empty the 40-card draw pile quickly, with a CPU difficulty setting (easy, medium, hard, or mixed). The CPUs pause on each move so you can follow them (`CPU_PAUSE` in `game.js`).
 * **Online play** (Settings → Play online with friends): 2-4 people, each on their own device, with CPUs in the empty
   seats. See "Online play" below.
 * 40-card Spanish deck (1-7, 10-12) or 48-card deck (adds the 8s and 9s), which suits bigger groups.
