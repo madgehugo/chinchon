@@ -703,7 +703,7 @@ const STRINGS = {
 // are the same in every language, so a reaction never needs translating, and since nobody
 // can type their own there is nothing to check. Over the network a reaction is just its
 // position in this list (server/room.js checks the number).
-const REACTIONS = ["👍", "👏", "😂", "😮", "😅", "🔥", "🤔", "⏳"];
+const REACTIONS = ["👍", "👏", "😂", "😮", "😅", "🔥", "🤔", "😴"];
 
 const LANGUAGES  = Object.keys(STRINGS);   // ["en", "es"]
 const LANG_STORAGE_KEY = "chinchon-lang";  // where the choice is remembered (localStorage)
