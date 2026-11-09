@@ -283,18 +283,6 @@ async function main() {
   check(pia.lobby.settings.turnLimit === 30 && teo.lobby.settings.deckSize === 40, "the lobby tells everyone the room's rules");
   send(pia, { type: "start" });
   await until(() => pia.view && teo.view);
-  // Each plays until the round is over, and then never again
-  const untilRoundOver = c => { let over = false; return () => over || (over = c.view.phase === "roundOver"); };
-  autoplay(pia, untilRoundOver(pia));
-  autoplay(teo, untilRoundOver(teo));
-  check(await until(() => pia.view.phase === "roundOver" && teo.view.phase === "roundOver" && !pia.view.layoff, 20000), "the two play a round");
-  const deal = pia.view.deals;
-  send(pia, { type: "action", name: "next", args: [] });
-  check(await until(() => teo.view.ready[1]), "Teo sees that Pia pressed Next round");
-  await sleep(50);
-  check(pia.view.phase === "roundOver" && pia.view.deals === deal, "the next round waits for Teo...");
-  check(await until(() => pia.view.deals === deal + 1, 2000), "...but starts anyway once he made Pia wait long enough");
-
   send(pia, { type: "react", id: 2 });
   send(pia, { type: "react", id: 3 });                       // too soon after the first: dropped
   send(teo, { type: "react", id: 99 });
@@ -304,9 +292,28 @@ async function main() {
   check(reacts(pia).length === 1 && reacts(pia)[0].who === 0 && reacts(teo).length === 1 && reacts(teo)[0].who === 1 && reacts(teo)[0].id === 2,
         "a reaction reaches the table, from the sender's seat; one too soon after it is dropped");
 
-  // Whoever's turn it is now does nothing: after the turn limit the CPU plays for them
-  const slow = pia.view.currentPlayer === 0 ? pia : teo;
-  check(await until(() => slow.turnLeft > 0) && slow.turnLeft <= 300, "the player whose turn it is is told how long they have");
+  // The turn limit stays off while they play (on a busy machine 300 ms is short enough to
+  // hand their turns to the CPU now and then); it is back on for the next round
+  const piaRoom = server.rooms.get(pia.code);
+  piaRoom.settings.turnLimit = null;
+  // Each plays until the round is over, and then never again
+  const untilRoundOver = c => { let over = false; return () => over || (over = c.view.phase === "roundOver"); };
+  autoplay(pia, untilRoundOver(pia));
+  autoplay(teo, untilRoundOver(teo));
+  check(await until(() => pia.view.phase === "roundOver" && teo.view.phase === "roundOver" && !pia.view.layoff, 60000), "the two play a round");
+  piaRoom.settings.turnLimit = 30;
+  const deal = pia.view.deals;
+  send(pia, { type: "action", name: "next", args: [] });
+  check(await until(() => teo.view.ready[1]), "Teo sees that Pia pressed Next round");
+  await sleep(50);
+  check(pia.view.phase === "roundOver" && pia.view.deals === deal, "the next round waits for Teo...");
+  check(await until(() => pia.view.deals === deal + 1, 2000), "...but starts anyway once he made Pia wait long enough");
+
+  // Whoever's turn it is now does nothing: after the turn limit the CPU plays for them.
+  // (Found the moment it is told its time, which starts with the new round's first turn.)
+  let slow = null;
+  await until(() => (slow = [pia, teo].find(c => c.view.currentPlayer === 0 && c.view.seats[0] === "human" && c.turnLeft > 0)));
+  check(slow && slow.turnLeft <= 300, "the player whose turn it is is told how long they have");
   check(await until(() => slow.view.seats[0] === "away", 2000), "when the time is up, the CPU plays for them");
   send(slow, { type: "back" });
   check(await until(() => slow.view.seats[0] === "human"), "\"I'm back\" gives them their seat again");

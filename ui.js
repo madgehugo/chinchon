@@ -1544,24 +1544,52 @@ const TURN_WARN_MS = 15000;      // the turn bar shows in the last this-many mil
 const TURN_TICK_MS = 250;        // how often the turn bar's countdown is redrawn
 const TURN_BUZZ_MS = 200;        // the buzz when your turn comes while the game is in the background
 const REACTION_SHOW_MS = 2500;   // how long a reaction stays by the seat of whoever sent it
-// The room's rules as the online sheet lists them: [setting, label key, how its value reads].
-// (`??` = "if null or undefined, use this instead")
+// The room's rules: [setting, label key, how its value reads, its dropdown in Settings].
+// The online sheet lists them in the lobby, and the create form has a copy of each Settings
+// dropdown (made by makeRulePicks) to choose them; the time per turn has its own dropdown
+// there, since it is not one of your Settings. (`??` = "if null or undefined, use this instead")
 const showLimit = v => v === null ? t("set.noLimit") : String(v);
 const ROOM_RULES = [
-  ["deckSize",      "set.deck",         v => t(`set.deck.${v}`)],
-  ["cpuMode",       "set.level",        v => t(`level.${v}`)],
-  ["cpuSpeed",      "set.speed",        v => t(`set.speed.${v}`)],
-  ["maxReshuffles", "set.reshuffles",   showLimit],
-  ["maxReentries",  "set.reentries",    showLimit],
-  ["roundLimit",    "set.rounds",       showLimit],
-  ["layoffMode",    "set.layoff",       v => t(`set.layoff.${v}`)],
-  ["turnLimit",     "online.turnLimit", v => t(`online.turn.${v ?? "none"}`)],
+  ["deckSize",      "set.deck",         v => t(`set.deck.${v}`),         "deck-size"],
+  ["cpuMode",       "set.level",        v => t(`level.${v}`),            "cpu-mode"],
+  ["cpuSpeed",      "set.speed",        v => t(`set.speed.${v}`),        "cpu-speed"],
+  ["maxReshuffles", "set.reshuffles",   showLimit,                       "reshuffles"],
+  ["maxReentries",  "set.reentries",    showLimit,                       "reentries"],
+  ["roundLimit",    "set.rounds",       showLimit,                       "round-limit"],
+  ["layoffMode",    "set.layoff",       v => t(`set.layoff.${v}`),       "layoff"],
+  ["turnLimit",     "online.turnLimit", v => t(`online.turn.${v ?? "none"}`), null],
 ];
+// A dropdown's value as a setting: "none" is no limit (null), digits are a number ("40" -> 40),
+// anything else stays text ("hard")
+const optionValue = value => value === "none" ? null : /^\d+$/.test(value) ? Number(value) : value;
+
+// The create form's copies of the Settings dropdowns, made once at startup. cloneNode(true)
+// copies an element with everything inside it (the label, the dropdown and its options,
+// with their data-i18n keys, so they switch language with the rest of the page). Each copy
+// gets the id "online-" + the original's, so the two never mix.
+function makeRulePicks() {
+  const box = document.getElementById("online-rule-picks");
+  for (const [, , , id] of ROOM_RULES) {
+    if (!id) continue;
+    const label = document.getElementById(id).closest("label").cloneNode(true);
+    label.querySelector("select").id = `online-${id}`;
+    box.appendChild(label);
+  }
+}
+makeRulePicks();
+
+// Set the create form's rules to your own Settings (each time the online sheet opens)
+function fillRulePicks() {
+  for (const [, , , id] of ROOM_RULES) {
+    if (id) document.getElementById(`online-${id}`).value = document.getElementById(id).value;
+  }
+}
 
 function setOnlineOpen(open) {
   state.showOnline = open;
   if (open) {
     online.error = online.code ? online.error : null;   // a fresh start shows no old problem
+    if (!online.code) fillRulePicks();
     warmUpServer();                                     // (net.js) a sleeping server starts waking up now
   }
   render();
@@ -1780,14 +1808,15 @@ wirePanel("online-chip", "online-close", "online-sheet", setOnlineOpen, () => st
 document.getElementById("online-create").addEventListener("click", () => {
   const name = onlineName();
   if (!name) return;
-  // The room's game uses your settings (the server checks each value)
-  createRoom(name, {
+  // The rules chosen in the form (the server checks each value)
+  const settings = {
     players: Number(document.getElementById("online-players").value),
-    deckSize: DECK_SIZE, cpuMode: state.cpuMode, cpuSpeed: state.cpuSpeed,
-    maxReshuffles: state.maxReshuffles, maxReentries: state.maxReentries,
-    roundLimit: state.roundLimit, layoffMode: state.layoffMode,
     turnLimit: optionToLimit(document.getElementById("online-turn").value),
-  });
+  };
+  for (const [key, , , id] of ROOM_RULES) {
+    if (id) settings[key] = optionValue(document.getElementById(`online-${id}`).value);
+  }
+  createRoom(name, settings);
 });
 document.getElementById("online-join").addEventListener("click", () => {
   const name = onlineName();

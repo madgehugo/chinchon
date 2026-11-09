@@ -96,9 +96,9 @@ Friends play on their own phones or computers. One player opens Settings → **P
 **Play with friends** in the top bar; phones have no room for it), types a
 name and creates a room; the room gets a 4-letter code (no I, L, O, 0 or 1, which look alike) and a link to share.
 The others open the link (or type the code), and the host presses Start. People take the first seats and CPUs the
-rest, and the room plays with the host's Settings (deck, CPU level and speed, and the rules) plus a **time per turn**
-chosen when creating the room (no limit (the default), 30 seconds, 1 minute or 2 minutes). The online sheet lists the
-room's rules for everyone.
+rest. The host chooses the room's rules in the create form: the deck, CPU level and speed, and the rules from
+Settings (copies of those dropdowns, starting at the host's own Settings; `ROOM_RULES` in `ui.js`), plus a **time per
+turn** (no limit (the default), 30 seconds, 1 minute or 2 minutes). The online sheet lists the room's rules for everyone.
 
 * **Next round waits for everyone.** Each person presses Next round (`state.ready`, `humanNext` in `game.js`), and
   the button then says who the round is still waiting for. Once someone has pressed it, the others get 90 seconds

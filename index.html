@@ -280,6 +280,11 @@
       <label class="opt"><span data-i18n="online.name">Your name</span>
         <input id="online-name" maxlength="16" autocomplete="nickname" spellcheck="false">
       </label>
+      <h3 data-i18n="online.joinH">Join a room</h3>
+      <div class="online-join">
+        <input id="online-code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" data-i18n-aria="online.code" aria-label="Room code" placeholder="ABCD">
+        <button id="online-join" class="secondary" data-i18n="online.join">Join</button>
+      </div>
       <h3 data-i18n="online.createH">Create a room</h3>
       <label class="opt"><span data-i18n="online.players">Players at the table</span>
         <select id="online-players">
@@ -297,13 +302,11 @@
           <option value="120" data-i18n="online.turn.120">2 minutes</option>
         </select>
       </label>
-      <p class="online-note" data-i18n="online.rulesNote">The room plays with your Settings: deck, CPU level and speed, and the rules.</p>
+      <!-- The room's rules: ui.js fills this with copies of the Settings dropdowns (ROOM_RULES),
+           set to your own Settings each time the sheet opens -->
+      <div id="online-rule-picks" class="online-part"></div>
+      <p class="online-note" data-i18n="online.rulesNote">The rules start as your own Settings. Changes here are for this room only.</p>
       <button id="online-create" data-i18n="online.create">Create room</button>
-      <h3 data-i18n="online.joinH">Join a room</h3>
-      <div class="online-join">
-        <input id="online-code" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" data-i18n-aria="online.code" aria-label="Room code" placeholder="ABCD">
-        <button id="online-join" class="secondary" data-i18n="online.join">Join</button>
-      </div>
     </div>
     <div id="online-room" class="online-part" hidden>
       <p id="online-code-line"></p>

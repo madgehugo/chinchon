@@ -52,6 +52,10 @@ try { ({ startServer } = require('../../server/server')); } catch (err) {
   await ana.click('#online-create');
   check(await ana.textContent('#online-error') === await ana.evaluate(() => t('online.err.badName')), 'no name: asks for one');
   await ana.fill('#online-name', 'Ana');
+  check(await ana.inputValue('#online-deck-size') === await ana.inputValue('#deck-size') && await ana.inputValue('#online-layoff') === 'auto',
+        "the create form's rules start as Ana's own Settings");
+  await ana.selectOption('#online-deck-size', '48');   // a rule for this room only
+  await ana.selectOption('#online-round-limit', '10');
   await ana.click('#online-create');
   await ana.waitForFunction(() => online.code && online.lobby);
   const code = await ana.evaluate(() => online.code);
@@ -74,6 +78,9 @@ try { ({ startServer } = require('../../server/server')); } catch (err) {
   await luis.waitForFunction(() => online.lobby && online.lobby.people.length === 2);
   check(!(await luis.isVisible('#online-startgame')), 'only the host can start');
   check((await luis.textContent('#online-wait')).includes('Ana'), 'Luis is told who will start the game');
+  check((await luis.textContent('#online-rules')).includes('48 cartas') && (await luis.textContent('#online-rules')).includes('10'),
+        'the room has the rules Ana chose in the form');
+  check(await ana.inputValue('#deck-size') === '40', "...which did not change Ana's own Settings");
   check(await luis.locator('#online-rules dd').count() === 8 && (await luis.textContent('#online-rules')).includes('Sin límite'),
         "the lobby lists the room's rules, in Luis's language (time per turn: no limit by default)");
   check(await ana.locator('#online-people button').count() === 2 && await luis.locator('#online-people button').count() === 0,
