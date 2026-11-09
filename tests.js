@@ -1,7 +1,9 @@
 /* =========================================================
    tests.js: self-tests for the rules, run when the page loads
    ---------------------------------------------------------
-   Open the browser console (F12 > Console) to see the results. Each group
+   They run only while developing (the page opened from disk or localhost, or
+   with ?test in its address; see DEVELOPING in start.js), so players never
+   wait for them. Open the browser console (F12 > Console) to see the results. Each group
    prints one "All ... tests passed" line; a failing check logs
    "TEST FAILED: ...". tools/harness.js loads this file too.
    ========================================================= */

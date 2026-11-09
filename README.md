@@ -277,7 +277,7 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 | `CPU_EXPERIMENTS.md` | Ideas for a stronger CPU that were benchmarked and did not help, with their results. |
 | `game.js` | The game state (`state`), turns, rounds, scoring, elimination and re-entry, players leaving and coming back (online), and `ACTIONS`, the list of moves a player can make. |
 | `net.js` | Where your moves go (`act()`): into the game on this device, or to the online server; the connection, and putting the server's views into `state`. |
-| `tests.js` | Unit tests for the rules and CPU logic; they run on page load and report in the console (F12). |
+| `tests.js` | Unit tests for the rules and CPU logic; they run on page load while developing (from disk, localhost or with `?test`) and report in the console (F12). |
 | `sound.js` | Sound effects made in code with the Web Audio API (no audio files); only `ui.js` and `effects.js` call it. |
 | `tutorial.js` | The tutorial: the fixed deal, the scripted CPU (`STRATEGIES.tutorial`), the coach's steps, which moves are allowed, and the first-visit offer. Screen only, like `ui.js`. |
 | `ui.js` | Drawing the table (`render()`), clicks, touch and mouse dragging, the panels, toasts, saving settings and the game. |
@@ -403,7 +403,8 @@ node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png
 * **On GitHub** (`.github/workflows/test.yml`): every push to `main` and every pull request runs the stress test, the
   server tests and the browser tests. The results are in the repo's Actions tab (or `gh run list`). A push goes live
   before the checks finish, so look there after pushing.
-* Unit tests in `tests.js` run every time the page loads; open the console (F12) and look for
+* Unit tests in `tests.js` run every time the page loads from disk or localhost (or with `?test` in the address,
+  e.g. on GitHub Pages; `DEVELOPING` in `start.js`), but not for players; open the console (F12) and look for
   "All ... tests passed" or "TEST FAILED: ...". Each browser test prints `ok` or `FAIL` per check and exits
   with an error if any check failed.
 * `bench.js` rotates seats and the starting player, and plays every deal twice from the same seeded shuffle with the two

@@ -12,7 +12,12 @@
 /* ---------------------------------------------------------
    START: run once when the page loads
    --------------------------------------------------------- */
-if (typeof runSelfTests === "function") runSelfTests();   // results in the console (F12)
+// The self-tests (tests.js) run only while developing: opened from disk (as the browser
+// tests do), from this computer, or with ?test in the address. Players are spared the work.
+const DEVELOPING = location.protocol === "file:" ||
+                   ["localhost", "127.0.0.1"].includes(location.hostname) ||
+                   new URLSearchParams(location.search).has("test");
+if (DEVELOPING && typeof runSelfTests === "function") runSelfTests();   // results in the console (F12)
 const savedCpuCount = loadSettings();   // last visit's settings (or the defaults written in index.html)
 const resumed = loadGame();           // the game left unfinished last time, if any
 if (resumed) resumeTurn();            // carry on with it

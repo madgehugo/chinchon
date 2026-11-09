@@ -89,7 +89,8 @@ npm run test:browser                         # needs: npm install && npx playwri
 cd server && npm test                        # online server: whole games, hidden-card audit, disconnects, limits
 ```
 
-* Unit tests (`tests.js`) run on every page load and print to the browser console.
+* Unit tests (`tests.js`) run on page load while developing (`file://`, localhost or `?test`; `DEVELOPING` in `start.js`)
+  and print to the browser console.
 * UI changes: run the browser tests and look at the page at about 390px width (no horizontal overflow, cards tappable).
 * If you change the HTML ids that the browser tests use (`#close-btn`, `#results`, `#res-next`, `#lang`, ...), update them too.
 * Check the page at about 390px in both languages (`node tests/browser/language.js <dir>` saves screenshots).
