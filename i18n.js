@@ -83,6 +83,7 @@ const STRINGS = {
 
     // ---- Online play (net.js, the online sheet in ui.js; online.err.* come from the server) ----
     "online.open": "Play online with friends",
+    "online.top": "Play with friends",              // the top-bar button (wide screens)
     "online.title": "Play online",
     "online.intro": "Play with friends on their own phones or computers. One of you creates a room and shares its code. Empty seats are played by CPUs.",
     "online.name": "Your name",
@@ -366,6 +367,7 @@ const STRINGS = {
 
     // ---- Jugar en línea ----
     "online.open": "Jugar en línea con amigos",
+    "online.top": "Jugar con amigos",
     "online.title": "Jugar en línea",
     "online.intro": "Juega con amigos, cada uno en su teléfono u ordenador. Uno crea una sala y comparte su código. Los asientos libres los juega la CPU.",
     "online.name": "Tu nombre",

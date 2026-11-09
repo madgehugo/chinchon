@@ -131,6 +131,15 @@ body {
 }
 .tools { display: flex; align-items: center; gap: 6px; }
 .tools button { margin: 0; }
+/* "Play with friends" in the top bar: a pill in the room chip's gold, so it reads as the way into online play */
+#online-top {
+  min-height: 40px; padding: 6px 14px;
+  font-size: var(--fs-sm); font-weight: 700; white-space: nowrap;
+  color: var(--gold);
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-pill);
+}
 /* Button icons: line drawings (see ICON_SPRITE in ui.js), coloured by the button's text colour */
 .ui-icon { width: 20px; height: 20px; display: block; }
 
@@ -892,6 +901,7 @@ button, .pile, select, .card { -webkit-tap-highlight-color: transparent; }   /* 
   .brand { flex-direction: column; gap: 2px; align-items: flex-start; }
   h1 { font-size: 1.15rem; }
   #round-chip, #online-chip { padding: 1px 8px; font-size: .65rem; }
+  #online-top { display: none; }   /* no room for it: phones open online play from Settings */
   .tools { gap: 4px; }
   .tools button.icon { min-width: 40px; min-height: 40px; padding: 6px; }
   /* bottom sheet: full width, rounded only at the top, rising from the bottom edge */

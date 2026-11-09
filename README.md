@@ -92,7 +92,8 @@ new, update all three.
 
 ## Online play
 
-Friends play on their own phones or computers. One player opens Settings → **Play online with friends**, types a
+Friends play on their own phones or computers. One player opens Settings → **Play online with friends** (on a wide screen, also
+**Play with friends** in the top bar; phones have no room for it), types a
 name and creates a room; the room gets a 4-letter code (no I, L, O, 0 or 1, which look alike) and a link to share.
 The others open the link (or type the code), and the host presses Start. People take the first seats and CPUs the
 rest, and the room plays with the host's Settings (deck, CPU level and speed, and the rules).

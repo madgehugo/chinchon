@@ -31,9 +31,20 @@ try { ({ startServer } = require('../../server/server')); } catch (err) {
   const ana = await player('en-GB');
   const luis = await player('es-ES');
 
-  // ---- Ana creates a room from Settings ----
+  // ---- On a wide screen the top bar has "Play with friends"; a phone does not ----
+  await ana.setViewportSize({ width: 1280, height: 800 });
   await ana.goto(url);
   check(await ana.isVisible('#settings-btn'), 'the game loads from the server');
+  check(await ana.isVisible('#online-top'), 'a wide screen shows "Play with friends" in the top bar');
+  check(await ana.evaluate(() => { const bar = document.getElementById('topbar'); return bar.scrollWidth <= bar.clientWidth; }),
+        '...and the top bar still fits');
+  await ana.click('#online-top');
+  check(await ana.isVisible('#online-sheet'), '...which opens the online sheet');
+  await ana.click('#online-close');
+  await ana.setViewportSize({ width: 390, height: 844 });
+  check(!(await ana.isVisible('#online-top')), 'a phone has no such button (Settings has it)');
+
+  // ---- Ana creates a room from Settings ----
   await ana.click('#settings-btn');
   check(await ana.isVisible('#online-open'), 'Settings offers "Play online" (a server is there)');
   await ana.click('#online-open');
@@ -47,6 +58,9 @@ try { ({ startServer } = require('../../server/server')); } catch (err) {
   check(/^[A-Z2-9]{4}$/.test(code), `a room code (${code})`);
   check(await ana.isVisible('#online-startgame') && await ana.isVisible('#online-chip'), 'the host sees Start, and the room chip shows');
   await ana.screenshot({ path: `${OUT}/online-lobby-en-390.png` });
+  await ana.setViewportSize({ width: 1280, height: 800 });
+  check(!(await ana.isVisible('#online-top')) && await ana.isVisible('#online-chip'), 'in a room, the chip takes the button\'s place');
+  await ana.setViewportSize({ width: 390, height: 844 });
 
   // ---- Luis opens the shared link ----
   await luis.goto(`${url}?room=${code}`);

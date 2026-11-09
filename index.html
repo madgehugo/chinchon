@@ -51,6 +51,9 @@
     </span>
   </div>
   <div class="tools">
+    <!-- A way into online play on wide screens only (style.css hides it on phones, which
+         use Settings → Play online with friends); renderOnline in ui.js hides it in a room -->
+    <button id="online-top" class="secondary" data-i18n="online.top" hidden>Play with friends</button>
     <button id="scores-btn" class="secondary icon" aria-expanded="false" aria-controls="scores" data-i18n-title="btn.scores" data-i18n-aria="btn.scores" title="Scores" aria-label="Scores"><svg class="ui-icon" aria-hidden="true"><use href="#ico-scores"/></svg></button>
     <button id="hints-btn" class="secondary icon" aria-pressed="false" data-i18n-title="btn.hints" data-i18n-aria="btn.hints" title="Hints" aria-label="Hints"><svg class="ui-icon" aria-hidden="true"><use href="#ico-hints"/></svg></button>
     <button id="help-btn" class="secondary icon" aria-expanded="false" aria-controls="help" data-i18n-title="btn.help" data-i18n-aria="btn.help" title="Help" aria-label="Help"><svg class="ui-icon" aria-hidden="true"><use href="#ico-help"/></svg></button>

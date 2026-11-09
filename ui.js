@@ -1532,6 +1532,7 @@ function renderOnline() {
   chip.hidden = !inRoom;
   if (inRoom) chip.textContent = t("online.chip", { code: online.code });
   document.getElementById("online-open").hidden = !serverUrl();
+  document.getElementById("online-top").hidden = !serverUrl() || inRoom;   // (in a room the chip takes its place)
   document.getElementById("conn-bar").hidden = online.connection !== "lost";
   for (const id of ROOM_SETTING_IDS) document.getElementById(id).disabled = online.playing;
   if (online.playing) {
@@ -1600,11 +1601,14 @@ function roomLink() {
   return `${location.origin}${location.pathname}?${params}`;
 }
 
-// Settings opens the online sheet (and closes itself); so does the room chip in the top bar
-document.getElementById("online-open").addEventListener("click", () => {
+// "Play online" in Settings opens the online sheet (and closes Settings); so do "Play with
+// friends" in the top bar (wide screens) and the room chip
+function openOnlineSheet() {
   state.showSettings = false;
   setOnlineOpen(true);
-});
+}
+document.getElementById("online-open").addEventListener("click", openOnlineSheet);
+document.getElementById("online-top").addEventListener("click", openOnlineSheet);
 wirePanel("online-chip", "online-close", "online-sheet", setOnlineOpen, () => state.showOnline);
 
 document.getElementById("online-create").addEventListener("click", () => {
