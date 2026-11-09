@@ -4,7 +4,7 @@ A browser game of **Chinchón**, the Spanish card game: you against one to three
 Plain HTML, CSS and JavaScript, with no build step, no framework and no libraries. (The online server in `server/`
 is a small Node program with one library; the game itself needs nothing.)
 
-**Play it:** `https://madgehugo.github.io/chinchon/` (GitHub Pages; replace the placeholders with your own).
+**Play it:** `https://madgehugo.github.io/chinchon/` (GitHub Pages).
 Or download the repo and open `index.html` in a browser. It works straight from disk.
 
 ## Install on your phone
