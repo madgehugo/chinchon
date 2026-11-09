@@ -210,16 +210,23 @@ const makeHost      = seat   => sendOnline({ type: "host", seat });
 // Leave the room for good, and go back to the game on this device
 function leaveRoom() {
   sendOnline({ type: "leave" });
-  const wasPlaying = online.playing;
-  forgetRoom();
   if (online.socket) online.socket.close();
   online.socket = null;
   online.connection = "off";
+  exitRoom();
+  render();
+}
+
+// Out of the room (you left, or it is gone): forget it, and if its game was on the table,
+// bring back the game on this device. Returns true if a game was brought back.
+function exitRoom() {
+  const wasPlaying = online.playing;
+  forgetRoom();
   online.lobby = null;
   online.playing = false;
   online.turnEndsAt = null;
   if (wasPlaying) restoreLocalGame();   // (ui.js: the game you had before going online)
-  render();
+  return wasPlaying;
 }
 
 // Was this page in a room when it was last closed (a reload, the app killed in the
@@ -273,17 +280,8 @@ function handleServerMessage(m) {
       online.asking = false;
       // Our room or seat is gone (the server restarted, the room was thrown away, the host
       // removed us): stop trying, and go back to the game on this device
-      if (ROOM_GONE_ERRORS.includes(m.key)) {
-        const wasPlaying = online.playing;
-        forgetRoom();
-        online.lobby = null;
-        online.playing = false;
-        online.turnEndsAt = null;
-        if (wasPlaying) {
-          restoreLocalGame();
-          state.showOnline = true;                 // the online sheet says what happened
-        }
-      }
+      // (and if that ends a game on the table, the online sheet says what happened)
+      if (ROOM_GONE_ERRORS.includes(m.key) && exitRoom()) state.showOnline = true;
       break;
   }
   render();

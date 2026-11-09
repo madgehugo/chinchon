@@ -185,11 +185,17 @@ class Room {
     return null;
   }
 
+  // The seat numbered `target` in a message from the host, if a person still in the room sits there
+  personAt(target) {
+    const seat = Number.isInteger(target) ? this.seats[target] : null;
+    return seat && seat.token ? seat : null;
+  }
+
   // Remove player `target` from the room. During a game the CPU plays their seat to the end.
   remove(s, target) {
     if (s !== this.host) return "online.err.notHost";
-    const seat = Number.isInteger(target) ? this.seats[target] : null;
-    if (!seat || !seat.token || target === s) return "online.err.badMessage";
+    const seat = this.personAt(target);
+    if (!seat || target === s) return "online.err.badMessage";
     this.send(seat.socket, { type: "error", key: "online.err.removed" });
     if (seat.socket) seat.socket.close(4001, "removed");
     seat.socket = null;
@@ -202,8 +208,8 @@ class Room {
   // Hand the room to player `target`
   makeHost(s, target) {
     if (s !== this.host) return "online.err.notHost";
-    const seat = Number.isInteger(target) ? this.seats[target] : null;
-    if (!seat || !seat.token) return "online.err.badMessage";
+    const seat = this.personAt(target);
+    if (!seat) return "online.err.badMessage";
     this.hostSeat = seat;
     this.sendLobby();
     return null;
