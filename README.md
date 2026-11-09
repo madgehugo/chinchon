@@ -182,7 +182,9 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 * A slim top bar holds the title, the current round and round icon buttons for Scores, Hints, Help, Sound (on/off) and Settings.
   Settings and Scores open as sheets (from the side on a desktop, from the bottom on a phone) that close with their
   X button, Escape or a tap on the background. Settings has the dropdowns (language, sort mode, CPUs, level, deck,
-  reshuffles per round, re-entries per player, rounds per game, lay off leftovers) and New game (which also closes the sheet). Under your hand are only the play
+  reshuffles per round, re-entries per player, rounds per game, lay off leftovers) and New game (which also closes the sheet).
+  Each setting but the language has an (i) button that opens a short explanation under it (the `set.info.*` texts;
+  the online create form's copies of the dropdowns have them too). Under your hand are only the play
   buttons: Sort and Close (Next round and Round results once a round is over). Hints (off by default) shows the hand
   analysis under your hand, a coloured bar under each meld (striped in both colours
   for a card that fits either meld, such as the fourth 3 in 3-3-3-3 with 4-5-6 of that 3's suit), and the best closing score on the Close button.

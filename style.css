@@ -647,6 +647,24 @@ input:focus-visible { outline: 3px solid var(--info); outline-offset: 2px; }
   background: var(--glass-soft);
   border-radius: var(--r-md);
 }
+/* The (i) button after a setting's name, and the line it opens under the setting */
+.opt-name { display: inline-flex; align-items: center; gap: 4px; }
+button.info-btn {
+  margin: 0; padding: 0;
+  min-width: 0; width: 32px; min-height: 0; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-dim);
+  background: none; box-shadow: none;
+}
+button.info-btn .ui-icon { width: 18px; height: 18px; }
+button.info-btn[aria-expanded="true"] { color: var(--gold); }
+.opt-info {
+  margin: -6px 0 0; padding: 8px 14px;
+  font-size: var(--fs-xs); line-height: 1.5; color: var(--text-dim);
+  background: var(--glass-soft);
+  border-left: 3px solid var(--gold-line);
+  border-radius: var(--r-sm);
+}
 /* The 48-card suggestion: a full-width gold note inside the settings panel */
 #deck-tip {
   margin: 0; padding: 8px 12px;

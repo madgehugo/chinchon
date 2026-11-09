@@ -112,6 +112,29 @@ const closableHand = (page) => page.evaluate(() => {
   await page.screenshot({ path: OUT + '/phone_results.png' });
   check(await page.locator('#results').isVisible(), 'PHONE results panel opens');
 
+  // The (i) buttons in Settings: each opens and closes its setting's explanation, and does not
+  // open the dropdown it sits next to; the copies in the online create form open their own line
+  await page.evaluate(() => { setResultsOpen(false); setSettingsOpen(true); });
+  const infoCount = await page.locator('#settings .info-btn').count();
+  const infoTexts = await page.evaluate(() => [...document.querySelectorAll('#settings .opt-info')].every(p => p.textContent.length > 40));
+  check(infoCount === 8 && infoTexts, 'SETTINGS every setting but the language has an (i) button with its text');
+  await page.click('#settings .info-btn[aria-controls="info-reshuffles"]');
+  check(await page.isVisible('#info-reshuffles') &&
+        await page.getAttribute('#settings .info-btn[aria-controls="info-reshuffles"]', 'aria-expanded') === 'true',
+        'SETTINGS (i) opens the explanation');
+  check(await page.evaluate(() => document.activeElement.id !== 'reshuffles'), 'SETTINGS (i) does not open the dropdown');
+  check(await page.evaluate(() => { const p = document.querySelector('#settings-sheet .panel'); return p.scrollWidth <= p.clientWidth; }),
+        'SETTINGS no sideways scrolling with an explanation open');
+  await page.screenshot({ path: OUT + '/phone_settings_info.png' });
+  await page.click('#settings .info-btn[aria-controls="info-reshuffles"]');
+  check(!(await page.isVisible('#info-reshuffles')), 'SETTINGS (i) again closes it');
+  await page.evaluate(() => { setSettingsOpen(false); setOnlineOpen(true); });
+  if (await page.isVisible('#online-rule-picks')) {
+    await page.click('#online-rule-picks .info-btn[aria-controls="online-info-layoff"]');
+    check(await page.isVisible('#online-info-layoff') && !(await page.isVisible('#info-layoff')),
+          'ONLINE FORM the copied (i) button opens its own explanation');
+  }
+
   await browser.close();
   finish();
 })();

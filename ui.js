@@ -106,6 +106,11 @@ const ICON_SPRITE = `
   <symbol id="ico-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>
   </symbol>
+  <symbol id="ico-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M12 11v6"/>
+    <circle cx="12" cy="7.6" r=".6" fill="currentColor"/>
+  </symbol>
   <symbol id="ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
     <path d="M6 6l12 12M18 6L6 18"/>
   </symbol>
@@ -1260,6 +1265,20 @@ wirePanel("help-btn", "help-close", "help", setHelpOpen, () => state.showHelp);
 wirePanel("settings-btn", "settings-close", "settings-sheet", setSettingsOpen, () => state.showSettings);
 wirePanel("scores-btn", "scores-close", "scores", setScoresOpen, () => state.showScores);
 
+// The (i) buttons next to the settings: each shows or hides the line explaining its setting
+// (the element its aria-controls names). One handler on the whole page catches them all,
+// including the copies in the online create form (makeRulePicks): `closest` finds the
+// button even when the click lands on the icon inside it. Only the screen changes here,
+// nothing in the game, so this is not part of `state`.
+document.addEventListener("click", (e) => {
+  const button = e.target.closest(".info-btn");
+  if (!button) return;
+  e.preventDefault();             // the button sits inside a <label>: don't open its dropdown too
+  const info = document.getElementById(button.getAttribute("aria-controls"));
+  info.hidden = !info.hidden;
+  button.setAttribute("aria-expanded", String(!info.hidden));
+});
+
 // Language: setLanguage (i18n.js) remembers the choice and calls render()
 document.getElementById("lang").addEventListener("change", (e) => setLanguage(e.target.value));
 
@@ -1575,7 +1594,14 @@ function makeRulePicks() {
     if (!id) continue;
     const label = document.getElementById(id).closest("label").cloneNode(true);
     label.querySelector("select").id = `online-${id}`;
-    box.appendChild(label);
+    label.htmlFor = `online-${id}`;                       // (the `for` attribute)
+    // ...and its explanation line, which the copy's (i) button opens
+    const info = document.getElementById(`info-${id}`).cloneNode(true);
+    info.id = `online-info-${id}`;
+    info.hidden = true;
+    label.querySelector(".info-btn").setAttribute("aria-controls", info.id);
+    label.querySelector(".info-btn").setAttribute("aria-expanded", "false");
+    box.append(label, info);
   }
 }
 makeRulePicks();

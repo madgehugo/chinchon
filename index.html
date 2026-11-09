@@ -197,6 +197,8 @@
       <button id="deck-yes" data-i18n="confirm.yes">Start new game</button>
       <button id="deck-no" class="secondary" data-i18n="confirm.no">Keep playing</button>
     </div>
+    <!-- Each setting's (i) button shows or hides a line explaining it, just under it
+         (aria-controls names that line; the click handler is in ui.js) -->
     <div id="settings">
       <!-- Opens the online sheet; hidden when there is no server to play on (serverUrl in net.js) -->
       <button id="online-open" class="secondary" data-i18n="online.open">Play online with friends</button>
@@ -206,20 +208,22 @@
           <option value="es">Español</option>
         </select>
       </label>
-      <label class="opt"><span data-i18n="set.sortBy">Sort by</span>
+      <label class="opt" for="sort-mode"><span class="opt-name"><span data-i18n="set.sortBy">Sort by</span><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-sort-mode" data-i18n-aria="set.info" data-i18n-title="set.info" aria-label="What does this mean?" title="What does this mean?"><svg class="ui-icon" aria-hidden="true"><use href="#ico-info"/></svg></button></span>
         <select id="sort-mode">
           <option value="number" data-i18n="set.sort.number">Number</option>
           <option value="suit" data-i18n="set.sort.suit">Suit</option>
         </select>
       </label>
-      <label class="opt"><span data-i18n="set.cpus">CPUs</span>
+      <p class="opt-info" id="info-sort-mode" data-i18n="set.info.sort" hidden></p>
+      <label class="opt" for="cpu-count"><span class="opt-name"><span data-i18n="set.cpus">CPUs</span><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-cpu-count" data-i18n-aria="set.info" data-i18n-title="set.info" aria-label="What does this mean?" title="What does this mean?"><svg class="ui-icon" aria-hidden="true"><use href="#ico-info"/></svg></button></span>
         <select id="cpu-count">
           <option value="1" selected>1</option>
           <option value="2">2</option>
           <option value="3">3</option>
         </select>
       </label>
-      <label class="opt"><span data-i18n="set.level">CPU level</span>
+      <p class="opt-info" id="info-cpu-count" data-i18n="set.info.cpus" hidden></p>
+      <label class="opt" for="cpu-mode"><span class="opt-name"><span data-i18n="set.level">CPU level</span><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-cpu-mode" data-i18n-aria="set.info" data-i18n-title="set.info" aria-label="What does this mean?" title="What does this mean?"><svg class="ui-icon" aria-hidden="true"><use href="#ico-info"/></svg></button></span>
         <select id="cpu-mode">
           <option value="hard" data-i18n="level.hard">Hard</option>
           <option value="medium" data-i18n="level.medium">Medium</option>
@@ -227,18 +231,20 @@
           <option value="mixed" data-i18n="level.mixed">Mixed</option>
         </select>
       </label>
-      <label class="opt"><span data-i18n="set.deck">Deck</span>
+      <p class="opt-info" id="info-cpu-mode" data-i18n="set.info.level" hidden></p>
+      <label class="opt" for="deck-size"><span class="opt-name"><span data-i18n="set.deck">Deck</span><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-deck-size" data-i18n-aria="set.info" data-i18n-title="set.info" aria-label="What does this mean?" title="What does this mean?"><svg class="ui-icon" aria-hidden="true"><use href="#ico-info"/></svg></button></span>
         <select id="deck-size">
           <option value="40" data-i18n="set.deck.40">40 cards</option>
           <option value="48" data-i18n="set.deck.48">48 cards (with 8s and 9s)</option>
         </select>
       </label>
+      <p class="opt-info" id="info-deck-size" data-i18n="set.info.deck" hidden></p>
       <!-- With 3 CPUs on the 40-card deck the draw pile runs out often: suggest the 48-card deck.
            Shown by renderToggles in ui.js; the button switches the deck like the dropdown does. -->
       <p id="deck-tip" hidden><span data-i18n="set.deckTip">With 4 players the 40-card deck runs out quickly. The 48-card deck means fewer reshuffles.</span>
         <button id="deck-tip-btn" class="secondary" data-i18n="set.deckTipBtn">Use 48 cards</button></p>
       <!-- "none" stands for no limit (null in state.maxReshuffles / state.maxReentries / state.roundLimit) -->
-      <label class="opt"><span data-i18n="set.reshuffles">Reshuffles per round</span>
+      <label class="opt" for="reshuffles"><span class="opt-name"><span data-i18n="set.reshuffles">Reshuffles per round</span><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-reshuffles" data-i18n-aria="set.info" data-i18n-title="set.info" aria-label="What does this mean?" title="What does this mean?"><svg class="ui-icon" aria-hidden="true"><use href="#ico-info"/></svg></button></span>
         <select id="reshuffles">
           <option value="0">0</option>
           <option value="1">1</option>
@@ -248,7 +254,8 @@
           <option value="none" data-i18n="set.noLimit">No limit</option>
         </select>
       </label>
-      <label class="opt"><span data-i18n="set.reentries">Re-entries per player</span>
+      <p class="opt-info" id="info-reshuffles" data-i18n="set.info.reshuffles" hidden></p>
+      <label class="opt" for="reentries"><span class="opt-name"><span data-i18n="set.reentries">Re-entries per player</span><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-reentries" data-i18n-aria="set.info" data-i18n-title="set.info" aria-label="What does this mean?" title="What does this mean?"><svg class="ui-icon" aria-hidden="true"><use href="#ico-info"/></svg></button></span>
         <select id="reentries">
           <option value="0">0</option>
           <option value="1" selected>1</option>
@@ -256,7 +263,8 @@
           <option value="none" data-i18n="set.noLimit">No limit</option>
         </select>
       </label>
-      <label class="opt"><span data-i18n="set.rounds">Rounds per game</span>
+      <p class="opt-info" id="info-reentries" data-i18n="set.info.reentries" hidden></p>
+      <label class="opt" for="round-limit"><span class="opt-name"><span data-i18n="set.rounds">Rounds per game</span><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-round-limit" data-i18n-aria="set.info" data-i18n-title="set.info" aria-label="What does this mean?" title="What does this mean?"><svg class="ui-icon" aria-hidden="true"><use href="#ico-info"/></svg></button></span>
         <select id="round-limit">
           <option value="none" data-i18n="set.noLimit" selected>No limit</option>
           <option value="5">5</option>
@@ -265,14 +273,16 @@
           <option value="20">20</option>
         </select>
       </label>
+      <p class="opt-info" id="info-round-limit" data-i18n="set.info.rounds" hidden></p>
       <!-- Laying off leftover cards onto other players' melds after a close (state.layoffMode) -->
-      <label class="opt"><span data-i18n="set.layoff">Lay off leftovers</span>
+      <label class="opt" for="layoff"><span class="opt-name"><span data-i18n="set.layoff">Lay off leftovers</span><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-layoff" data-i18n-aria="set.info" data-i18n-title="set.info" aria-label="What does this mean?" title="What does this mean?"><svg class="ui-icon" aria-hidden="true"><use href="#ico-info"/></svg></button></span>
         <select id="layoff">
           <option value="auto" data-i18n="set.layoff.auto" selected>Automatic</option>
           <option value="manual" data-i18n="set.layoff.manual">Manual</option>
           <option value="none" data-i18n="set.layoff.none">Off</option>
         </select>
       </label>
+      <p class="opt-info" id="info-layoff" data-i18n="set.info.layoff" hidden></p>
       <button id="new-game" data-i18n="btn.newGame">New game</button>
       <!-- Keyboard help: style.css hides it on touch-only devices -->
       <p class="keys-help" data-i18n="set.keys">Keys: 1-8 discard · D draw pile · T take discard · C close · S sort · Enter next round · H help</p>
