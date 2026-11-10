@@ -87,6 +87,17 @@ new, update all three.
     Google's sense.
   * Deletion: the data is deleted by itself when the room is thrown away, and there is nothing stored to ask to
     delete. Say so if the form asks.
+* **Feedback reports** (Report a bug or send an idea) add, only when a player chooses to send one: the
+  **message** they type, an optional **email address** for an answer, and for bug reports a few **diagnostics**
+  (browser and device as the user agent, screen size, web or store app, language, game settings and where the game
+  is; no cards, no names). They are passed on to the developer as an issue in a private GitHub repository and kept
+  there until deleted; the game server keeps no copy.
+  * App Store: **User Content → Customer Support**, **Contact Info → Email Address** (optional) and **Diagnostics →
+    Other Diagnostic Data**; purpose **App Functionality** (and Apple's "Developer's Advertising" etc. **no**);
+    tracking **No**; the email address is **linked** to the user (it names them), the others are not.
+  * Play Console: **Messages → Other in-app messages**, **Personal info → Email address** (optional) and **App info
+    and performance → Diagnostics**; collected, not shared (GitHub and Render are service providers); optional;
+    purpose **App functionality**; not processed ephemerally; deletion on request (by email or an issue).
 * **Not declared:** the IP address that every internet connection carries. It is not used, stored or turned into a
   location by the game; only Render's ordinary connection logs see it (mentioned in `privacy.html`).
 
@@ -173,14 +184,34 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 5. The store listings change: the privacy answers become "data is collected" (see `privacy.html`): the nickname you
    type and your moves are sent to the server, used only to run the game, kept in memory only for the life of the
    room, and never shared or sold. Not linked to your identity, not used for tracking.
+6. Feedback reports (optional; see "Feedback" below): create a **private** GitHub repository for them
+   (e.g. `madgehugo/chinchon-feedback`) and a fine-grained personal access token (GitHub → Settings → Developer
+   settings → Fine-grained tokens) for **only that repository**, with the one permission **Issues: Read and
+   write**. On Render set `FEEDBACK_REPO=madgehugo/chinchon-feedback` and `FEEDBACK_GITHUB_TOKEN=<the token>`
+   (Environment → add as a secret). Without them reports are only printed in Render's logs. Tokens expire: set a
+   reminder to make a new one.
 
 | In `server/` | What it is |
 | --- | --- |
 | `server.js` | The HTTP and WebSocket server: the message types (listed at the top), checking what pages send (nicknames, origins, message size, a rate limit per connection and a limit on room tries per address), rooms by code, the heartbeat, telling players when it stops, and serving the game files. |
 | `room.js` | One room: the lobby, the seats and their tokens, the host's tools, loading the engine and starting the game, players going away and coming back, joining late, the turn limit and the wait for Next round, reactions, pausing, the tally of wins, and sending each player their view. |
 | `view.js` | `viewFor(state, seat)`: what one player may see, renumbered so that they are seat 0. |
-| `test.js` | Server tests (`npm test`): whole games with scripted players, a check that no view ever holds a card that player may not see, disconnect and rejoin, the heartbeat, Next round, the turn limit, reactions, pausing, joining late, the host's tools, the limits, and stopping. |
+| `feedback.js` | Feedback reports: `cleanReport` (what a report may hold), `issueFor` (the GitHub issue, with the player's text in code blocks) and `forward` (to GitHub, or the console when no token is set). |
+| `test.js` | Server tests (`npm test`): whole games with scripted players, a check that no view ever holds a card that player may not see, disconnect and rejoin, the heartbeat, Next round, the turn limit, reactions, pausing, joining late, the host's tools, feedback reports, the limits, and stopping. |
 | `package.json` | Its one dependency, [`ws`](https://github.com/websockets/ws) (the WebSocket server), pinned to an exact version. |
+
+## Feedback
+
+**Report a bug or send an idea** (in Settings, and at the bottom of Help) opens a sheet where a player picks what
+it is about, types up to 1,000 characters and may leave an email address for an answer. A bug report also carries
+a few details, listed in the sheet before sending: the browser and device (user agent), screen size, web /
+installed / store app, language, the game's settings, and the round, turn and phase (`feedbackDetails` in
+`ui_feedback.js`); no cards and no names. The report travels over the online server's WebSocket (`sendFeedback` in
+`net.js`, which opens a connection just for it when you are not playing online, and closes it after), so the game
+still makes no other requests. The server checks it (`cleanReport` in `server/feedback.js`), allows 5 per address
+per hour and 200 a day in all, and opens an issue in a private GitHub repository (`forward`), or prints it in the
+log when `FEEDBACK_GITHUB_TOKEN` / `FEEDBACK_REPO` are not set (setup: step 6 of "Deploying the server"). With no
+internet the sheet says it could not reach the server and keeps the text.
 
 ## Features
 
@@ -293,10 +324,11 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 | `ui.js` | Drawing the table (`render()`), clicks, touch and mouse dragging, the panels, toasts, saving settings and the game. |
 | `effects.js` | Card animations, sounds at the right moments, score pop-ups and the Chinchón fireworks (`animateChanges`, called at the end of `render()`). |
 | `ui_online.js` | The online screens: the online sheet (create or join a room, the room's rules, the people in it), the turn countdown, the pause bar, reactions, the tab title. |
+| `ui_feedback.js` | The feedback sheet: a bug report or an idea, with the details a bug report carries shown before sending. |
 | `start.js` | Startup, run once after every other file has loaded: settings, the saved game, rejoining a room, the tutorial offer, the service worker and the store app's hooks. |
 | `social.html`, `icons/social.png` | The picture shown when the game's link is shared (the `og:` tags in `index.html`); `tools/make_social.js` screenshots the HTML into the PNG. Not loaded by the game. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons, and the store apps' icons and launch screens), `make_social.js` (draws the link-preview picture). |
-| `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups, Chinchón fireworks and sound, saving and resuming, your record, the tutorial, installing and offline play, the store app's back button and pause save, two people playing online); `helpers.js` holds what they share. |
+| `tests/browser/` | Playwright browser tests (drag, touch, results panel, laying off and the striped Hints bar, 1-3 CPU layouts, phone layout, animations, language switch, toasts, pop-ups, Chinchón fireworks and sound, saving and resuming, your record, the tutorial, installing and offline play, the store app's back button and pause save, two people playing online, the feedback sheet); `helpers.js` holds what they share. |
 | `build_single.py` | Optional: bundles everything into one `chinchon-single.html` for emailing or hosting as one file (it plays the same, but cannot be installed as an app). |
 | `privacy.html` | The privacy policy page the app stores ask for (English and Spanish). Not part of the game. |
 | `app/` | The App Store and Google Play apps (see "Phone app" above). |
@@ -304,7 +336,7 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 | `CLAUDE.md` | Notes for Claude Code (and a useful summary for any contributor). |
 
 The scripts share one global scope, so the order of the `<script>` tags in `index.html` matters: each file may use what
-the files above it define (`rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, tutorial.js, ui.js, effects.js, ui_online.js, start.js`). A file may also call, from inside its functions, what later files define, as long as
+the files above it define (`rules.js, i18n.js, ai.js, game.js, net.js, tests.js, sound.js, tutorial.js, ui.js, effects.js, ui_online.js, ui_feedback.js, start.js`). A file may also call, from inside its functions, what later files define, as long as
 that only happens once `start.js` has run (`render()` in `ui.js` calls `animateChanges` from `effects.js`). They are plain scripts rather than ES modules so
 the game also works from `file://`, where browsers block modules.
 
@@ -405,7 +437,7 @@ node tools/bench.js 3200 finish smart 48 --reshuffles 2   # 48-card deck, at mos
 node tools/bench.js 6400 "hard:takeMargin=1.5" hard --players 2 --jobs 8   # a 1v1 table (default 4 players)
 npm install && npx playwright install chromium    # once, for the browser tests
 cd server && npm install && cd ..  # once, for the online tests (the server's one library)
-npm run test:browser              # drag, touch, results panel, laying off, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound, resume, tutorial, offline, store app, online
+npm run test:browser              # drag, touch, results panel, laying off, 1-3 CPU layouts, phone layout, animations, language switch, toasts and sound, resume, tutorial, offline, store app, online, feedback
 cd server && npm test             # the online server: whole games, the hidden-card check, disconnects, limits
 node tools/make_icons.js          # after changing icon.svg: redraws icons/*.png and the app/ icons (commit them)
 ```

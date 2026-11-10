@@ -40,6 +40,7 @@
        sound.js   sound effects, made in code (Web Audio)
        tutorial.js the guided first round (coach, fixed deal, scripted CPU)
        ui.js      drawing the table, clicks, dragging, startup
+       ui_feedback.js the feedback sheet (bug reports and ideas, sent through the online server)
        sw.js      offline copy for the installed app (not a <script> below; ui.js registers it)
        manifest.webmanifest, icons/   the app's name and icons when installed on a phone
      The scripts share one global scope, so the ORDER below matters:
@@ -210,6 +211,8 @@
     <div id="settings">
       <!-- Opens the online sheet; hidden when there is no server to play on (serverUrl in net.js) -->
       <button id="online-open" class="secondary" data-i18n="online.open">Play online with friends</button>
+      <!-- Opens the feedback sheet; hidden when there is no server to send reports through -->
+      <button id="feedback-open" class="secondary" data-i18n="fb.open">Report a bug or send an idea</button>
       <label class="opt"><span data-i18n="lang.label">Language</span>
         <select id="lang">
           <option value="en">English</option>
@@ -410,6 +413,43 @@
   </div>
 </div>
 
+<!-- Feedback: a bug report or an idea for the developer. A sheet like Settings, opened from
+     Settings or Help. ui_feedback.js draws it and sends the report through the online
+     server (sendFeedback in net.js); a bug report also carries the details listed in
+     #feedback-details, which the player can open and read before sending. -->
+<div id="feedback-sheet" class="overlay sheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+    <div class="sheet-head">
+      <h2 id="feedback-title" data-i18n="fb.title">Feedback</h2>
+      <button id="feedback-close" class="secondary icon" data-i18n-aria="btn.closeHelp" data-i18n-title="btn.closeHelp" aria-label="Close" title="Close"><svg class="ui-icon" aria-hidden="true"><use href="#ico-close"/></svg></button>
+    </div>
+    <div class="online-part">
+      <p class="online-note" data-i18n="fb.intro">Found a bug, or have an idea for the game? Tell the developer here.</p>
+      <label class="opt"><span data-i18n="fb.kind">About</span>
+        <select id="feedback-kind">
+          <option value="bug" data-i18n="fb.kind.bug">A bug</option>
+          <option value="idea" data-i18n="fb.kind.idea">An idea</option>
+          <option value="other" data-i18n="fb.kind.other">Something else</option>
+        </select>
+      </label>
+      <label for="feedback-text" class="feedback-label" data-i18n="fb.text">What happened, or what would you like?</label>
+      <textarea id="feedback-text" rows="6" maxlength="1000"></textarea>
+      <p id="feedback-count" class="online-note"></p>
+      <label for="feedback-contact" class="feedback-label" data-i18n="fb.contact">Your email, if you would like an answer (optional)</label>
+      <input id="feedback-contact" maxlength="100" inputmode="email" autocomplete="email" spellcheck="false">
+      <!-- Bugs only: what else is sent, so nothing goes without the player being able to see it -->
+      <details id="feedback-details-box">
+        <summary data-i18n="fb.details">Also sent with a bug report</summary>
+        <p class="online-note" data-i18n="fb.detailsNote">Your device, browser and screen size, the language, the game's settings and where the game is. No cards and no names.</p>
+        <pre id="feedback-details"></pre>
+      </details>
+      <button id="feedback-send" data-i18n="fb.send">Send</button>
+      <p id="feedback-status" class="online-note" role="status" hidden></p>
+      <p id="feedback-error" role="alert" hidden></p>
+    </div>
+  </div>
+</div>
+
 <!-- Help: the rules, what each setting does and the keyboard keys. Opened by the ? button
      (or the H key). <details>/<summary> is a built-in fold-out section, so on a phone you open
      only the part you want; no JavaScript needed. All the text comes from the help.* keys in
@@ -495,6 +535,7 @@
       <p class="keys-help" data-i18n="help.keys"></p>
     </details>
     <div class="panel-buttons">
+      <button id="help-feedback" class="secondary" data-i18n="fb.open">Report a bug or send an idea</button>
       <button id="help-close" data-i18n="btn.closeHelp">Close</button>
     </div>
   </div>
@@ -511,6 +552,7 @@
 <script src="ui.js"></script>
 <script src="effects.js"></script>
 <script src="ui_online.js"></script>
+<script src="ui_feedback.js"></script>
 <script src="start.js"></script>
 </body>
 </html>

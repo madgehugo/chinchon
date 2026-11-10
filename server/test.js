@@ -16,6 +16,7 @@
      - the next round waits for everyone (or starts anyway after a while), the turn
        limit, reactions, pausing, joining during a game, the room's tally of wins
      - the host's tools: seats, removing a player, handing the room over
+     - feedback reports: cleaned, passed on (to a stand-in for GitHub), their limits
      - the limits: nickname cleaning, unknown rooms, full rooms, the host, origins,
        flooding, tries per address; and the goodbye when the server stops
    Exits with a non-zero code if anything failed.
@@ -53,6 +54,16 @@ viewModule.viewFor = (state, me, deckSize) => {
   auditView(state, me, view);
   return view;
 };
+// Feedback reports go to this stand-in instead of GitHub (server.js calls feedback.forward,
+// so replacing it here, before server.js loads, is enough). forwardFails makes it fail.
+const feedbackModule = require("./feedback");
+const forwarded = [];
+let forwardFails = false;
+feedbackModule.forward = async (report) => {
+  if (forwardFails) throw new Error("GitHub is down (test)");
+  forwarded.push(report);
+};
+const { cleanReport, issueFor } = feedbackModule;
 const { startServer, cleanName, originAllowed } = require("./server");
 
 let failures = 0;
@@ -411,12 +422,50 @@ async function main() {
   }
   check(await until(() => guesser.errors.includes("online.err.tooMany")), "an address trying too many rooms is told to wait");
 
+  // ---- Feedback reports ----
+  const r = cleanReport({ kind: "bug", text: "  It froze\u0007 \r\nafter a close  ",
+                          details: { userAgent: "Test/1", round: 3, phase: { a: 1 }, secret: "x" } });
+  check(r && r.text === "It froze \nafter a close" && r.contact === "" &&
+        JSON.stringify(r.details) === JSON.stringify({ userAgent: "Test/1", round: 3 }),
+        "cleanReport: control characters out, only known details that are plain values");
+  check(cleanReport({ kind: "rant", text: "x" }) === null && cleanReport({ kind: "idea", text: "   " }) === null &&
+        cleanReport({ kind: "idea", text: "x".repeat(1001) }) === null && cleanReport({ kind: "idea", text: 5 }) === null &&
+        cleanReport({ kind: "idea", text: "x", contact: "y".repeat(101) }) === null,
+        "cleanReport: a bad kind, an empty, too long or non-text message, a too long contact are refused");
+  check(cleanReport({ kind: "idea", text: "😀".repeat(1000) }) !== null, "...and 1000 emoji are 1000 characters, not 2000");
+  const sneaky = issueFor(cleanReport({ kind: "other", text: "```\n@someone [x](https://evil.example)\n```", contact: "@me" }));
+  check(sneaky.body.includes("````\n```\n@someone [x](https://evil.example)\n```\n````") && sneaky.body.includes("```\n@me\n```") &&
+        sneaky.title.startsWith("[other] "),
+        "issueFor: the player's text sits in a code block it cannot close (no links or @mentions)");
+
+  const reporter = await connect(port);                       // never joins a room
+  const answers = () => reporter.inbox.filter(m => m.type === "feedbackSent" || m.type === "error").length;
+  const report = { type: "feedback", kind: "bug", text: "The cards vanished", contact: "a@b.c", details: { lang: "en", evil: "x" } };
+  send(reporter, report);
+  check(await until(() => reporter.inbox.some(m => m.type === "feedbackSent")) && forwarded.length === 1 &&
+        forwarded[0].text === "The cards vanished" && forwarded[0].contact === "a@b.c" && !("evil" in forwarded[0].details),
+        "a report is passed on without being in a room, and the page is told");
+  send(reporter, { type: "feedback", kind: "bug", text: "" });
+  check(await until(() => reporter.errors.includes("feedback.err.bad")), "an empty report is refused");
+  forwardFails = true;
+  send(reporter, report);
+  check(await until(() => reporter.errors.includes("feedback.err.failed")), "a report that cannot be delivered: the page is told");
+  forwardFails = false;
+  for (let i = 0; i < 3; i++) {                               // (one at a time: each waits for its answer)
+    const before = answers();
+    send(reporter, report);
+    await until(() => answers() > before);
+  }
+  send(reporter, report);
+  check(await until(() => reporter.errors.includes("feedback.err.tooMany")) && forwarded.length === 4,
+        "the sixth report from one address in an hour is refused");
+
   check(auditFailures === 0 && audited > 100, `hidden-card audit: ${audited} views checked, nothing leaked`);
 
   // ---- The server stops: everyone is told why ----
   await server.shutdown();
   check(pia.errors.includes("online.err.restart") && pia.closedWith === 1012, "when the server stops, every player is told it restarted");
-  for (const c of [lone, ana, back, late, solo, other, third, pia, teo, mia, rob, host, j1, j2, ghost, guesser]) c.socket.terminate();
+  for (const c of [lone, ana, back, late, solo, other, third, pia, teo, mia, rob, host, j1, j2, ghost, guesser, reporter]) c.socket.terminate();
   console.log(failures ? `${failures} FAILED` : "server tests passed");
   process.exit(failures ? 1 : 0);
 }

@@ -25,6 +25,9 @@
    soon as the online sheet opens (warmUpServer), and the sheet says the server is
    waking up when it takes a while.
 
+   The same connection carries feedback reports (sendFeedback, for ui_feedback.js),
+   opening one just for the report when you are not playing online.
+
    This file never touches the page: it changes `online` and `state` and calls
    render(), like game.js. The online sheet in ui.js shows `online`.
    ========================================================= */
@@ -63,6 +66,10 @@ const online = {
   turnEndsAt: null,    // when your time for this turn runs out (Date.now() time), or null if no limit is running
   reaction: null,      // the latest reaction from anyone: { who, id, n } (n counts them, so ui.js shows each once)
   lastPong: 0,         // when the server last answered a ping (checkConnection)
+  // A feedback report (sendFeedback): status "idle" | "sending" | "sent" | "failed", the
+  // error key if it failed, and the report itself while it waits for the connection to open
+  feedback: { status: "idle", error: null, waiting: null },
+  feedbackSocket: null, // a connection opened only for feedback, closed again once it is answered
 };
 
 // Do move `name` (one of ACTIONS in game.js) with its arguments, as you (seat 0).
@@ -125,6 +132,10 @@ function connectOnline() {
     online.tries = 0;
     if (online.code && online.token) sendOnline({ type: "rejoin", code: online.code, token: online.token });
     else sendQueued();
+    if (online.feedback.waiting) {
+      sendOnline(online.feedback.waiting);
+      online.feedback.waiting = null;
+    }
     render();
   });
   socket.addEventListener("message", (e) => {
@@ -136,6 +147,8 @@ function connectOnline() {
     if (online.socket !== socket) return;          // an old connection we replaced
     online.socket = null;
     online.waking = false;
+    // A report on its way gets no answer now: say so (the sheet keeps the text, to try again)
+    if (online.feedback.status === "sending") online.feedback = { status: "failed", error: "online.err.noServer", waiting: null };
     if (online.code) {
       // In a room: keep trying, more slowly each time (backoff)
       online.connection = "lost";
@@ -215,6 +228,36 @@ const setRoomPlayers = n     => sendOnline({ type: "players", players: n });
 const removePlayer  = seat   => sendOnline({ type: "remove", seat });
 const makeHost      = seat   => sendOnline({ type: "host", seat });
 
+// Send a report to the developer: { kind, text, contact, details } (see server/feedback.js).
+// It goes at once if the connection is open, or when it opens; with no connection, one is
+// opened for it (and closed again by feedbackAnswered).
+function sendFeedback(report) {
+  const message = { type: "feedback", ...report };      // (...: copy in the report's fields)
+  online.feedback = { status: "sending", error: null, waiting: null };
+  if (online.socket && online.socket.readyState === WebSocket.OPEN) sendOnline(message);
+  else {
+    online.feedback.waiting = message;
+    if (!online.socket) { connectOnline(); online.feedbackSocket = online.socket; }
+  }
+  render();
+}
+// The server answered a report (status "sent" or "failed")
+function feedbackAnswered(status, error) {
+  online.feedback = { status, error, waiting: null };
+  closeFeedbackSocket();
+}
+// Close the connection opened only for feedback (the feedback sheet opens one as it opens,
+// so a sleeping server wakes up while you type), unless the online sheet or a room is
+// using it by now, or a report is still on its way
+function closeFeedbackSocket() {
+  const socket = online.socket;
+  if (socket && socket === online.feedbackSocket && online.feedback.status !== "sending" &&
+      !online.code && !online.queued && !online.asking && !state.showOnline) {
+    socket.close();                              // (its "close" event sets the connection to "off")
+  }
+  if (online.feedback.status !== "sending") online.feedbackSocket = null;
+}
+
 // Leave the room for good, and go back to the game on this device
 function leaveRoom() {
   sendOnline({ type: "leave" });
@@ -288,7 +331,15 @@ function handleServerMessage(m) {
     case "pong":
       online.lastPong = Date.now();
       return;                                      // (nothing to redraw)
+    case "feedbackSent":
+      feedbackAnswered("sent", null);
+      break;
     case "error":
+      // About a feedback report: for the feedback sheet, not the online one
+      if (typeof m.key === "string" && m.key.startsWith("feedback.err.")) {
+        feedbackAnswered("failed", m.key);
+        break;
+      }
       online.error = m.key;
       online.asking = false;
       // Our room or seat is gone (the server restarted, the room was thrown away, the host

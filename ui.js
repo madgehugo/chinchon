@@ -506,6 +506,7 @@ function render() {
   renderToggles();
   renderOnline();
   renderReactions();
+  renderFeedback();
   renderStatus();
   renderTitle();
   renderTutorial();                   // (tutorial.js) after renderControls, whose buttons it may hide
@@ -941,7 +942,8 @@ function setHelpOpen(open) {
 // Escape (and Android's back button in the phone app): close the panel on top.
 // Returns false if none was open.
 function closeTopPanel() {
-  if (state.showHelp) setHelpOpen(false);             // the help opens on top of the others
+  if (feedbackOpen) setFeedbackOpen(false);           // (ui_feedback.js)
+  else if (state.showHelp) setHelpOpen(false);        // the help opens on top of the others
   else if (state.showOnline) setOnlineOpen(false);
   else if (state.showSettings) setSettingsOpen(false);
   else if (state.showScores) setScoresOpen(false);
@@ -1339,17 +1341,17 @@ document.getElementById("res-newgame").addEventListener("click", () => {
 //   D draw pile, T take the top discard, C close (or cancel closing), S sort,
 //   Enter next round, H help, Escape close the open panel or hide the results panel.
 // While a panel (help, settings, scores) is open, only H and Escape work: no moves behind it.
-// Keys are ignored while a dropdown has the focus or Ctrl/Cmd/Alt is held (browser shortcuts).
+// Keys are ignored while a dropdown or text box has the focus or Ctrl/Cmd/Alt is held (browser shortcuts).
 // On a focused button (the one you clicked last) Enter and Space press that button, as usual.
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { closeTopPanel(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey || dragFrom !== null) return;
-  if (["SELECT", "INPUT"].includes(e.target.tagName)) return;
+  if (["SELECT", "INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
 
   const key = e.key.toLowerCase();
   if (e.target.tagName === "BUTTON" && (key === "enter" || key === " ")) return;
   if (key === "h") { setHelpOpen(!state.showHelp); e.preventDefault(); return; }
-  if (state.showHelp || state.showSettings || state.showScores || state.showOnline) return;
+  if (state.showHelp || state.showSettings || state.showScores || state.showOnline || feedbackOpen) return;
   if (key >= "1" && key <= "9" && key.length === 1) {
     const index = Number(key) - 1;
     const el = document.querySelectorAll("#hand-0 .card")[index];

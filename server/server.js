@@ -26,6 +26,9 @@
        remove  { seat }             the host removes a player from the room
        host    { seat }             the host hands the room to another player
        ping    {}                   "are you there?" (the page checks its connection when it wakes up)
+       feedback { kind, text, contact, details }
+                                    a bug report or idea for the developer (server/feedback.js);
+                                    works without being in a room
        leave   {}                   leave the room for good
      server -> page
        joined  { code, token }      you are in; keep the token to rejoin
@@ -36,6 +39,7 @@
                                     milliseconds you have left for your turn (null: no limit running)
        react   { who, id }          somebody's reaction (who: their seat, in your numbering)
        pong    {}                   the answer to ping
+       feedbackSent {}              your report was passed on
        error   { key }              something went wrong; key is a text key in i18n.js
 
    The server also sends a WebSocket "ping" frame every HEARTBEAT_MS, which
@@ -57,10 +61,12 @@ const vm = require("vm");
 const crypto = require("crypto");
 const { WebSocketServer } = require("ws");
 const { Room } = require("./room");
+const feedback = require("./feedback");      // (used as feedback.forward, so the tests can swap it)
 
 const PORT = Number(process.env.PORT) || 8080;
 const MAX_ROOMS = 500;                       // rooms at once (a bound on memory use)
-const MAX_MESSAGE_BYTES = 4096;              // a bigger message is refused (the biggest real one is ~300 bytes)
+const MAX_MESSAGE_BYTES = 8192;              // a bigger message is refused (the biggest real one is a feedback
+                                             // report: 1,000 characters can be ~3 KB in UTF-8, plus its details)
 const RATE_PER_SECOND = Number(process.env.RATE_PER_SECOND) || 10;   // messages a connection may send per second, on average...
                                              // (test.js raises it: its players move far faster than people)
 const RATE_BURST = 30;                       // ...and in one burst
@@ -68,6 +74,8 @@ const ROOM_TRIES_PER_MINUTE = Number(process.env.ROOM_TRIES_PER_MINUTE) || 30;  
                                              // (room codes are short: this stops anyone trying them all)
 const HEARTBEAT_MS = Number(process.env.HEARTBEAT_MS) || 15 * 1000;   // how often to check that each connection is still alive
 const MAX_NAME = 16;                         // characters in a nickname
+const FEEDBACK_PER_HOUR = 5;                 // feedback reports from one address per hour
+const FEEDBACK_PER_DAY = 200;                // ...and from everyone together per day (so a flood never reaches GitHub)
 const EMPTY_ROOM_MS = 30 * 60 * 1000;        // a room nobody has been connected to for this long is thrown away
 const SWEEP_EVERY_MS = 60 * 1000;            // how often to look for such rooms
 const SHUTDOWN_WAIT_MS = 500;                // when stopping, time for the goodbye messages to go out
@@ -152,6 +160,8 @@ function newCode(rooms) {
 function startServer(port = PORT) {
   const rooms = new Map();                   // code -> Room
   const tries = new Map();                   // address -> create/join/rejoin messages this minute (emptied by the sweeper)
+  const reports = new Map();                 // address -> feedback reports this hour (emptied by the sweeper)
+  const today = { day: "", reports: 0 };     // feedback reports from everyone on `day` (a "2026-11-10" date)
   const httpServer = http.createServer(serveFile);
   const wss = new WebSocketServer({
     server: httpServer,
@@ -179,9 +189,10 @@ function startServer(port = PORT) {
     // What this connection is: which room and seat (once it has joined), and its message allowance.
     // The seat is kept as the object in room.seats, not its number: in the lobby the numbers
     // move up when someone leaves. seatNumber() looks the number up when it is needed.
-    const conn = { room: null, seat: null, allowance: RATE_BURST, last: Date.now() };
+    const conn = { room: null, seat: null, allowance: RATE_BURST, last: Date.now(), reporting: false };
     const seatNumber = () => conn.room.seats.indexOf(conn.seat);
-    const send = message => socket.send(JSON.stringify(message));
+    // (readyState 1 = OPEN: a feedback answer may come after the connection closed)
+    const send = message => { if (socket.readyState === 1) socket.send(JSON.stringify(message)); };
     const fail = key => send({ type: "error", key });
     const address = clientAddress(req);
     // One more try at a room from this address: false once it has had its share this minute
@@ -254,6 +265,25 @@ function startServer(port = PORT) {
         }
         case "ping":
           return send({ type: "pong" });
+        case "feedback": {
+          if (conn.reporting) return fail("feedback.err.tooMany");      // one report at a time
+          const report = feedback.cleanReport(m);
+          if (!report) return fail("feedback.err.bad");
+          const day = new Date().toISOString().slice(0, 10);
+          if (today.day !== day) { today.day = day; today.reports = 0; }
+          if ((reports.get(address) || 0) >= FEEDBACK_PER_HOUR || today.reports >= FEEDBACK_PER_DAY) {
+            return fail("feedback.err.tooMany");
+          }
+          reports.set(address, (reports.get(address) || 0) + 1);
+          today.reports++;
+          conn.reporting = true;
+          // forward() finishes later (it waits for GitHub): .then runs when it worked, .catch when not
+          feedback.forward(report)
+            .then(() => send({ type: "feedbackSent" }))
+            .catch((err) => { console.error("feedback not delivered:", err.message); fail("feedback.err.failed"); })
+            .finally(() => { conn.reporting = false; });
+          return;
+        }
         case "leave": {
           if (!room) return;
           room.disconnect(seatNumber(), true, socket);
@@ -282,9 +312,11 @@ function startServer(port = PORT) {
   }, HEARTBEAT_MS);
 
   // Throw away rooms that have been empty for too long (or lost every player in the lobby),
-  // and start counting everyone's tries at rooms afresh
+  // and start counting everyone's tries at rooms afresh (and their feedback reports, hourly)
+  let sweeps = 0;
   const sweeper = setInterval(() => {
     tries.clear();
+    if (++sweeps % 60 === 0) reports.clear();      // (once an hour: every 60th sweep of a minute)
     const now = Date.now();
     for (const [code, room] of rooms) {
       const empty = room.seats.length === 0 || (room.emptySince !== null && now - room.emptySince > EMPTY_ROOM_MS);

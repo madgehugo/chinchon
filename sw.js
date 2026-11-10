@@ -28,7 +28,7 @@ const APP_FILES = [
   "index.html",
   "style.css",
   "rules.js", "i18n.js", "ai.js", "game.js", "net.js", "tests.js", "sound.js", "tutorial.js", "ui.js",
-  "effects.js", "ui_online.js", "start.js",
+  "effects.js", "ui_online.js", "ui_feedback.js", "start.js",
   "favicon.svg",
   "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png",

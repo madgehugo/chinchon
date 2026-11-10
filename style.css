@@ -607,6 +607,18 @@ input {
   box-shadow: var(--shadow-1);
 }
 input:focus-visible { outline: 3px solid var(--info); outline-offset: 2px; }
+/* The feedback sheet's message box: like a text box, but a rounded block, not a pill */
+textarea {
+  width: 100%; box-sizing: border-box;   /* (border-box: the padding counts inside the 100%) */
+  padding: 10px 12px; resize: vertical;
+  font: inherit; font-size: 16px; line-height: 1.4;
+  color: var(--ink);
+  background: var(--paper);
+  border: 0;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+}
+textarea:focus-visible { outline: 3px solid var(--info); outline-offset: 2px; }
 
 /* ---------- Under the table: play buttons, re-entry bar, hints ---------- */
 #analysis {
@@ -722,6 +734,15 @@ button.info-btn[aria-expanded="true"] { color: var(--gold); }
 #online-rules dd { margin: 0; text-align: right; font-weight: 700; }
 #online-waking { margin-top: 12px; }
 
+/* ---------- The feedback sheet ---------- (laid out like the online sheet: .online-part) */
+.feedback-label { font-size: var(--fs-sm); font-weight: 600; }
+#feedback-count { margin-top: -6px; text-align: right; font-variant-numeric: tabular-nums; }
+#feedback-details-box { padding: 6px 12px; font-size: var(--fs-sm); background: var(--glass-soft); border-radius: var(--r-md); }
+#feedback-details-box summary { cursor: pointer; font-weight: 600; }
+#feedback-details-box p { margin: 8px 0; }
+/* The details as they are sent; pre-wrap keeps the line breaks but wraps the long browser line */
+#feedback-details { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-xs); color: var(--text-dim); }
+
 /* Online: your time for the turn is running out (gold, like the re-entry bar), a CPU
    playing for you because it ran out (with the button that takes your seat back), and
    a request to pause the game or a paused game (with its buttons) */
@@ -758,7 +779,7 @@ button.info-btn[aria-expanded="true"] { color: var(--gold); }
   100% { opacity: 0; transform: translate(-50%, -18px); }
 }
 .banner-tally { position: relative; z-index: 1; margin-top: 10px; font-size: var(--fs-sm); color: var(--text-dim); }
-#online-error { margin: 12px 0 0; padding: 8px 12px; font-size: var(--fs-sm);
+#online-error, #feedback-error { margin: 12px 0 0; padding: 8px 12px; font-size: var(--fs-sm);
   background: var(--bad-soft); border-left: 3px solid var(--bad); border-radius: var(--r-sm); }
 
 /* The scoreboard, inside the Scores sheet */
