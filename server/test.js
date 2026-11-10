@@ -27,9 +27,14 @@ process.env.LOBBY_LEAVE_MS = "300";
 process.env.CPU_DELAY_MS = "2";
 process.env.RATE_PER_SECOND = "1000";     // (read by server.js) the scripted players move every few ms
 process.env.NEXT_ROUND_WAIT_MS = "300";
-process.env.SECOND_MS = "10";             // a turn limit of "30 seconds" lasts 300 ms
+process.env.SECOND_MS = "30";             // a turn limit of "30 seconds" lasts 900 ms (see TURN_LIMIT_MS)
 process.env.HEARTBEAT_MS = "100";
 process.env.ROOM_TRIES_PER_MINUTE = "60";
+
+// The 30-second turn limit the tests use, in real milliseconds. Not much shorter: the test must
+// catch a player's turn before their time runs out, and a busy machine (other programs, a slow
+// GitHub runner) can hold the test up for a few hundred milliseconds.
+const TURN_LIMIT_MS = 30 * Number(process.env.SECOND_MS);
 
 const WebSocket = require("ws");
 const { loadGame } = require("../tools/harness");
@@ -292,7 +297,7 @@ async function main() {
   check(reacts(pia).length === 1 && reacts(pia)[0].who === 0 && reacts(teo).length === 1 && reacts(teo)[0].who === 1 && reacts(teo)[0].id === 2,
         "a reaction reaches the table, from the sender's seat; one too soon after it is dropped");
 
-  // The turn limit stays off while they play (on a busy machine 300 ms is short enough to
+  // The turn limit stays off while they play (on a busy machine TURN_LIMIT_MS is short enough to
   // hand their turns to the CPU now and then); it is back on for the next round
   const piaRoom = server.rooms.get(pia.code);
   piaRoom.settings.turnLimit = null;
@@ -313,10 +318,12 @@ async function main() {
   // (Found the moment it is told its time, which starts with the new round's first turn.)
   let slow = null;
   await until(() => (slow = [pia, teo].find(c => c.view.currentPlayer === 0 && c.view.seats[0] === "human" && c.turnLeft > 0)));
-  check(slow && slow.turnLeft <= 300, "the player whose turn it is is told how long they have");
-  check(await until(() => slow.view.seats[0] === "away", 2000), "when the time is up, the CPU plays for them");
-  send(slow, { type: "back" });
-  check(await until(() => slow.view.seats[0] === "human"), "\"I'm back\" gives them their seat again");
+  // (`slow &&` everywhere below: if no such moment was found, these checks fail one by one
+  // instead of the whole test crashing on `slow.view`, so the tests after them still run)
+  check(slow && slow.turnLeft <= TURN_LIMIT_MS, "the player whose turn it is is told how long they have");
+  check(slow && await until(() => slow.view.seats[0] === "away", TURN_LIMIT_MS + 2000), "when the time is up, the CPU plays for them");
+  if (slow) send(slow, { type: "back" });
+  check(slow && await until(() => slow.view.seats[0] === "human"), "\"I'm back\" gives them their seat again");
 
   // ---- The host's tools ----
   const host = await connect(port), j1 = await connect(port), j2 = await connect(port);
