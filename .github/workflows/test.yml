@@ -31,4 +31,12 @@ jobs:
       - run: node tools/stress.js 20
       - run: npm test
         working-directory: server
-      - run: npm run test:browser
+      # The failing checks are repeated as "::error::" lines, which GitHub shows at the top of
+      # the run's page (no need to dig through the log). set +e: carry on to the grep even
+      # when the tests fail; the last line then exits with the tests' own result.
+      - run: |
+          set +e
+          npm run test:browser 2>&1 | tee browser.log
+          status=${PIPESTATUS[0]}
+          grep -E "^FAIL|^ERRORS: [^n]|Error:" browser.log | head -20 | sed 's/^/::error::/'
+          exit $status
