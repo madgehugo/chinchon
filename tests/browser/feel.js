@@ -72,8 +72,12 @@ const { GAME_URL, OUT, makeChecker, noCpuClose, cpu1Closes } = require('./helper
   await page.evaluate(() => nextRound());           // (the results panel is hidden by now)
   await chinchon(page);
   check((await page.locator('canvas#fireworks').count()) === 1, 'a Chinchón launches the fireworks');
-  await page.waitForTimeout(1500);
-  check(await page.evaluate(() => played.includes('firework')), 'the fireworks bursts have a sound');
+  // The first rocket bursts after about 1.2 s of animation at 60 frames a second, but a machine
+  // without a graphics card (GitHub's test machines) draws fewer frames, so wait for the burst
+  // itself, up to ROCKETS_UNTIL_MS (4.5 s: by then a rocket has burst on any machine)
+  const burst = await page.waitForFunction(() => played.includes('firework'), null, { timeout: 4500 })
+    .then(() => true, () => false);                     // (.then(ok, failed): a timeout is a failed check, not a crash)
+  check(burst, 'the fireworks bursts have a sound');
   await page.screenshot({ path: OUT + '/fireworks.png' });
   await page.click('#res-newgame');                      // taps go through the fireworks to the panel
   check(await page.evaluate(() => state.round === 1 && !state.gameOver), 'the panel under the fireworks still works');
