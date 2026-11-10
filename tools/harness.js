@@ -35,7 +35,7 @@ function loadEngine(hooks) {
 function render() { __hooks.render(); }
 function setStatus(...messages) { state.status = messages; __hooks.status(messages); }
 globalThis.__game = {
-  state, STRATEGIES, FINISH, SMART, MODEL, CPU_MODES, SCORE_LIMIT, CPU_PAUSE, MIN_PLAYERS, MAX_PLAYERS,
+  state, STRATEGIES, FINISH, SMART, CPU_MODES, SCORE_LIMIT, CPU_PAUSE, MIN_PLAYERS, MAX_PLAYERS,
   setRandom, setDecisionRandom, makeSeededRandom, setDeckSize, deckSize: () => DECK_SIZE,
   newGame, startRound, nextRound, roundCanAdvance, everyoneReady, REACTIONS, humanDraw, humanDiscard, humanCloseWith, humanReenter,
   drawCard, discardCard, endTurn, closeRound, closeOptions, setHandOrder, sortedHand, cardKey,
@@ -76,7 +76,7 @@ function registerSpec(g, spec) {
   const [base, settings] = spec.split(":");
   if (!(base in g.STRATEGIES)) { console.error(`Unknown strategy "${base}". Known: ${Object.keys(g.STRATEGIES).join(", ")}`); process.exit(1); }
   if (!settings) return base;                               // plain level name
-  const targets = [g.SMART, g.FINISH, g.MODEL];             // settings objects an override may name
+  const targets = [g.SMART, g.FINISH];                      // settings objects an override may name
   const overrides = [];                                     // [object, key, value]
   for (const pair of settings.split(",")) {
     const [key, value] = pair.split("=");

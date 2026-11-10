@@ -63,9 +63,10 @@ See `README.md` for the file map, the rules as implemented and how the pieces co
 rules for the reshuffle limit, which only change moves when the deck runs out; results above `FINISH`). Hard is
 `finish`; medium is `finish` with mistakes. Many ideas were benchmarked and none beat plain `smart`: tuning settings
 (close bonus, perfect bonus, denial of known cards, take margins, waiting to close), combinations of them, round-length
-awareness, game-risk awareness, deeper search and Monte Carlo rollouts, at 2, 3 and 4 players. The results are in
+awareness, game-risk awareness, deeper search, Monte Carlo rollouts and a simple opponent model (from what each player took, passed on and threw;
+commit `588aa48`), at 2, 3 and 4 players. The results are in
 `CPU_EXPERIMENTS.md`, and the experiment code was removed from `ai.js` (it is in git history up to `e8550f9`). Do not
-re-run those without a new idea. A real improvement probably needs deeper search or opponent modelling; a rollout idea
+re-run those without a new idea. A real improvement probably needs deeper search or a better-fitted opponent model; a rollout idea
 would need a rollout policy close to `smart`'s strength.
 
 Benchmark with `tools/bench.js`; the harness rotates seats and the starting player because an earlier version without

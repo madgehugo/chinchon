@@ -383,7 +383,7 @@ Hard and medium are built on `finish`: `smart` plus three rules for when the dec
 (take-or-stop when drawing would end the round, draw odds from the known discards when the pile is about to be refilled,
 and discarding for points once no draw is left). Results above `FINISH`: slightly better with few reshuffles, never worse.
 Many other ideas for a stronger CPU were benchmarked (tuning settings, round-length and game-risk awareness, deeper
-search, Monte Carlo rollouts, at 2, 3 and 4 players) and none beat plain `smart`. `CPU_EXPERIMENTS.md` has the results
+search, Monte Carlo rollouts, a simple opponent model, at 2, 3 and 4 players) and none beat plain `smart`. `CPU_EXPERIMENTS.md` has the results
 and says where the code for them is in the git history.
 
 ## Testing

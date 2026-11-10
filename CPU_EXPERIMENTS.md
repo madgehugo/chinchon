@@ -6,10 +6,10 @@ for a stronger CPU were benchmarked against `smart` and **none beat it**. This f
 results so they are not re-run without a new idea. The code for the experiments was removed to
 keep `ai.js` short; it is in the git history up to commit `e8550f9` (look for `AWARE`, `RISK`,
 `MC`, `denialRisk` and the `closeBonus` / `perfectBonus` / `denyWeight` / `waitProb` settings in
-`ai.js` there).
+`ai.js` there). The opponent-modelling strategy `model` is in commit `588aa48` (below).
 
-A real improvement probably needs deeper search or opponent modelling, which costs much more
-computing time per move. A rollout idea would need a rollout policy close to `smart`'s strength.
+A real improvement probably needs deeper search, which costs much more computing time per move.
+A simple opponent model was tried too (see "Opponent modelling" below) and did not help. A rollout idea would need a rollout policy close to `smart`'s strength.
 
 How to read the tables: lower points are better. "A - B" is A's average points per round minus
 B's, so **negative = A is better**. "se" is the standard error of the difference; a difference
@@ -136,6 +136,54 @@ All of the above was measured at 4 players. Re-checked at 2 and 3 players (6,400
 
 (* 19,200 rounds.) So one set of settings serves every table size. Even in 1v1, where every
 discard goes to the one opponent, holding back the cards they are known to want does not pay.
+
+## Opponent modelling (`model`, commit `588aa48`)
+
+`finish` plus a guess at what each opponent holds, from a public log of the round
+(`state.history`: who took which card from the discard pile, who passed on which top card,
+who threw what). Each unseen card gets, per opponent, a weight: times `takeFactor` (3) for every
+card that opponent took that it could meld with (same number, or same suit within 2), times
+`passFactor` (0.7) for every related card they passed on, times `throwFactor` (0.6) for every
+related card they threw. Their unknown cards are spread over the unseen cards in proportion.
+Two uses, unlike the old `denyWeight` (flat weights from known cards, every opponent):
+
+* **Denial**, against the **next** player only (the only one who can take my discard): each
+  discard is charged `denyWeight` x the points they would likely save with it (the chance they
+  hold each pair that melds with it, times the pair's points).
+* **Draw odds** (`poolWeights` 1): a card that someone probably holds counts less in my
+  expected cost after a draw.
+
+With both off it plays exactly like `finish` (checked: difference 0.00). About as fast as `finish`.
+A - B against `hard`, 40-card deck, 5 reshuffles unless stated:
+
+| Setting | Table | Rounds | A - B | Verdict |
+| --- | --- | --- | --- | --- |
+| denyWeight 0.25, no draw odds | 4 players | 3,200 | -0.14 se 0.10 | no gain |
+| denyWeight 0.5, no draw odds | 4 players | 3,200 | -0.09 se 0.11 | no gain |
+| denyWeight 1, no draw odds | 4 players | 3,200 | +0.62 se 0.13 | WORSE |
+| draw odds only | 4 players | 3,200 | -0.10 se 0.07 | no gain |
+| takeFactor 6, denyWeight 0.5, no draw odds | 4 players | 3,200 | -0.03 se 0.11 | no gain |
+| denyWeight 0.5 + draw odds | 4 players | 3,200 | -0.28 se 0.11 | looked better... |
+| denyWeight 0.5 + draw odds | 4 players | 6,400 | -0.11 se 0.08 | ...but not on more deals |
+| denyWeight 0.5 + draw odds | 3 players | 6,400 | +0.39 se 0.09 | WORSE |
+| denyWeight 0.5 + draw odds | 2 players | 6,400 | +0.23 se 0.09 | WORSE |
+| denyWeight 0.5 + draw odds | 48-card deck | 6,400 | +0.05 se 0.08 | no gain |
+| denyWeight 0.5 + draw odds | 2 reshuffles | 6,400 | -0.08 se 0.08 | no gain |
+| **denyWeight 0.25 + draw odds** | 4 players | 6,400 | **-0.20 se 0.07** | better |
+| denyWeight 0.25 + draw odds | 4 players, other seed | 6,400 | **-0.22 se 0.07** | better |
+| denyWeight 0.25 + draw odds | 3 players | 6,400 | +0.03 se 0.08 | no gain |
+| denyWeight 0.25, no draw odds | 3 players | 6,400 | +0.08 se 0.08 | no gain |
+| denyWeight 0.25 + draw odds | 2 players | 6,400 | -0.04 se 0.08 | no gain |
+| denyWeight 0.25 + draw odds | 48-card deck | 6,400 | -0.07 se 0.07 | no gain |
+| denyWeight 0.25 + draw odds | 48-card, 3 players | 6,400 | +0.16 se 0.09 | no gain (if anything worse) |
+
+("other seed": `SEED` in `bench.js` changed, so entirely new deals.) The one setting that won,
+denyWeight 0.25 with draw odds at 4 players, was checked over **whole games**
+(`gamebench.js 4000 "model:denyWeight=0.25" hard 40 4`): one `model` CPU against three `hard`
+won 24.1% of games (fair share 25.0%, se 0.6), so no gain. Saving about 0.2 points a round at
+4 players does not turn into wins, and the strategy is no better at 2 or 3 players, so it was
+not kept. A stronger opponent model would need a better guess than these hand-set factors
+(for example, factors fitted to what `smart` CPUs actually hold in benchmark games).
 
 ## What was kept: `finish` (end-of-deck rules)
 
