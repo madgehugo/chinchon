@@ -429,7 +429,14 @@ function renderPiles() {
   }
   document.getElementById("discard-label").textContent =
     t("pile.discard", { n: state.discardPile.length });
+
+  // How thick each pile looks: the edges of 0, 1 or 2 cards peek out under the top one
+  // (el.dataset.depth = ... sets the attribute data-depth, which style.css reads).
+  // Only the size of the pile shows, never what is in it.
+  drawSlot.dataset.depth    = pileDepth(state.drawPile.length);
+  discardSlot.dataset.depth = pileDepth(state.discardPile.length);
 }
+const pileDepth = n => Math.max(0, Math.min(2, n - 1));
 
 // Where each seat sits on the table (grid-area names from style.css), by number of
 // players. Index = seat number. With one CPU it sits opposite you; with two they

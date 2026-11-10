@@ -234,6 +234,8 @@ internet the sheet says it could not reach the server and keeps the text.
   no limit, default 1), how many rounds a game lasts (no limit, 5, 10, 15 or 20) and laying off leftover cards
   (automatic, manual or off; default automatic). Changing any of them starts a new game.
 * Cards show their number of suit symbols (the 4 of swords has four swords), drawn as inline SVG shapes defined once in `ui.js` (`SUIT_SPRITE`) so they look the same on every device.
+  Both piles show one or two card edges under the top card,
+  depending on how many cards they hold (never which cards).
 * Game feel: what a CPU draws shows as a short toast near the piles (one at a time, gone before the next turn); after
   each round every seat shows its score floating up ("+12", "−10") once the results panel is out of the way; with Hints
   on, the cards of a meld you just completed glow once. Sound effects (card snaps, a tick when your turn starts,

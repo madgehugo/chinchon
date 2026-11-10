@@ -331,7 +331,9 @@ h1 {
 .card .corner {
   position: absolute;
   top: 4px; left: 6px;
-  font-size: calc(var(--card-w) * 0.22);
+  /* a serif number, like the print on a real deck (system fonts only; Georgia is on almost every device) */
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-size: calc(var(--card-w) * 0.24);
   line-height: 1;
   letter-spacing: -.5px;
   font-variant-numeric: tabular-nums;
@@ -474,10 +476,15 @@ h1 {
 /* "Drawing here ends the round": stands out, and wraps instead of widening the pile */
 .pile-label.warn { color: var(--gold); font-weight: 700; max-width: 8em; text-align: center; }
 .pile .card { --card-w: var(--pile-w); --card-h: var(--pile-h); box-shadow: var(--shadow-2); }
-/* The draw pile looks like a stack: two cards' edges peek out below the top one */
+/* Both piles look like stacks: the edges of up to two cards peek out below the top one,
+   as many as the pile has (data-depth, set by renderPiles). Each edge is a box-shadow
+   moved 2px down and right and shrunk by 1px (the 4th number), so only a sliver shows. */
+.pile [data-depth="1"] .card { --edges: 2px 2px 0 -1px var(--paper-lo); }
+.pile [data-depth="2"] .card { --edges: 2px 2px 0 -1px var(--paper-lo), 4px 4px 0 -2px var(--paper-lo); }
+#discard-slot .card { box-shadow: var(--edges, 0 0 transparent), var(--shadow-2); }
 #draw-slot .card.back {
   box-shadow: inset 0 0 0 3px var(--back), inset 0 0 0 4px var(--back-gold),
-              2px 2px 0 -1px var(--paper-lo), 4px 4px 0 -2px var(--paper-lo), var(--shadow-2);
+              var(--edges, 0 0 transparent), var(--shadow-2);
 }
 .pile-empty {
   width: var(--pile-w); height: var(--pile-h);
@@ -554,6 +561,14 @@ button {
 @media (hover: hover) { button:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); } }
 button:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 1px 0 #9c7414; }
 button:disabled { opacity: .38; cursor: not-allowed; box-shadow: none; filter: saturate(.6); }
+/* A gold button that is not available yet (Close round before you may close) turns into a
+   faint outlined pill, so it reads as "not yet" rather than as a dirty gold button */
+button:disabled:not(.secondary) {
+  opacity: 1; filter: none;
+  color: var(--text-dim);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+}
 /* A clear ring for keyboard users (only shown when focus comes from the keyboard) */
 button:focus-visible, select:focus-visible, summary:focus-visible {
   outline: 3px solid var(--info); outline-offset: 2px;
