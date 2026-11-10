@@ -202,11 +202,11 @@ function runTestsI18n() {
 
   // t() fills placeholders; plural() picks key.one or key.other; players get a name in each language
   currentLang = "en";
-  check(t("pile.draw", { n: 5 }) === "Draw pile (5)", "t fills {n}");
+  check(t("pile.reshuffles", { n: 5 }) === "Reshuffles left: 5", "t fills {n}");
   check(plural("confirm.cpus", 1).includes("1 CPU?") && plural("confirm.cpus", 3).includes("3 CPUs?"), "plural: one / other");
   check(playerName(0) === "You" && playerName(2) === "CPU 2", "English player names");
   currentLang = "es";
-  check(playerName(0) === "Tú" && t("pile.discard", { n: 2 }) === "Descartes (2)", "Spanish text");
+  check(playerName(0) === "Tú" && plural("pile.count", 2) === "2 cartas", "Spanish text");
   check(t(whoKey("sum.closed", 1), { who: 1 }) === "CPU 1 cerró la ronda.", "who formatter + .cpu variant");
 
   // A message about a player reads from the reader's side: you are player 0 (see messageKey)

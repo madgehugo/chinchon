@@ -411,8 +411,7 @@ function renderPiles() {
   } else {
     drawSlot.innerHTML = '<div class="pile-empty"></div>';
   }
-  document.getElementById("draw-label").textContent =
-    t("pile.draw", { n: state.drawPile.length });
+  document.getElementById("draw-label").textContent = t("pile.draw");
   // How many more times the deck can be refilled (nothing shown when there is no limit),
   // or, once it is used up, a warning that drawing from it ends the round
   const left = reshufflesLeft();
@@ -427,16 +426,28 @@ function renderPiles() {
   } else {
     discardSlot.innerHTML = '<div class="pile-empty"></div>';
   }
-  document.getElementById("discard-label").textContent =
-    t("pile.discard", { n: state.discardPile.length });
+  document.getElementById("discard-label").textContent = t("pile.discard");
 
   // How thick each pile looks: the edges of 0, 1 or 2 cards peek out under the top one
   // (el.dataset.depth = ... sets the attribute data-depth, which style.css reads).
   // Only the size of the pile shows, never what is in it.
   drawSlot.dataset.depth    = pileDepth(state.drawPile.length);
   discardSlot.dataset.depth = pileDepth(state.discardPile.length);
+  // ...and how many cards each holds, in a round badge on its top-right corner
+  drawSlot.appendChild(pileCount(state.drawPile.length));
+  discardSlot.appendChild(pileCount(state.discardPile.length));
 }
 const pileDepth = n => Math.max(0, Math.min(2, n - 1));
+
+// The count badge. Screen readers get "11 cards" instead of a bare number.
+function pileCount(n) {
+  const badge = document.createElement("span");
+  badge.className = "pile-count";
+  badge.textContent = n;
+  badge.title = plural("pile.count", n);
+  badge.setAttribute("aria-label", badge.title);
+  return badge;
+}
 
 // Where each seat sits on the table (grid-area names from style.css), by number of
 // players. Index = seat number. With one CPU it sits opposite you; with two they

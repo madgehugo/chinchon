@@ -234,8 +234,8 @@ internet the sheet says it could not reach the server and keeps the text.
   no limit, default 1), how many rounds a game lasts (no limit, 5, 10, 15 or 20) and laying off leftover cards
   (automatic, manual or off; default automatic). Changing any of them starts a new game.
 * Cards show their number of suit symbols (the 4 of swords has four swords), drawn as inline SVG shapes defined once in `ui.js` (`SUIT_SPRITE`) so they look the same on every device.
-  Both piles show one or two card edges under the top card,
-  depending on how many cards they hold (never which cards).
+  Both piles show one or two card edges under the top card, depending on how many cards they hold (never which cards),
+  and a round badge with their card count.
 * Game feel: what a CPU draws shows as a short toast near the piles (one at a time, gone before the next turn); after
   each round every seat shows its score floating up ("+12", "−10") once the results panel is out of the way; with Hints
   on, the cards of a meld you just completed glow once. Sound effects (card snaps, a tick when your turn starts,
@@ -244,7 +244,7 @@ internet the sheet says it could not reach the server and keeps the text.
 * Short card animations (260 ms or less each): the deal, drawing from either pile, discarding, and a gentle lift when you hover or press one of your cards. They switch off when the system asks for reduced motion (`prefers-reduced-motion`).
 * Drag cards to rearrange your hand; one button sorts by number or by suit. Your hand spreads over the width
   available, so on a phone the cards overlap only as much as they must.
-* Turn cues: the seat whose turn it is has a gold label (a CPU's also shows animated dots while it plays), the pile
+* Turn cues: the seat whose turn it is has a gold label and a soft gold light on the felt around it (a CPU's label also shows animated dots while it plays), the pile
   you may draw from pulses, and the card you just drew has a small gold dot until you discard.
 * Keyboard play: `1`-`8` discard that card (or close with it in closing mode), `D` draws from the pile, `T` takes the
   top discard, `C` closes, `S` sorts, `Enter` starts the next round, `H` opens the help, `Escape` closes the open panel or hides the results. Game keys do nothing while a panel is open. The help line is in
