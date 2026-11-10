@@ -74,6 +74,8 @@ function act(name, ...args) {
   if (!tutorialAllows(name, args)) { tutorialNudge(); return false; }
   if (!online.playing) return runAction(0, name, args);
   if (online.connection !== "open") return false;
+  // A paused game takes no moves, except rearranging your hand (the server refuses them too)
+  if (onlinePaused() && name !== "order") return false;
   // Rearranging your hand shows at once rather than after the server's answer (a drag that
   // jumps back for a moment looks broken); the server's view then puts it the same way
   if (name === "order") setHandOrder(0, args[0]);
@@ -203,9 +205,12 @@ function askServer(message) {
   render();
 }
 
-// Room messages from ui.js: "I'm back", a reaction, and the host's tools (see server/server.js)
+// Room messages from ui.js: "I'm back", a reaction, pausing, and the host's tools (see server/server.js)
 const sendBack      = ()     => sendOnline({ type: "back" });
 const sendReaction  = id     => sendOnline({ type: "react", id });
+const sendPause     = ()     => sendOnline({ type: "pause" });     // ask to pause, or agree to pause
+const sendNoPause   = ()     => sendOnline({ type: "nopause" });   // say no to pausing (or take back your request)
+const sendResume    = ()     => sendOnline({ type: "resume" });
 const setRoomPlayers = n     => sendOnline({ type: "players", players: n });
 const removePlayer  = seat   => sendOnline({ type: "remove", seat });
 const makeHost      = seat   => sendOnline({ type: "host", seat });
@@ -249,6 +254,11 @@ function rememberRoom() {
 function forgetRoom() {
   online.code = online.token = null;
   try { localStorage.removeItem(ROOM_STORAGE_KEY); } catch (err) { /* fine */ }
+}
+
+// Is the online game on the table paused? (everyone agreed; see server/room.js)
+function onlinePaused() {
+  return Boolean(online.playing && online.lobby && online.lobby.paused);
 }
 
 /* ---------------------------------------------------------

@@ -14,7 +14,7 @@
    "after the current piece of work") each player at the table is sent their own
    view of the game (viewFor in view.js).
 
-   A seat here is { name, token, socket, awayTimer, playing, wins, lastReact }.
+   A seat here is { name, token, socket, awayTimer, playing, wins, lastReact, lastPauseAsk }.
    The token is a long random secret given to the player when they join; with it
    they can come back to the same seat after a reload or a lost connection
    (rejoin). It is the only proof of who is who, so it is never sent to anybody
@@ -30,6 +30,12 @@
    The room also keeps the game moving when a person does not: with a time per
    turn, a CPU plays for whoever runs out of time (watchWaits), and once someone
    has pressed Next round, the others get NEXT_ROUND_WAIT_MS to do the same.
+
+   Players may PAUSE a game if everyone agrees: one asks, and once every person
+   at the table who is connected has agreed, the game stops. Moves are refused,
+   the engine's timers (the CPUs' turns) are held back until it goes on, and the
+   turn limit keeps the time that was left. Anyone at the table may resume, so a
+   pause never needs everyone back to end.
    ========================================================= */
 const crypto = require("crypto");
 const { loadEngine } = require("../tools/harness");
@@ -41,6 +47,8 @@ const LOBBY_LEAVE_MS = Number(process.env.LOBBY_LEAVE_MS) || 60 * 1000;   // a d
 const NEXT_ROUND_WAIT_MS = Number(process.env.NEXT_ROUND_WAIT_MS) || 90 * 1000;   // once someone pressed Next round, the next round starts after this long anyway
 const SECOND_MS      = Number(process.env.SECOND_MS)      || 1000;        // one second of the turn limit (the tests make it shorter)
 const REACT_GAP_MS   = 1500;      // a player's reactions closer together than this are dropped (no flooding the table)
+const PAUSE_ASK_MS   = 60 * 1000; // a request to pause that not everyone has agreed to is dropped after this long
+const PAUSE_ASK_GAP_MS = 10 * 1000; // a player may ask to pause at most once in this long (no pestering the table)
 
 // What the host chooses for the game (sent with "create"), and the values each may take.
 // Anything else is replaced by the first value in the list (the default).
@@ -81,6 +89,10 @@ class Room {
     this.turnEnds = null;        // ...when it runs out (Date.now() time)...
     this.turnSeats = [];         // ...and the seats it is waiting for
     this.nextTimer = null;       // the timer that starts the next round when someone waited too long
+    this.paused = false;         // is the game paused (everyone agreed)?
+    this.pauseAsk = null;        // a request to pause: { by, agreed, timer } (by: a seat object; agreed: a Set of them)
+    this.held = new Map();       // engine timers that came due while paused: timer id -> function, run on resume
+    this.pausedTurnLeft = null;  // milliseconds the turn limit had left when the game was paused (null: none was running)
   }
 
   get started() { return this.game !== null; }
@@ -96,7 +108,7 @@ class Room {
   join(name, socket) {
     if (this.people().length >= this.settings.players) return "online.err.full";
     const token = crypto.randomBytes(18).toString("base64url");      // 144 random bits
-    const seat = { name, token, socket, awayTimer: null, playing: false, wins: 0, lastReact: 0 };
+    const seat = { name, token, socket, awayTimer: null, playing: false, wins: 0, lastReact: 0, lastPauseAsk: 0 };
     this.seats.push(seat);
     if (!this.hostSeat) this.hostSeat = seat;
     this.emptySince = null;
@@ -141,6 +153,7 @@ class Room {
       }, AWAY_AFTER_MS);
     }
     if (this.connectedCount() === 0) this.emptySince = Date.now();
+    this.checkPause();                 // (they may have been the last one who had not agreed to pause)
     this.sendLobby();
   }
 
@@ -200,6 +213,7 @@ class Room {
     seat.socket = null;
     if (this.started && seat.playing) this.leaveGame(seat);
     else { seat.token = null; this.removeSeat(seat); }
+    this.checkPause();
     this.sendLobby();
     return null;
   }
@@ -223,12 +237,17 @@ class Room {
     const room = this;
     this.game = loadEngine({
       // Real timers, remembered so that close() can cancel them
+      // While the game is paused, a timer that comes due is held back (in room.held) until it goes on.
       setTimeout(fn, ms) {
-        const id = setTimeout(() => { room.timers.delete(id); fn(); }, ms);
+        const id = setTimeout(() => {
+          room.timers.delete(id);
+          if (room.paused) room.held.set(id, fn); else fn();
+        }, ms);
         room.timers.add(id);
         return id;
       },
-      clearTimeout(id) { clearTimeout(id); room.timers.delete(id); },
+      // (a held timer the engine cancels, e.g. a player is back during the pause, must not run later)
+      clearTimeout(id) { clearTimeout(id); room.timers.delete(id); room.held.delete(id); },
       render: () => this.queueFlush(),
       status: () => this.queueFlush(),
     });
@@ -273,6 +292,8 @@ class Room {
     const g = this.game;
     const action = Object.hasOwn(g.ACTIONS, name) ? g.ACTIONS[name] : null;
     if (!action || !Array.isArray(args) || args.length !== action.args.length) return "online.err.badMove";
+    // Paused: no moves, except rearranging your own hand (which changes nothing for anybody else)
+    if (this.paused && name !== "order") { this.queueFlush(); return null; }
     // Seat arguments: the sender counts from themselves (see view.js); turn them into real seats
     const n = g.state.numPlayers;
     const real = args.map((value, i) =>
@@ -313,6 +334,73 @@ class Room {
     return null;
   }
 
+  // ---- Pausing (see the top of this file) ----
+
+  // The people whose agreement a pause needs: everyone at the table who is connected
+  voters() { return this.seats.filter(seat => seat.playing && seat.token && seat.socket); }
+
+  // Seat s presses Pause: asks the table, or agrees to the request already made
+  pause(s) {
+    const seat = this.seats[s];
+    if (!this.started || this.game.state.gameOver || !seat.playing || this.paused) return null;
+    if (!this.pauseAsk) {
+      const now = Date.now();
+      if (now - seat.lastPauseAsk < PAUSE_ASK_GAP_MS) return null;
+      seat.lastPauseAsk = now;
+      this.pauseAsk = { by: seat, agreed: new Set(), timer: setTimeout(() => this.dropPauseAsk(), PAUSE_ASK_MS) };
+    }
+    this.pauseAsk.agreed.add(seat);
+    this.checkPause();
+    this.sendLobby();
+    return null;
+  }
+
+  // Seat s says no to the request to pause (or takes back their own)
+  noPause(s) {
+    if (this.seats[s].playing) this.dropPauseAsk();
+    return null;
+  }
+
+  dropPauseAsk() {
+    if (!this.pauseAsk) return;
+    clearTimeout(this.pauseAsk.timer);
+    this.pauseAsk = null;
+    this.sendLobby();
+  }
+
+  // Has everyone agreed to the request? Then pause: stop the turn limit (remembering the time
+  // it had left) and the wait for Next round. The engine's timers are held from now on (start).
+  checkPause() {
+    const ask = this.pauseAsk;
+    if (!ask || !this.voters().every(seat => ask.agreed.has(seat))) return;
+    clearTimeout(ask.timer);
+    this.pauseAsk = null;
+    this.paused = true;
+    if (this.turnTimer) {
+      this.pausedTurnLeft = Math.max(0, this.turnEnds - Date.now());
+      clearTimeout(this.turnTimer);
+      this.turnTimer = this.turnEnds = null;
+    }
+    clearTimeout(this.nextTimer);       // (watchWaits starts the wait again on resume)
+    this.nextTimer = null;
+    this.queueFlush();                  // a view with no turn countdown
+  }
+
+  // Anyone at the table goes on with the game: the turn limit runs again from where it
+  // stopped, and the engine's timers that came due meanwhile run now (in the order they came due)
+  resume(s) {
+    if (!this.paused || !this.seats[s].playing) return null;
+    this.paused = false;
+    if (this.pausedTurnLeft !== null) this.startTurnTimer(this.pausedTurnLeft);
+    this.pausedTurnLeft = null;
+    const held = [...this.held.values()];
+    this.held.clear();
+    held.forEach(fn => fn());
+    this.sendLobby();
+    this.queueFlush();
+    return null;
+  }
+
   // ---- Keeping the game moving ----
 
   // The people the game is waiting for right now: whoever's turn it is, the one laying off
@@ -335,8 +423,12 @@ class Room {
       this.counted = true;
       const winner = this.seats[st.winner];
       if (winner && winner.playing) winner.wins++; else this.cpuWins++;
+      this.dropPauseAsk();                       // (a game that is over cannot be paused)
       this.sendLobby();
     }
+
+    // Paused: no timers run (checkPause stopped them, resume starts them again)
+    if (this.paused) { this.turnSeats = []; return; }
 
     // The turn limit. One timer per "moment" the game waits for people: a whole turn
     // (drawing and discarding), one player's lay-offs, or the re-entry question.
@@ -348,14 +440,7 @@ class Room {
       this.waitMoment = moment;
       clearTimeout(this.turnTimer);
       this.turnTimer = this.turnEnds = null;
-      if (moment && this.settings.turnLimit) {
-        const ms = this.settings.turnLimit * SECOND_MS;
-        this.turnEnds = Date.now() + ms;
-        this.turnTimer = setTimeout(() => {
-          this.turnTimer = null;
-          if (this.game) for (const p of this.waitingOn()) this.game.seatAway(p);   // the CPU answers for them
-        }, ms);
-      }
+      if (moment && this.settings.turnLimit) this.startTurnTimer(this.settings.turnLimit * SECOND_MS);
     }
     this.turnSeats = this.turnTimer ? waiting : [];
 
@@ -369,6 +454,15 @@ class Room {
         if (this.game) this.game.nextRound();
       }, NEXT_ROUND_WAIT_MS);
     }
+  }
+
+  // The turn limit: in `ms` the CPU answers for whoever the game is still waiting on
+  startTurnTimer(ms) {
+    this.turnEnds = Date.now() + ms;
+    this.turnTimer = setTimeout(() => {
+      this.turnTimer = null;
+      if (this.game) for (const p of this.waitingOn()) this.game.seatAway(p);
+    }, ms);
   }
 
   // ---- Sending ----
@@ -389,6 +483,10 @@ class Room {
       players: this.settings.players,
       settings: this.settings,
       cpuWins: this.cpuWins,
+      paused: this.paused,
+      // A request to pause: who asked and who has agreed so far (seat numbers, like `you` and `host`)
+      pauseAsk: this.pauseAsk && { by: this.seats.indexOf(this.pauseAsk.by),
+                                   agreed: [...this.pauseAsk.agreed].map(seat => this.seats.indexOf(seat)) },
       people: this.seats.map(other => ({ name: other.name, connected: Boolean(other.socket), left: !other.token,
                                          playing: other.playing, wins: other.wins })),
     }));
@@ -423,6 +521,8 @@ class Room {
     for (const seat of this.seats) clearTimeout(seat.awayTimer);
     clearTimeout(this.turnTimer);
     clearTimeout(this.nextTimer);
+    if (this.pauseAsk) clearTimeout(this.pauseAsk.timer);
+    this.held.clear();
     if (this.game) this.game.state.timer = null;
     this.game = null;
   }

@@ -113,6 +113,12 @@ turn** (no limit (the default), 30 seconds, 1 minute or 2 minutes). The online s
   plays their seat to the end) and Make host. If the host leaves, the next person takes over.
 * **Reactions.** The smiley button by the play buttons sends one of a few emoji (`REACTIONS` in `i18n.js`), which pops
   up by the sender's seat and fades. Emoji only, so nothing needs translating or checking; one per 1.5 seconds each.
+* **Pausing.** Pause the game (in the room panel) asks the table; a bar under the table lets the others agree or
+  say no. Once everyone connected has agreed, the game stops: no moves (rearranging your hand still works), the
+  CPUs wait, the turn limit keeps its time and the wait for Next round starts again afterwards. Anyone at the table
+  may resume. A request nobody answers lapses after a minute, and each player may ask once per 10 seconds.
+  The room lives on the server, so a pause survives players closing the game, but a room nobody is connected to
+  is still thrown away after 30 minutes, and a server restart ends it. (`pause`/`resume` in `server/room.js`.)
 * **Your turn in the background.** While the game is in another tab or app, the tab's title says it is your turn,
   and a phone that allows it buzzes.
 * **The room's tally:** games won by each person (and by the CPUs) in this room, in the lobby and on the game-over banner.
@@ -171,9 +177,9 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 | In `server/` | What it is |
 | --- | --- |
 | `server.js` | The HTTP and WebSocket server: the message types (listed at the top), checking what pages send (nicknames, origins, message size, a rate limit per connection and a limit on room tries per address), rooms by code, the heartbeat, telling players when it stops, and serving the game files. |
-| `room.js` | One room: the lobby, the seats and their tokens, the host's tools, loading the engine and starting the game, players going away and coming back, joining late, the turn limit and the wait for Next round, reactions, the tally of wins, and sending each player their view. |
+| `room.js` | One room: the lobby, the seats and their tokens, the host's tools, loading the engine and starting the game, players going away and coming back, joining late, the turn limit and the wait for Next round, reactions, pausing, the tally of wins, and sending each player their view. |
 | `view.js` | `viewFor(state, seat)`: what one player may see, renumbered so that they are seat 0. |
-| `test.js` | Server tests (`npm test`): whole games with scripted players, a check that no view ever holds a card that player may not see, disconnect and rejoin, the heartbeat, Next round, the turn limit, reactions, joining late, the host's tools, the limits, and stopping. |
+| `test.js` | Server tests (`npm test`): whole games with scripted players, a check that no view ever holds a card that player may not see, disconnect and rejoin, the heartbeat, Next round, the turn limit, reactions, pausing, joining late, the host's tools, the limits, and stopping. |
 | `package.json` | Its one dependency, [`ws`](https://github.com/websockets/ws) (the WebSocket server), pinned to an exact version. |
 
 ## Features
@@ -286,7 +292,7 @@ that runs Node and allows WebSockets would do too (Fly.io, Railway, a VPS...). T
 | `tutorial.js` | The tutorial: the fixed deal, the scripted CPU (`STRATEGIES.tutorial`), the coach's steps, which moves are allowed, and the first-visit offer. Screen only, like `ui.js`. |
 | `ui.js` | Drawing the table (`render()`), clicks, touch and mouse dragging, the panels, toasts, saving settings and the game. |
 | `effects.js` | Card animations, sounds at the right moments, score pop-ups and the Chinchón fireworks (`animateChanges`, called at the end of `render()`). |
-| `ui_online.js` | The online screens: the online sheet (create or join a room, the room's rules, the people in it), the turn countdown, reactions, the tab title. |
+| `ui_online.js` | The online screens: the online sheet (create or join a room, the room's rules, the people in it), the turn countdown, the pause bar, reactions, the tab title. |
 | `start.js` | Startup, run once after every other file has loaded: settings, the saved game, rejoining a room, the tutorial offer, the service worker and the store app's hooks. |
 | `social.html`, `icons/social.png` | The picture shown when the game's link is shared (the `og:` tags in `index.html`); `tools/make_social.js` screenshots the HTML into the PNG. Not loaded by the game. |
 | `tools/` | Node scripts: `harness.js` (runs the engine without a browser, plus what the benchmarks share), `bench.js` (CPU benchmark over single rounds), `gamebench.js` (CPU benchmark over whole games), `stress.js` (random-game bug hunt), `make_icons.js` (draws the app icons, and the store apps' icons and launch screens), `make_social.js` (draws the link-preview picture). |

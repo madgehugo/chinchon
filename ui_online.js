@@ -94,6 +94,7 @@ function renderOnline() {
   // Your seat is played by a CPU while you are connected: your time for a turn ran out
   document.getElementById("away-bar").hidden = !(online.playing && state.seats[0] === "away");
   renderTurnBar();
+  renderPauseBar();
   for (const id of ROOM_SETTING_IDS) document.getElementById(id).disabled = online.playing;
   if (online.playing) {
     syncSettingDropdowns();                          // show the room's rules in the (locked) dropdowns
@@ -131,8 +132,12 @@ function renderOnline() {
     : !lobby.started ? (isHost ? t("online.youStart") : t("online.waitHost", { name: host ? host.name : "" }))
     : !me.playing    ? t("online.waitNext")
     : lobby.gameOver ? t("online.gameOver")
+    : lobby.paused   ? t("online.paused")
     :                  t("online.inGame");
   document.getElementById("online-startgame").hidden = !(isHost && !lobby.started);
+  // Pause: during a game you play in, while nobody has asked yet (a request is answered in #pause-bar)
+  document.getElementById("online-pause").hidden =
+    !(lobby && lobby.started && !lobby.gameOver && me.playing && !lobby.paused && !lobby.pauseAsk);
 
   // The room's rules (a <dl>: pairs of <dt> name and <dd> value)
   const rules = document.getElementById("online-rules");
@@ -213,6 +218,36 @@ function renderTurnBar() {
 }
 setInterval(renderTurnBar, TURN_TICK_MS);   // the countdown moves between renders too
 
+// The bar under the table about pausing: a request from someone else (agree or say no),
+// your own request or your yes waiting for the others (you can take it back), or the paused
+// game (anyone may resume). Seat numbers in the lobby are the room's, like lobby.you.
+function renderPauseBar() {
+  const lobby = online.lobby;
+  const me = lobby && lobby.people[lobby.you];
+  const ask = online.playing && me && me.playing ? lobby.pauseAsk : null;
+  const paused = onlinePaused() && me && me.playing;
+  document.getElementById("pause-bar").hidden = !ask && !paused;
+  if (!ask && !paused) return;
+  const agreed = Boolean(ask) && ask.agreed.includes(lobby.you);
+  const asker = ask && lobby.people[ask.by];
+  // (textContent: the name is what that player typed, so it must never become HTML)
+  document.getElementById("pause-text").textContent =
+    paused ? t("online.paused")
+    : agreed ? t("online.pauseWait")
+    :          t("online.pauseAsk", { name: asker ? asker.name : "" });
+  document.getElementById("pause-yes").hidden = paused || agreed;
+  document.getElementById("pause-no").hidden = paused;
+  document.getElementById("pause-resume").hidden = !paused;
+}
+document.getElementById("pause-yes").addEventListener("click", () => sendPause());
+document.getElementById("pause-no").addEventListener("click", () => sendNoPause());
+document.getElementById("pause-resume").addEventListener("click", () => sendResume());
+// Asking from the online sheet closes it, so you see the request's bar under the table
+document.getElementById("online-pause").addEventListener("click", () => {
+  sendPause();
+  setOnlineOpen(false);
+});
+
 // ---- Reactions: the smiley button and the emoji by the seats ----
 // A reaction shows by the seat of whoever sent it, then fades. Each seat shows one at
 // a time (a new one replaces the last), so it never becomes a list.
@@ -260,7 +295,7 @@ document.getElementById("online-seats").addEventListener("change", (e) => setRoo
 // The tab's title. Online, while the game is in the background and it is your move, it
 // says so, so that you see it from another tab (and on the phone's list of open apps).
 function renderTitle() {
-  const yourMove = online.playing && document.hidden && state.phase !== "roundOver" &&
+  const yourMove = online.playing && !onlinePaused() && document.hidden && state.phase !== "roundOver" &&
                    state.currentPlayer === 0 && isHuman(0);
   document.title = yourMove ? t("online.titleTurn") : t("app.title");
 }

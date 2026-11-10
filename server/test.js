@@ -14,7 +14,7 @@
      - a player whose connection drops is played by the CPU, and gets the same
        seat back with their token; a connection that stops answering pings is closed
      - the next round waits for everyone (or starts anyway after a while), the turn
-       limit, reactions, joining during a game, the room's tally of wins
+       limit, reactions, pausing, joining during a game, the room's tally of wins
      - the host's tools: seats, removing a player, handing the room over
      - the limits: nickname cleaning, unknown rooms, full rooms, the host, origins,
        flooding, tries per address; and the goodbye when the server stops
@@ -332,6 +332,39 @@ async function main() {
   if (slow) send(slow, { type: "back" });
   check(slow && await until(() => slow.view.seats[0] === "human"), "\"I'm back\" gives them their seat again");
 
+  // ---- Pausing: asked, refused, agreed; the turn limit waits; anyone resumes ----
+  const mia = await connect(port), rob = await connect(port);
+  send(mia, { type: "create", name: "Mia", settings: { players: 3, turnLimit: 30 } });
+  await until(() => mia.code);
+  send(rob, { type: "join", code: mia.code, name: "Rob" });
+  await until(() => rob.lobby);
+  send(mia, { type: "start" });
+  // Nobody moves, so the game soon waits on one of them (the CPU's turn, if first, takes 2 ms)
+  let waited = null;
+  await until(() => (waited = [mia, rob].find(c => c.view && c.view.currentPlayer === 0 && c.view.seats[0] === "human" && c.turnLeft > 0)));
+  send(mia, { type: "pause" });
+  check(await until(() => rob.lobby.pauseAsk && rob.lobby.pauseAsk.by === 0 && !rob.lobby.paused),
+        "asking to pause shows the request to the others, and does not pause yet");
+  send(rob, { type: "nopause" });
+  check(await until(() => mia.lobby.pauseAsk === null), "a no drops the request");
+  send(mia, { type: "pause" });                              // too soon after her last request: ignored
+  await sleep(50);
+  check(mia.lobby.pauseAsk === null, "a player cannot ask again straight away");
+  send(rob, { type: "pause" });
+  await until(() => mia.lobby.pauseAsk && mia.lobby.pauseAsk.by === 1);
+  send(mia, { type: "pause" });                              // (a request is there: this is her yes)
+  check(await until(() => mia.lobby.paused && rob.lobby.paused && !rob.lobby.pauseAsk), "once everyone agrees, the game is paused");
+  check(waited && await until(() => waited.turnLeft === null), "a paused game shows no turn countdown");
+  const turnsBefore = waited && waited.view.turns;
+  if (waited) send(waited, { type: "action", name: "draw", args: ["deck"] });
+  await sleep(TURN_LIMIT_MS + 300);
+  check(waited && waited.view.turns === turnsBefore && waited.view.phase === "draw" && waited.view.seats[0] === "human",
+        "while paused, moves are refused and the turn limit does not run out");
+  send(waited === mia ? rob : mia, { type: "resume" });      // (not necessarily the one whose turn it is)
+  check(await until(() => !mia.lobby.paused && !rob.lobby.paused), "anyone at the table can resume");
+  check(waited && await until(() => waited.turnLeft > 0 && waited.turnLeft <= TURN_LIMIT_MS), "...and the turn countdown is back");
+  check(waited && await until(() => waited.view.seats[0] === "away", TURN_LIMIT_MS + 2000), "...and runs out as before");
+
   // ---- The host's tools ----
   const host = await connect(port), j1 = await connect(port), j2 = await connect(port);
   send(host, { type: "create", name: "Host", settings: { players: 3 } });
@@ -383,7 +416,7 @@ async function main() {
   // ---- The server stops: everyone is told why ----
   await server.shutdown();
   check(pia.errors.includes("online.err.restart") && pia.closedWith === 1012, "when the server stops, every player is told it restarted");
-  for (const c of [lone, ana, back, late, solo, other, third, pia, teo, host, j1, j2, ghost, guesser]) c.socket.terminate();
+  for (const c of [lone, ana, back, late, solo, other, third, pia, teo, mia, rob, host, j1, j2, ghost, guesser]) c.socket.terminate();
   console.log(failures ? `${failures} FAILED` : "server tests passed");
   process.exit(failures ? 1 : 0);
 }

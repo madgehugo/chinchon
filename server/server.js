@@ -18,6 +18,9 @@
        action  { name, args }       a move: one of ACTIONS in game.js
        back    {}                   "I'm back": you play your seat again after your time ran out
        react   { id }               a reaction for the table (an index into REACTIONS in i18n.js)
+       pause   {}                   ask the table to pause the game, or agree to someone's request
+       nopause {}                   say no to the request to pause (or take back your own)
+       resume  {}                   go on with a paused game (anyone at the table)
        again   {}                   a new game in the same room, once a game is over
        players { players }          the host changes the number of seats (between games)
        remove  { seat }             the host removes a player from the room
@@ -26,8 +29,9 @@
        leave   {}                   leave the room for good
      server -> page
        joined  { code, token }      you are in; keep the token to rejoin
-       lobby   { code, you, host, started, gameOver, players, settings, cpuWins, people }
-                                    who is in the room, its rules, and the games each has won
+       lobby   { code, you, host, started, gameOver, players, settings, cpuWins, paused, pauseAsk, people }
+                                    who is in the room, its rules, the games each has won, and
+                                    whether the game is paused or someone asked to pause it
        view    { state, turnLeft }  the game as you may see it (server/view.js), and the
                                     milliseconds you have left for your turn (null: no limit running)
        react   { who, id }          somebody's reaction (who: their seat, in your numbering)
@@ -162,6 +166,9 @@ function startServer(port = PORT) {
     action:  (room, s, m) => room.action(s, m.name, m.args),
     back:    (room, s)    => room.back(s),
     react:   (room, s, m) => room.react(s, m.id),
+    pause:   (room, s)    => room.pause(s),
+    nopause: (room, s)    => room.noPause(s),
+    resume:  (room, s)    => room.resume(s),
     again:   (room, s)    => room.again(s),
     players: (room, s, m) => room.setPlayers(s, m.players),
     remove:  (room, s, m) => room.remove(s, m.seat),

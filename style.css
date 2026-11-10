@@ -722,9 +722,10 @@ button.info-btn[aria-expanded="true"] { color: var(--gold); }
 #online-rules dd { margin: 0; text-align: right; font-weight: 700; }
 #online-waking { margin-top: 12px; }
 
-/* Online: your time for the turn is running out (gold, like the re-entry bar), and a CPU
-   playing for you because it ran out (with the button that takes your seat back) */
-#turn-bar, #away-bar {
+/* Online: your time for the turn is running out (gold, like the re-entry bar), a CPU
+   playing for you because it ran out (with the button that takes your seat back), and
+   a request to pause the game or a paused game (with its buttons) */
+#turn-bar, #away-bar, #pause-bar {
   width: min(960px, 100%);
   display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px;
   margin-bottom: 12px; padding: 10px 14px;
@@ -734,7 +735,7 @@ button.info-btn[aria-expanded="true"] { color: var(--gold); }
   border-radius: var(--r-md);
 }
 #turn-bar { font-variant-numeric: tabular-nums; }   /* digits of equal width, so the countdown does not wobble */
-#away-bar button { margin: 0; white-space: nowrap; }
+#away-bar button, #pause-bar button { margin: 0; white-space: nowrap; }
 
 /* Online: reactions. The smiley button is small among the play buttons; its row of emoji
    opens under them; a reaction pops up by its sender's seat and fades (REACTION_SHOW_MS in ui.js). */

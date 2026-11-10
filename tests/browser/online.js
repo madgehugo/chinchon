@@ -139,6 +139,29 @@ try { ({ startServer } = require('../../server/server')); } catch (err) {
   check(await luis.textContent('#seat-3 .reaction') === await luis.evaluate(() => REACTIONS[1]), "Luis sees Ana's reaction by her seat");
   check(!(await ana.isVisible('#react-picker')), '...and Ana\'s row of emoji closes');
 
+  // ---- Pausing: Ana asks in the room panel, Luis agrees under the table, Ana resumes ----
+  await ana.click('#online-chip');
+  await ana.click('#online-pause');
+  check(!(await ana.isVisible('#online-sheet')), 'asking to pause closes the room panel...');
+  await ana.waitForSelector('#pause-bar', { state: 'visible' });
+  check(!(await ana.isVisible('#pause-yes')) && await ana.isVisible('#pause-no'), '...and Ana waits for the others (and may take it back)');
+  await luis.waitForSelector('#pause-bar', { state: 'visible' });
+  check((await luis.textContent('#pause-text')).includes('Ana') && await luis.isVisible('#pause-yes'), 'Luis is asked whether to pause');
+  check(await noOverflow(luis), '...in a bar that fits at 390px');
+  await luis.screenshot({ path: `${OUT}/online-pause-ask-es-390.png` });
+  await luis.click('#pause-yes');
+  await ana.waitForFunction(() => onlinePaused());
+  await luis.waitForFunction(() => onlinePaused());
+  check(await ana.isVisible('#pause-resume') && await luis.isVisible('#pause-resume'), 'once he agrees, both see the game paused, with Resume');
+  const pausedTurns = await ana.evaluate(() => state.turns);
+  await ana.waitForTimeout(1000);
+  check(await ana.evaluate(() => state.turns) === pausedTurns, '...and nobody moves, CPUs included');
+  await ana.screenshot({ path: `${OUT}/online-paused-en-390.png` });
+  await ana.click('#pause-resume');
+  await ana.waitForFunction(() => !onlinePaused());
+  await luis.waitForFunction(() => !onlinePaused());
+  check(!(await ana.isVisible('#pause-bar')) && !(await luis.isVisible('#pause-bar')), 'Resume goes on with the game for both');
+
   // ---- Luis's time runs out (done by the server here): a bar gives him his seat back ----
   const room = [...server.rooms.values()][0];
   room.game.seatAway(1);

@@ -174,6 +174,14 @@
   <span data-i18n="online.awayBar">A CPU is playing for you.</span>
   <button id="away-back" data-i18n="online.back">I'm back</button>
 </div>
+<!-- Online: someone asked to pause the game (agree or say no), or it is paused (anyone may
+     resume). renderPauseBar in ui_online.js shows the text and the buttons that fit. -->
+<div id="pause-bar" hidden role="status">
+  <span id="pause-text"></span>
+  <button id="pause-yes" data-i18n="online.pauseYes">Pause</button>
+  <button id="pause-no" class="secondary" data-i18n="online.pauseNo">Keep playing</button>
+  <button id="pause-resume" data-i18n="online.resume">Resume</button>
+</div>
 
 <!-- Hints: how the evaluator sees your hand (see renderAnalysis) -->
 <div id="analysis"></div>
@@ -349,6 +357,8 @@
       </label>
       <p id="online-wait" class="online-note"></p>
       <button id="online-startgame" data-i18n="online.start">Start game</button>
+      <!-- During a game: asks everyone at the table to pause it (the request shows in #pause-bar) -->
+      <button id="online-pause" class="secondary" data-i18n="online.pause">Pause the game</button>
       <h3 data-i18n="online.rulesH">This room's rules</h3>
       <dl id="online-rules"></dl>
       <button id="online-leave" class="secondary" data-i18n="online.leave">Leave room</button>
