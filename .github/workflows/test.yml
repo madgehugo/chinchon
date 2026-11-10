@@ -19,8 +19,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
-      # Playwright for the browser tests, and the server's one library (ws)
-      - run: npm ci
+      # Playwright for the browser tests, and the server's one library (ws). The root has no
+      # lockfile in git (.gitignore), so `npm install` there; `npm ci` needs one, as server/ has.
+      - run: npm install
       - run: npx playwright install --with-deps chromium
       - run: npm ci
         working-directory: server
