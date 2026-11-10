@@ -181,6 +181,13 @@ const STRINGS = {
     "online.back": "I'm back",
     "online.turnLeft": "{n} s left, then a CPU plays for you",
     "online.react": "Send a reaction",
+    "online.pause": "Pause the game",
+    "online.pauseAsk": "{name} wants to pause the game.",
+    "online.pauseWait": "Waiting for everyone to agree to pause...",
+    "online.pauseYes": "Pause",
+    "online.pauseNo": "Keep playing",
+    "online.paused": "The game is paused.",
+    "online.resume": "Resume",
     "res.waitingFor": "Waiting for {names}",
     "pile.draw": "Draw pile ({n})",
     "pile.discard": "Discard pile ({n})",
@@ -366,7 +373,7 @@ const STRINGS = {
     "help.settings.p": "Your settings and language are remembered on this device.",
     "help.online.h": "Playing online",
     "help.online.p1": "In Settings, choose Play online with friends. One player creates a room and shares its code or link, and the others join with it. That player chooses the room's rules (deck, CPUs and so on) when creating it, and CPUs play any empty seats.",
-    "help.online.p2": "If your connection drops, the game waits 30 seconds for you, then a CPU plays your seat until you are back: open the game again and you return to your seat. If the room has a time per turn and yours runs out, a CPU plays for you until you press I'm back. The next round starts once everyone has pressed Next round. The smiley button sends the table a quick reaction. Leave room takes you back to your own game on this device.",
+    "help.online.p2": "If your connection drops, the game waits 30 seconds for you, then a CPU plays your seat until you are back: open the game again and you return to your seat. If the room has a time per turn and yours runs out, a CPU plays for you until you press I'm back. The next round starts once everyone has pressed Next round. The smiley button sends the table a quick reaction. To take a break, press Pause the game in the room panel: the game stops once everyone at the table agrees, and anyone can resume it. Leave room takes you back to your own game on this device.",
     "help.screen.h": "Hints, results and other help",
     "help.screen.li1": "Hints (the light-bulb button at the top): shows the melds in your hand, your unmatched points and whether you can close (and with which discard). Your melds get coloured bars (a striped bar marks a card that fits either meld) and the Close button shows your best score. Leave it off for the full challenge.",
     "help.screen.li2": "Round results: after each round, every hand is shown split into melds and leftover cards. Hide it to look at the table; the Round results button opens it again.",
@@ -533,6 +540,13 @@ const STRINGS = {
     "online.back": "Ya estoy",
     "online.turnLeft": "Quedan {n} s; luego la CPU juega por ti",
     "online.react": "Enviar una reacción",
+    "online.pause": "Pausar la partida",
+    "online.pauseAsk": "{name} quiere pausar la partida.",
+    "online.pauseWait": "Esperando a que todos acepten la pausa...",
+    "online.pauseYes": "Pausar",
+    "online.pauseNo": "Seguir jugando",
+    "online.paused": "La partida está en pausa.",
+    "online.resume": "Continuar",
     "res.waitingFor": "Esperando a {names}",
     "pile.draw": "Mazo ({n})",
     "pile.discard": "Descartes ({n})",
@@ -713,7 +727,7 @@ const STRINGS = {
     "help.settings.p": "Tu configuración y tu idioma se guardan en este dispositivo.",
     "help.online.h": "Jugar en línea",
     "help.online.p1": "En Ajustes, elige Jugar en línea con amigos. Un jugador crea una sala y comparte su código o enlace, y los demás se unen con él. Ese jugador elige las reglas de la sala (mazo, CPU, etc.) al crearla, y la CPU juega los asientos libres.",
-    "help.online.p2": "Si se corta tu conexión, la partida te espera 30 segundos y luego la CPU juega por ti hasta que vuelvas: abre el juego otra vez y vuelves a tu asiento. Si la sala tiene tiempo por turno y se te acaba, la CPU juega por ti hasta que pulses Ya estoy. La siguiente ronda empieza cuando todos han pulsado Siguiente ronda. El botón de la carita envía a la mesa una reacción rápida. Salir de la sala te devuelve a tu propia partida en este dispositivo.",
+    "help.online.p2": "Si se corta tu conexión, la partida te espera 30 segundos y luego la CPU juega por ti hasta que vuelvas: abre el juego otra vez y vuelves a tu asiento. Si la sala tiene tiempo por turno y se te acaba, la CPU juega por ti hasta que pulses Ya estoy. La siguiente ronda empieza cuando todos han pulsado Siguiente ronda. El botón de la carita envía a la mesa una reacción rápida. Para hacer un descanso, pulsa Pausar la partida en el panel de la sala: la partida se detiene cuando todos en la mesa están de acuerdo, y cualquiera puede continuarla. Salir de la sala te devuelve a tu propia partida en este dispositivo.",
     "help.screen.h": "Pistas, resultados y otras ayudas",
     "help.screen.li1": "Pistas (el botón de la bombilla, arriba): muestra las combinaciones de tu mano, tus puntos sueltos y si puedes cerrar (y con qué descarte). Tus combinaciones llevan barras de color (una barra a rayas marca una carta que sirve para las dos combinaciones) y el botón Cerrar muestra tu mejor puntuación. Déjalo apagado para el reto completo.",
     "help.screen.li2": "Resultados de la ronda: tras cada ronda se muestra cada mano separada en combinaciones y cartas sueltas. Ocúltalos para ver la mesa; el botón Resultados de la ronda los vuelve a abrir.",
@@ -729,7 +743,7 @@ const STRINGS = {
 // are the same in every language, so a reaction never needs translating, and since nobody
 // can type their own there is nothing to check. Over the network a reaction is just its
 // position in this list (server/room.js checks the number).
-const REACTIONS = ["👍", "👏", "😂", "😮", "😅", "🔥", "🤔", "😴"];
+const REACTIONS = ["😭", "👏", "😂", "😱", "👀", "🔥", "😜", "😴"];
 
 const LANGUAGES  = Object.keys(STRINGS);   // ["en", "es"]
 const LANG_STORAGE_KEY = "chinchon-lang";  // where the choice is remembered (localStorage)
