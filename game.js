@@ -60,6 +60,10 @@ const state = {
   // known to be in their hand until they discard them again. The smart-based CPUs
   // use this to work out which cards can still come from the draw pile (unseenCards in ai.js).
   known: [[], [], [], []],
+  // Also public: this round's draws and discards, as { p, kind, card } with kind "took" (from the
+  // discard pile), "passed" (drew from the deck while `card` was on top) or "threw". Never
+  // shown on screen (no move log); the CPUs read it to guess what the others collect.
+  history: [],
   // Which strategy each CPU uses (see STRATEGIES). Index 0 is the human.
   cpuLevels: [null, "hard", "hard", "hard"],
   // Who plays each seat: "human" (waits for clicks, or for moves sent over the network),
@@ -149,6 +153,7 @@ function startRound(deck) {
   state.turns = 0;
   state.lastDrawn = null;
   state.known = Array.from({ length: state.numPlayers }, () => []);
+  state.history = [];
   state.currentPlayer = state.inGame[state.startPlayer]
     ? state.startPlayer
     : nextActivePlayer(state.startPlayer);
@@ -243,7 +248,10 @@ function drawCard(player, source) {
   if (source === "discard") {
     card = state.discardPile.pop();
     state.known[player].push(card);       // everyone saw them take it
+    state.history.push({ p: player, kind: "took", card });
   } else {
+    const top = state.discardPile[state.discardPile.length - 1];
+    if (top) state.history.push({ p: player, kind: "passed", card: top });
     if (!refillDrawPileIfEmpty()) {
       endRoundStalemate();
       return null;
@@ -258,6 +266,7 @@ function drawCard(player, source) {
 function discardCard(player, cardIndex) {
   const [card] = state.hands[player].splice(cardIndex, 1);   // remove 1 item
   state.discardPile.push(card);
+  state.history.push({ p: player, kind: "threw", card });
 
   const k = state.known[player];                  // no longer a secret: it's on the pile
   const at = k.indexOf(card);
@@ -817,7 +826,7 @@ function nextRound() {
    plain object and back; they never touch the page or the storage, so the Node
    tools can test them (and a future server could use them as they are).
    --------------------------------------------------------- */
-const SAVE_VERSION = 4;   // bump when the shape of `state` changes: older saves are then ignored
+const SAVE_VERSION = 5;   // bump when the shape of `state` changes: older saves are then ignored
                           // (2: laying off, state.layoffMode and state.layoff;
                           //  3: several human seats, state.seats, state.names and state.reentryPending;
                           //  4: state.ready, for Next round with several people)
