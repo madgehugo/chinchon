@@ -25,7 +25,11 @@
 process.env.AWAY_AFTER_MS = "300";
 process.env.LOBBY_LEAVE_MS = "300";
 process.env.CPU_DELAY_MS = "2";
-process.env.RATE_PER_SECOND = "1000";     // (read by server.js) the scripted players move every few ms
+// (read by server.js) Two scripted players against each other move as fast as the server
+// answers, about 2,000 messages a second each on a fast machine. At 1,000 the rate limit
+// sometimes cut one off mid-round (close code 4008), freezing its view. The flood test still
+// trips it: it sends 100 messages at once, and the burst allowance (RATE_BURST) is 30.
+process.env.RATE_PER_SECOND = "10000";
 process.env.NEXT_ROUND_WAIT_MS = "300";
 process.env.SECOND_MS = "30";             // a turn limit of "30 seconds" lasts 900 ms (see TURN_LIMIT_MS)
 process.env.HEARTBEAT_MS = "100";
@@ -286,6 +290,13 @@ async function main() {
   send(teo, { type: "join", code: pia.code, name: "Teo" });
   await until(() => teo.lobby);
   check(pia.lobby.settings.turnLimit === 30 && teo.lobby.settings.deckSize === 40, "the lobby tells everyone the room's rules");
+  // The turn limit stays off for the first round, so no turn timer runs while they react and
+  // play (on a busy machine TURN_LIMIT_MS is short enough to hand a turn to the CPU now and
+  // then, which can leave a scripted player waiting for good). Off BEFORE the start: a timer
+  // starts with the first turn, and turning the setting off later would not stop that one.
+  // It is back on for the next round.
+  const piaRoom = server.rooms.get(pia.code);
+  piaRoom.settings.turnLimit = null;
   send(pia, { type: "start" });
   await until(() => pia.view && teo.view);
   send(pia, { type: "react", id: 2 });
@@ -297,10 +308,6 @@ async function main() {
   check(reacts(pia).length === 1 && reacts(pia)[0].who === 0 && reacts(teo).length === 1 && reacts(teo)[0].who === 1 && reacts(teo)[0].id === 2,
         "a reaction reaches the table, from the sender's seat; one too soon after it is dropped");
 
-  // The turn limit stays off while they play (on a busy machine TURN_LIMIT_MS is short enough to
-  // hand their turns to the CPU now and then); it is back on for the next round
-  const piaRoom = server.rooms.get(pia.code);
-  piaRoom.settings.turnLimit = null;
   // Each plays until the round is over, and then never again
   const untilRoundOver = c => { let over = false; return () => over || (over = c.view.phase === "roundOver"); };
   autoplay(pia, untilRoundOver(pia));
