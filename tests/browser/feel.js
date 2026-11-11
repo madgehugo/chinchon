@@ -58,8 +58,11 @@ const { GAME_URL, OUT, makeChecker, noCpuClose, cpu1Closes } = require('./helper
   await page.click('#res-hide');
   const pops = await page.locator('.score-pop').count();
   check(pops >= 3, `pop-ups appear once the panel is hidden (${pops})`);
-  await page.waitForTimeout(1700);
-  check((await page.locator('.score-pop').count()) === 0, 'the pop-ups remove themselves');
+  // A pop-up floats for POP_MS (1.5 s), but a slow machine (GitHub's) finishes the animation
+  // late, so wait for them to go, up to 4 s, rather than sleeping a fixed time
+  const popsGone = await page.waitForFunction(() => !document.querySelector('.score-pop'), null, { timeout: 4000 })
+    .then(() => true, () => false);
+  check(popsGone, 'the pop-ups remove themselves');
 
   // A Chinchón fills the screen with fireworks (with their sound), which clear themselves
   const chinchon = p => p.evaluate(() => {
