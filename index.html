@@ -114,6 +114,9 @@
         <div id="discard-slot"></div>
         <div class="pile-label" id="discard-label"></div>
       </div>
+      <!-- A short note when a CPU draws (see showToast in ui.js); one at a time, it fades by
+           itself. It sits just above the piles (style.css), so it never covers them. -->
+      <div id="toasts" aria-live="polite"></div>
     </div>
     <div id="status"></div>
   <!-- The tutorial's coach: what to do now (renderTutorial in tutorial.js). It takes the
@@ -131,9 +134,6 @@
     </div>
   </div>
   </div>
-
-  <!-- A short note when a CPU draws (see showToast in ui.js); one at a time, it fades by itself -->
-  <div id="toasts" aria-live="polite"></div>
 
   <div class="seat" id="seat-3">
     <div class="seat-name"></div>

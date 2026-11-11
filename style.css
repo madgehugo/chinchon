@@ -560,15 +560,20 @@ h1 {
 }
 
 /* ---------- Toasts and score pop-ups (see showToast and showScorePop in ui.js) ---------- */
-/* The toast floats over the table just above the piles; pointer-events: none lets clicks
-   pass through it to the cards underneath. */
+/* The toast floats just above the piles: #toasts is inside #piles, and bottom: 100% puts
+   its bottom edge at the top of #piles, wherever the layout puts them. It may overlap the
+   top CPU's face-down cards, which hides nothing. width: max-content makes the box as
+   wide as the toast, so translateX(-50%) centres the toast over the piles.
+   pointer-events: none lets clicks pass through it to the cards underneath. */
+#piles { position: relative; }
 #toasts {
-  position: absolute; left: 50%; top: 31%; z-index: 20;
+  position: absolute; left: 50%; bottom: 100%; z-index: 20;
+  width: max-content;
   transform: translateX(-50%);
   pointer-events: none;
 }
 .toast {
-  width: max-content; max-width: min(24em, 62vw);   /* as wide as its text, but wraps on a phone */
+  width: max-content; max-width: min(24em, 62vw);   /* as wide as its text, but wraps on a narrow screen */
   padding: 7px 16px;
   text-align: center;
   font-size: var(--fs-sm); font-weight: 600;
@@ -1114,6 +1119,29 @@ body.coach-floating .overlay { padding-bottom: calc(var(--coach-h, 160px) + 20px
   #table { height: min(720px, 84vh); }
 }
 
+/* ---------- Short windows (a laptop, or a browser window that is not very tall) ----------
+   The table is 80% of the window's height, and below about 740px that is too little for
+   the piles and the status line between a CPU across the table and your hand: they
+   overlapped both. Here the middle tightens up and the piles and CPU cards get a bit
+   smaller; in very short windows (the second block) your cards too. That keeps
+   everything apart down to a window about 600px tall. Phones have their own layout
+   (next section), where the table grows with its contents instead. */
+@media (max-height: 740px) and (min-width: 721px) {
+  :root {
+    --card-w: 56px;  --card-h: 84px;
+    --pile-w: 64px;  --pile-h: 96px;
+  }
+  #centre { gap: 12px; }
+  #piles { padding: 6px 22px; }
+}
+@media (max-height: 660px) and (min-width: 721px) {
+  :root {
+    --card-w: 50px;   --card-h: 75px;
+    --human-w: 66px;  --human-h: 98px;
+    --pile-w: 58px;   --pile-h: 86px;
+  }
+}
+
 /* ---------- Phones and small windows ---------- */
 @media (max-width: 720px) {
   :root {
@@ -1155,8 +1183,9 @@ body.coach-floating .overlay { padding-bottom: calc(var(--coach-h, 160px) + 20px
   #piles { gap: 14px; padding: 8px 10px; }
   .pile-label { font-size: .65rem; text-align: center; }
   #status { font-size: .78rem; padding: 6px 10px; }
-  #toasts { top: 23%; }
-  .toast { font-size: var(--fs-xs); padding: 5px 12px; border-radius: var(--r-md); }
+  /* wider than on a desktop (the whole table's width, less a margin), so a toast usually
+     fits on one line and stays clear of the top CPU's cards */
+  .toast { font-size: var(--fs-xs); padding: 5px 12px; border-radius: var(--r-md); max-width: calc(100vw - 56px); }
   #actions { gap: 8px; }
   #actions button { min-width: 0; flex: 1; }
   .opt { font-size: var(--fs-xs); }
