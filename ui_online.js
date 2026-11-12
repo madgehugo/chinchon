@@ -26,9 +26,10 @@ const TURN_TICK_MS = 250;        // how often the turn bar's countdown is redraw
 const TURN_BUZZ_MS = 200;        // the buzz when your turn comes while the game is in the background
 const REACTION_SHOW_MS = 2500;   // how long a reaction stays by the seat of whoever sent it
 // The room's rules: [setting, label key, how its value reads, its dropdown in Settings].
-// The online sheet lists them in the lobby, and the create form has a copy of each Settings
-// dropdown (made by makeRulePicks) to choose them; the time per turn has its own dropdown
-// there, since it is not one of your Settings. (`??` = "if null or undefined, use this instead")
+// The online sheet lists them in the lobby, and the create form and the host's form for
+// changing them have a copy of each Settings dropdown (made by makeRulePicks); the time per
+// turn has its own dropdown in the create form (#online-turn), since it is not one of your
+// Settings. (`??` = "if null or undefined, use this instead")
 const showLimit = v => v === null ? t("set.noLimit") : String(v);
 const ROOM_RULES = [
   ["deckSize",      "set.deck",         v => t(`set.deck.${v}`),         "deck-size"],
@@ -43,27 +44,33 @@ const ROOM_RULES = [
 // anything else stays text ("hard")
 const optionValue = value => value === "none" ? null : /^\d+$/.test(value) ? Number(value) : value;
 
-// The create form's copies of the Settings dropdowns, made once at startup. cloneNode(true)
+// Copies of the Settings dropdowns for a form, made once at startup. cloneNode(true)
 // copies an element with everything inside it (the label, the dropdown and its options,
 // with their data-i18n keys, so they switch language with the rest of the page). Each copy
-// gets the id "online-" + the original's, so the two never mix.
-function makeRulePicks() {
-  const box = document.getElementById("online-rule-picks");
+// gets the id `prefix` + the original's ("online-deck-size"), so they never mix. The time
+// per turn is copied from the create form's own dropdown, as `prefix` + "turn".
+function makeRulePicks(boxId, prefix) {
+  const box = document.getElementById(boxId);
   for (const [, , , id] of ROOM_RULES) {
+    if (!id && prefix === "online-") continue;            // (the create form's own dropdown)
+    const label = document.getElementById(id || "online-turn").closest("label").cloneNode(true);
+    label.querySelector("select").id = rulePickId(prefix, id);
+    label.htmlFor = rulePickId(prefix, id);               // (the `for` attribute)
+    box.append(label);
     if (!id) continue;
-    const label = document.getElementById(id).closest("label").cloneNode(true);
-    label.querySelector("select").id = `online-${id}`;
-    label.htmlFor = `online-${id}`;                       // (the `for` attribute)
     // ...and its explanation line, which the copy's (i) button opens
     const info = document.getElementById(`info-${id}`).cloneNode(true);
-    info.id = `online-info-${id}`;
+    info.id = `${prefix}info-${id}`;
     info.hidden = true;
     label.querySelector(".info-btn").setAttribute("aria-controls", info.id);
     label.querySelector(".info-btn").setAttribute("aria-expanded", "false");
-    box.append(label, info);
+    box.append(info);
   }
 }
-makeRulePicks();
+// The id of a form's dropdown for a rule (id: its dropdown in Settings; null for the time per turn)
+const rulePickId = (prefix, id) => prefix + (id || "turn");
+makeRulePicks("online-rule-picks", "online-");      // the create form
+makeRulePicks("room-rule-picks", "room-");          // the host's form for changing the room's rules
 
 // Set the create form's rules to your own Settings (each time the online sheet opens)
 function fillRulePicks() {
@@ -72,9 +79,19 @@ function fillRulePicks() {
   }
 }
 
+// The rules chosen in a form, as the room's settings (the server checks each value)
+function readRulePicks(prefix) {
+  const settings = {};
+  for (const [key, , , id] of ROOM_RULES) {
+    settings[key] = optionValue(document.getElementById(rulePickId(prefix, id)).value);
+  }
+  return settings;
+}
+
 function setOnlineOpen(open) {
   if (open) endTutorial();                    // (tutorial.js) going online starts from your own game
   state.showOnline = open;
+  if (!open) rulesFormOpen = false;           // (the host's form for new rules starts closed next time)
   if (open) {
     online.error = online.code ? online.error : null;   // a fresh start shows no old problem
     if (!online.code) fillRulePicks();
@@ -95,6 +112,7 @@ function renderOnline() {
   document.getElementById("away-bar").hidden = !(online.playing && state.seats[0] === "away");
   renderTurnBar();
   renderPauseBar();
+  renderRulesAsk();
   for (const id of ROOM_SETTING_IDS) document.getElementById(id).disabled = online.playing;
   if (online.playing) {
     syncSettingDropdowns();                          // show the room's rules in the (locked) dropdowns
@@ -150,6 +168,94 @@ function renderOnline() {
       rules.append(dt, dd);
     }
   }
+  renderRulesForm(lobby, isHost);
+}
+
+/* ---------------------------------------------------------
+   CHANGING THE RULES (see the top of server/room.js)
+   ---------------------------------------------------------
+   The host opens a form in the online sheet with the room's rules. Before the first
+   game, what they choose is the room's at once. After that it is a request: everyone
+   in the room sees it (with what would change) in #rules-bar under the table and in
+   the sheet, and once all who are connected agree, the server deals a new game with
+   the new rules (or, after a game, keeps them for the next one).
+   --------------------------------------------------------- */
+let rulesFormOpen = false;         // is the host's form open? (only this screen; not part of `state`)
+
+function renderRulesForm(lobby, isHost) {
+  // (no changes while a request is waiting for answers: the host may take it back first)
+  const canChange = isHost && !lobby.rulesAsk;
+  if (!canChange) rulesFormOpen = false;
+  document.getElementById("online-change-rules").hidden = !canChange || rulesFormOpen;
+  document.getElementById("online-rules-form").hidden = !rulesFormOpen;
+  if (!rulesFormOpen) return;
+  document.getElementById("online-rules-note").textContent =
+    t(!lobby.started ? "online.rulesNoteLobby" : lobby.gameOver ? "online.rulesNoteNext" : "online.rulesNoteGame");
+  document.getElementById("online-rules-send").textContent = t(lobby.started ? "online.rulesPropose" : "online.rulesApply");
+}
+// Opening the form sets its dropdowns to the room's rules (only then: redrawing must not
+// undo what the host is choosing)
+document.getElementById("online-change-rules").addEventListener("click", () => {
+  for (const [key, , , id] of ROOM_RULES) {
+    document.getElementById(rulePickId("room-", id)).value = limitToOption(online.lobby.settings[key]);
+  }
+  rulesFormOpen = true;
+  render();
+});
+document.getElementById("online-rules-cancel").addEventListener("click", () => {
+  rulesFormOpen = false;
+  render();
+});
+// Sending closes the form; during a game the sheet too, so the host sees the request's bar
+document.getElementById("online-rules-send").addEventListener("click", () => {
+  proposeRules(readRulePicks("room-"));               // (net.js)
+  rulesFormOpen = false;
+  if (online.lobby && online.lobby.started) setOnlineOpen(false); else render();
+});
+
+// The request, in both of its boxes. Redrawn only when it changed, like the list of people
+// (a view arrives every time anybody moves, and a rebuilt button would lose your tap).
+function renderRulesAsk() {
+  const lobby = online.lobby;
+  const ask = online.code && lobby ? lobby.rulesAsk : null;
+  for (const id of ["rules-bar", "online-rules-ask"]) {
+    const box = document.getElementById(id);
+    box.hidden = !ask;
+    // (dataset.drawn is the element's data-drawn attribute: a handy place to keep a string)
+    const drawn = ask ? JSON.stringify([ask, lobby.settings, lobby.gameOver, lobby.you, lobby.people, currentLang]) : "";
+    if (box.dataset.drawn === drawn) continue;
+    box.dataset.drawn = drawn;
+    if (ask) fillRulesAsk(box, lobby);
+  }
+}
+
+// What a box says: who asks (or that you wait for the others), each rule that would change,
+// what happens then, and the buttons. Names are what people typed: textContent, never innerHTML.
+function fillRulesAsk(box, lobby) {
+  const ask = lobby.rulesAsk;
+  const asker = lobby.people[ask.by];
+  const agreed = ask.agreed.includes(lobby.you);
+  const text = document.createElement("p");
+  text.textContent = agreed ? t("online.rulesWait") : t("online.rulesAsk", { name: asker ? asker.name : "" });
+  const list = document.createElement("ul");
+  for (const [key, label, show] of ROOM_RULES) {
+    if (ask.settings[key] === lobby.settings[key]) continue;
+    const li = document.createElement("li");
+    li.textContent = t("online.ruleChange", { rule: t(label), from: show(lobby.settings[key]), to: show(ask.settings[key]) });
+    list.appendChild(li);
+  }
+  const note = document.createElement("p");
+  note.textContent = t(lobby.gameOver ? "online.rulesNext" : "online.rulesRestart");
+  box.replaceChildren(text, list, note);              // (replaceChildren: empty the box, then add these)
+  if (!agreed) box.appendChild(rulesButton("online.rulesYes", "", sendRulesYes));
+  box.appendChild(rulesButton(ask.by === lobby.you ? "online.rulesTakeBack" : "online.rulesNo", "secondary", sendRulesNo));
+}
+function rulesButton(key, className, onClick) {
+  const button = document.createElement("button");
+  button.className = className;
+  button.textContent = t(key);
+  button.addEventListener("click", onClick);
+  return button;
 }
 
 // The players in the room (names are what people typed, so textContent, never innerHTML),
@@ -332,13 +438,8 @@ document.getElementById("online-create").addEventListener("click", () => {
   const name = onlineName();
   if (!name) return;
   // The rules chosen in the form (the server checks each value)
-  const settings = {
-    players: Number(document.getElementById("online-players").value),
-    turnLimit: optionToLimit(document.getElementById("online-turn").value),
-  };
-  for (const [key, , , id] of ROOM_RULES) {
-    if (id) settings[key] = optionValue(document.getElementById(`online-${id}`).value);
-  }
+  // (...: copy in the fields of the rules read from the form)
+  const settings = { players: Number(document.getElementById("online-players").value), ...readRulePicks("online-") };
   createRoom(name, settings);
 });
 document.getElementById("online-join").addEventListener("click", () => {

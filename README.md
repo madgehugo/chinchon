@@ -122,6 +122,12 @@ turn** (no limit (the default), 30 seconds, 1 minute or 2 minutes). The online s
   dealt in when someone presses New game. The seats of players who left for good go to newcomers (or the CPUs) then.
 * **The host's tools,** between games: the number of seats; and at any time: Remove a player (during a game a CPU
   plays their seat to the end) and Make host. If the host leaves, the next person takes over.
+* **Changing the rules.** The host's **Change the rules** in the room panel opens the room's rules (deck, CPU level,
+  reshuffles, re-entries, rounds, laying off, time per turn). Before the first game the change is made at once. After
+  that it asks everyone: a bar under the table (and the room panel) shows what would change, with Agree and Keep the old
+  rules. Once everyone in the room who is connected has agreed, a game in progress ends and a new one starts with the
+  new rules (after a game, the next one uses them). A no from anyone, or a new host, drops the request; one nobody
+  answers lapses after a minute, and the host may ask once per 10 seconds. (`proposeRules`/`checkRules` in `server/room.js`.)
 * **Reactions.** The smiley button by the play buttons sends one of a few emoji (`REACTIONS` in `i18n.js`), which pops
   up by the sender's seat and fades. Emoji only, so nothing needs translating or checking; one per 1.5 seconds each.
 * **Pausing.** Pause the game (in the room panel) asks the table; a bar under the table lets the others agree or

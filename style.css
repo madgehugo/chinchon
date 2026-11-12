@@ -818,8 +818,9 @@ button.info-btn[aria-expanded="true"] { color: var(--gold); }
 
 /* Online: your time for the turn is running out (gold, like the re-entry bar), a CPU
    playing for you because it ran out (with the button that takes your seat back), and
-   a request to pause the game or a paused game (with its buttons) */
-#turn-bar, #away-bar, #pause-bar {
+   a request to pause the game or a paused game (with its buttons), and the host's request
+   to change the rules (.rules-ask: also in the room panel) */
+#turn-bar, #away-bar, #pause-bar, .rules-ask {
   width: min(960px, 100%);
   display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px;
   margin-bottom: 12px; padding: 10px 14px;
@@ -829,7 +830,12 @@ button.info-btn[aria-expanded="true"] { color: var(--gold); }
   border-radius: var(--r-md);
 }
 #turn-bar { font-variant-numeric: tabular-nums; }   /* digits of equal width, so the countdown does not wobble */
-#away-bar button, #pause-bar button { margin: 0; white-space: nowrap; }
+#away-bar button, #pause-bar button, .rules-ask button { margin: 0; white-space: nowrap; }
+/* The rules asked for, one per line; the text and the list each take a whole line of the bar
+   (flex-basis 100%), the buttons share the last one */
+.rules-ask p, .rules-ask ul { flex-basis: 100%; margin: 0; }
+.rules-ask ul { list-style: none; padding: 0; font-weight: 400; line-height: 1.6; }
+#online-rules-ask { width: auto; margin: 0; }   /* in the panel: as wide as the panel, spaced by its gap */
 
 /* Online: reactions. The smiley button is small among the play buttons; its row of emoji
    opens under them; a reaction pops up by its sender's seat and fades (REACTION_SHOW_MS in ui.js). */

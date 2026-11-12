@@ -14,7 +14,7 @@
    "after the current piece of work") each player at the table is sent their own
    view of the game (viewFor in view.js).
 
-   A seat here is { name, token, socket, awayTimer, playing, wins, lastReact, lastPauseAsk }.
+   A seat here is { name, token, socket, awayTimer, playing, wins, lastReact, lastPauseAsk, lastRulesAsk }.
    The token is a long random secret given to the player when they join; with it
    they can come back to the same seat after a reload or a lost connection
    (rejoin). It is the only proof of who is who, so it is never sent to anybody
@@ -36,6 +36,13 @@
    the engine's timers (the CPUs' turns) are held back until it goes on, and the
    turn limit keeps the time that was left. Anyone at the table may resume, so a
    pause never needs everyone back to end.
+
+   The host may CHANGE THE RULES (the deck, CPU level, reshuffles...). In the
+   lobby, before the first game, the change is made at once, as in the create
+   form. After that it is a request, like a pause: once every person in the room
+   who is connected has agreed, the new rules are the room's. A game in progress
+   then ends and a new one is dealt with them; after a game they are used for
+   the next one.
    ========================================================= */
 const crypto = require("crypto");
 const { loadEngine } = require("../tools/harness");
@@ -49,6 +56,8 @@ const SECOND_MS      = Number(process.env.SECOND_MS)      || 1000;        // one
 const REACT_GAP_MS   = 1500;      // a player's reactions closer together than this are dropped (no flooding the table)
 const PAUSE_ASK_MS   = 60 * 1000; // a request to pause that not everyone has agreed to is dropped after this long
 const PAUSE_ASK_GAP_MS = 10 * 1000; // a player may ask to pause at most once in this long (no pestering the table)
+const RULES_ASK_MS   = 60 * 1000; // a request to change the rules that not everyone has agreed to is dropped after this long
+const RULES_ASK_GAP_MS = 10 * 1000; // the host may ask to change the rules at most once in this long
 
 // What the host chooses for the game (sent with "create"), and the values each may take.
 // Anything else is replaced by the first value in the list (the default).
@@ -70,7 +79,9 @@ function cleanSettings(settings) {
   }
   return out;
 }
-
+// The settings the host may change with a "rules" message: all but the number of seats,
+// which has its own message (between games only)
+const RULE_KEYS = Object.keys(SETTING_CHOICES).filter(key => key !== "players");
 class Room {
   constructor(code, settings) {
     this.code = code;
@@ -93,6 +104,7 @@ class Room {
     this.pauseAsk = null;        // a request to pause: { by, agreed, timer } (by: a seat object; agreed: a Set of them)
     this.held = new Map();       // engine timers that came due while paused: timer id -> function, run on resume
     this.pausedTurnLeft = null;  // milliseconds the turn limit had left when the game was paused (null: none was running)
+    this.rulesAsk = null;        // the host's request to change the rules: { by, settings, agreed, timer } (as pauseAsk)
   }
 
   get started() { return this.game !== null; }
@@ -108,7 +120,8 @@ class Room {
   join(name, socket) {
     if (this.people().length >= this.settings.players) return "online.err.full";
     const token = crypto.randomBytes(18).toString("base64url");      // 144 random bits
-    const seat = { name, token, socket, awayTimer: null, playing: false, wins: 0, lastReact: 0, lastPauseAsk: 0 };
+    const seat = { name, token, socket, awayTimer: null, playing: false, wins: 0,
+                   lastReact: 0, lastPauseAsk: 0, lastRulesAsk: 0 };
     this.seats.push(seat);
     if (!this.hostSeat) this.hostSeat = seat;
     this.emptySince = null;
@@ -153,7 +166,8 @@ class Room {
       }, AWAY_AFTER_MS);
     }
     if (this.connectedCount() === 0) this.emptySince = Date.now();
-    this.checkPause();                 // (they may have been the last one who had not agreed to pause)
+    this.checkPause();                 // (they may have been the last one who had not agreed to pause...
+    this.checkRules();                 // ...or to the new rules)
     this.sendLobby();
   }
 
@@ -173,13 +187,16 @@ class Room {
     clearTimeout(seat.awayTimer);
     this.seats.splice(s, 1);
     if (seat === this.hostSeat) this.passHost();
+    this.checkRules();
     this.sendLobby();
   }
 
   // The host is gone: the first person still connected takes over (or the first one still in)
+  // (a request to change the rules was the old host's, so it goes too)
   passHost() {
     this.hostSeat = this.seats.find(seat => seat.token && seat.socket) ||
                     this.seats.find(seat => seat.token) || null;
+    this.dropRulesAsk();
   }
 
   connectedCount() { return this.seats.filter(seat => seat.socket).length; }
@@ -214,6 +231,7 @@ class Room {
     if (this.started && seat.playing) this.leaveGame(seat);
     else { seat.token = null; this.removeSeat(seat); }
     this.checkPause();
+    this.checkRules();
     this.sendLobby();
     return null;
   }
@@ -224,6 +242,7 @@ class Room {
     const seat = this.personAt(target);
     if (!seat) return "online.err.badMessage";
     this.hostSeat = seat;
+    this.dropRulesAsk();               // (the request was the old host's)
     this.sendLobby();
     return null;
   }
@@ -251,24 +270,24 @@ class Room {
       render: () => this.queueFlush(),
       status: () => this.queueFlush(),
     });
-    const g = this.game, st = this.settings;
     // For the tests (test.js): CPU_DELAY_MS replaces every CPU pause, so games play out in seconds
     if (process.env.CPU_DELAY_MS) {
-      g.CPU_PAUSE.draw = g.CPU_PAUSE.discard = Number(process.env.CPU_DELAY_MS);
+      this.game.CPU_PAUSE.draw = this.game.CPU_PAUSE.discard = Number(process.env.CPU_DELAY_MS);
     }
+    this.newGame();
+    return null;
+  }
+
+  // Deal a new game with the people in the room and the room's rules (Start, "New game"
+  // after a game ends, and new rules everyone agreed to)
+  newGame() {
+    const g = this.game, st = this.settings;
     g.setDeckSize(st.deckSize);
     g.state.cpuMode = st.cpuMode;
     g.state.maxReshuffles = st.maxReshuffles;
     g.state.maxReentries = st.maxReentries;
     g.state.roundLimit = st.roundLimit;
     g.state.layoffMode = st.layoffMode;
-    this.newGame();
-    return null;
-  }
-
-  // Deal a new game with the people in the room (Start, and "New game" after a game ends)
-  newGame() {
-    const g = this.game;
     // Seats of players who left for good are given up now (to newcomers, or to the CPUs),
     // and everyone who was waiting for this game sits down
     this.seats = this.seats.filter(seat => seat.token);
@@ -401,6 +420,80 @@ class Room {
     return null;
   }
 
+  // ---- Changing the rules (see the top of this file) ----
+
+  // The people whose agreement new rules need: everyone in the room who is connected,
+  // including those waiting for the next game (they will play with the new rules too)
+  rulesVoters() { return this.seats.filter(seat => seat.token && seat.socket); }
+
+  // The host asks for new rules: `settings` holds some or all of RULE_KEYS (a key left out
+  // keeps its value). In the lobby they are the room's at once; after that the others must agree.
+  proposeRules(s, settings) {
+    if (s !== this.host) return "online.err.notHost";
+    if (!settings || typeof settings !== "object") return "online.err.badMessage";
+    const next = {};
+    for (const key of RULE_KEYS) {
+      next[key] = Object.hasOwn(settings, key) ? settings[key] : this.settings[key];
+      if (!SETTING_CHOICES[key].includes(next[key])) return "online.err.badMessage";
+    }
+    if (RULE_KEYS.every(key => next[key] === this.settings[key])) return null;   // nothing changes
+    if (!this.started) {
+      Object.assign(this.settings, next);      // (copies next's fields into the room's settings)
+      this.sendLobby();
+      return null;
+    }
+    const seat = this.seats[s], now = Date.now();
+    if (this.rulesAsk || now - seat.lastRulesAsk < RULES_ASK_GAP_MS) return null;
+    seat.lastRulesAsk = now;
+    this.rulesAsk = { by: seat, settings: next, agreed: new Set([seat]),
+                      timer: setTimeout(() => this.dropRulesAsk(), RULES_ASK_MS) };
+    this.checkRules();                         // (with nobody else connected it applies at once)
+    this.sendLobby();
+    return null;
+  }
+
+  // Seat s agrees to the new rules
+  rulesYes(s) {
+    if (!this.rulesAsk || !this.seats[s].token) return null;
+    this.rulesAsk.agreed.add(this.seats[s]);
+    this.checkRules();
+    this.sendLobby();
+    return null;
+  }
+
+  // Seat s says no to the new rules (or the host takes the request back)
+  rulesNo(s) {
+    if (this.seats[s].token) this.dropRulesAsk();
+    return null;
+  }
+
+  dropRulesAsk() {
+    if (!this.rulesAsk) return;
+    clearTimeout(this.rulesAsk.timer);
+    this.rulesAsk = null;
+    this.sendLobby();
+  }
+
+  // Has everyone agreed to the new rules? Then they are the room's. A game in progress ends
+  // (unpaused: its held timers belong to it) and a new one is dealt with them; a game that is
+  // over keeps its results on the table, and "New game" uses them.
+  checkRules() {
+    const ask = this.rulesAsk;
+    if (!ask || !this.rulesVoters().every(seat => ask.agreed.has(seat))) return;
+    clearTimeout(ask.timer);
+    this.rulesAsk = null;
+    Object.assign(this.settings, ask.settings);
+    if (!this.started || this.game.state.gameOver) return;
+    this.paused = false;
+    this.pausedTurnLeft = null;
+    this.held.clear();
+    if (this.pauseAsk) { clearTimeout(this.pauseAsk.timer); this.pauseAsk = null; }
+    clearTimeout(this.turnTimer);
+    this.turnTimer = this.turnEnds = this.waitMoment = null;   // (the new game's first turn starts its own)
+    this.newGame();
+    this.queueFlush();
+  }
+
   // ---- Keeping the game moving ----
 
   // The people the game is waiting for right now: whoever's turn it is, the one laying off
@@ -487,6 +580,9 @@ class Room {
       // A request to pause: who asked and who has agreed so far (seat numbers, like `you` and `host`)
       pauseAsk: this.pauseAsk && { by: this.seats.indexOf(this.pauseAsk.by),
                                    agreed: [...this.pauseAsk.agreed].map(seat => this.seats.indexOf(seat)) },
+      // A request to change the rules: the same, and the rules asked for
+      rulesAsk: this.rulesAsk && { by: this.seats.indexOf(this.rulesAsk.by), settings: this.rulesAsk.settings,
+                                   agreed: [...this.rulesAsk.agreed].map(seat => this.seats.indexOf(seat)) },
       people: this.seats.map(other => ({ name: other.name, connected: Boolean(other.socket), left: !other.token,
                                          playing: other.playing, wins: other.wins })),
     }));
@@ -522,10 +618,11 @@ class Room {
     clearTimeout(this.turnTimer);
     clearTimeout(this.nextTimer);
     if (this.pauseAsk) clearTimeout(this.pauseAsk.timer);
+    if (this.rulesAsk) clearTimeout(this.rulesAsk.timer);
     this.held.clear();
     if (this.game) this.game.state.timer = null;
     this.game = null;
   }
 }
 
-module.exports = { Room, cleanSettings, AWAY_AFTER_MS, SETTING_CHOICES };
+module.exports = { Room, cleanSettings, AWAY_AFTER_MS, SETTING_CHOICES, RULE_KEYS };

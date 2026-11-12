@@ -376,6 +376,43 @@ async function main() {
   check(waited && await until(() => waited.turnLeft > 0 && waited.turnLeft <= TURN_LIMIT_MS), "...and the turn countdown is back");
   check(waited && await until(() => waited.view.seats[0] === "away", TURN_LIMIT_MS + 2000), "...and runs out as before");
 
+  // ---- Changing the rules: at once in the lobby, by agreement once a game has started ----
+  const eva = await connect(port), max = await connect(port);
+  send(eva, { type: "create", name: "Eva", settings: { players: 3, deckSize: 40 } });
+  await until(() => eva.code);
+  send(max, { type: "join", code: eva.code, name: "Max" });
+  await until(() => max.lobby);
+  send(max, { type: "rules", settings: { deckSize: 48 } });
+  send(eva, { type: "rules", settings: { deckSize: 41 } });
+  await until(() => max.errors.length && eva.errors.length);
+  check(max.errors.includes("online.err.notHost") && eva.errors.includes("online.err.badMessage"),
+        "new rules from someone else, or a value that is not a choice, are refused");
+  send(eva, { type: "rules", settings: { deckSize: 48 } });
+  check(await until(() => max.lobby.settings.deckSize === 48 && !max.lobby.rulesAsk),
+        "in the lobby the host's new rules are the room's at once");
+  send(eva, { type: "start" });
+  check(await until(() => eva.view && max.view && max.view.deckSize === 48), "...and the game is dealt with them");
+  send(eva, { type: "rules", settings: { deckSize: 40, roundLimit: 5 } });
+  check(await until(() => max.lobby.rulesAsk && max.lobby.rulesAsk.by === 0 && max.lobby.rulesAsk.settings.roundLimit === 5 &&
+                          max.lobby.settings.deckSize === 48),
+        "during a game, new rules are a request the others see, not a change yet");
+  send(max, { type: "rulesno" });
+  check(await until(() => eva.lobby.rulesAsk === null), "a no drops the request");
+  send(eva, { type: "rules", settings: { deckSize: 40 } });  // too soon after her last request: ignored
+  await sleep(50);
+  check(eva.lobby.rulesAsk === null, "the host cannot ask again straight away");
+  send(eva, { type: "host", seat: 1 });
+  await until(() => max.lobby.host === 1);
+  send(max, { type: "rules", settings: { deckSize: 40, roundLimit: 5 } });
+  await until(() => eva.lobby.rulesAsk);
+  const dealsBefore = eva.view.deals;
+  send(eva, { type: "rulesyes" });
+  check(await until(() => !eva.lobby.rulesAsk && eva.lobby.settings.deckSize === 40 && max.lobby.settings.roundLimit === 5),
+        "once everyone agrees, the new rules are the room's");
+  check(await until(() => eva.view.deals > dealsBefore && eva.view.deckSize === 40 && eva.view.roundLimit === 5 &&
+                          eva.view.round === 1 && max.view.deckSize === 40),
+        "...and a new game is dealt with them");
+
   // ---- The host's tools ----
   const host = await connect(port), j1 = await connect(port), j2 = await connect(port);
   send(host, { type: "create", name: "Host", settings: { players: 3 } });

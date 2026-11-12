@@ -86,6 +86,15 @@ try { ({ startServer } = require('../../server/server')); } catch (err) {
   check(await ana.locator('#online-people button').count() === 2 && await luis.locator('#online-people button').count() === 0,
         'the host gets Make host and Remove by the other player; Luis gets no buttons');
   check(await ana.isVisible('#online-seats-row') && !(await luis.isVisible('#online-seats-row')), 'only the host can change the seats');
+  check(await ana.isVisible('#online-change-rules') && !(await luis.isVisible('#online-change-rules')), '...and the rules');
+  await ana.click('#online-change-rules');
+  check(await ana.inputValue('#room-round-limit') === '10' && await ana.inputValue('#room-deck-size') === '48',
+        "the host's form starts at the room's rules");
+  await ana.selectOption('#room-reshuffles', '3');
+  await ana.click('#online-rules-send');
+  await luis.waitForFunction(() => online.lobby.settings.maxReshuffles === 3);
+  check(!(await luis.isVisible('#online-rules-ask')) && !(await ana.isVisible('#online-rules-form')),
+        'before the first game, the new rules are the room\'s at once (nobody is asked)');
   check(await noOverflow(ana), "the host's lobby fits at 390px");
   await ana.screenshot({ path: `${OUT}/online-host-en-390.png` });
   check(await noOverflow(luis), 'the online sheet fits at 390px (Spanish)');
@@ -161,6 +170,31 @@ try { ({ startServer } = require('../../server/server')); } catch (err) {
   await ana.waitForFunction(() => !onlinePaused());
   await luis.waitForFunction(() => !onlinePaused());
   check(!(await ana.isVisible('#pause-bar')) && !(await luis.isVisible('#pause-bar')), 'Resume goes on with the game for both');
+
+  // ---- New rules during the game: Ana asks, Luis agrees under the table, a new game starts ----
+  const dealsBeforeRules = await ana.evaluate(() => state.deals);
+  await ana.click('#online-chip');
+  await ana.click('#online-change-rules');
+  await ana.selectOption('#room-round-limit', '5');
+  check(await noOverflow(ana), "the host's form for new rules fits at 390px");
+  await ana.waitForTimeout(400);                 // (the panel slides in, for the screenshot)
+  await ana.locator('#online-rules-send').scrollIntoViewIfNeeded();
+  await ana.screenshot({ path: `${OUT}/online-rules-form-en-390.png` });
+  await ana.click('#online-rules-send');
+  check(!(await ana.isVisible('#online-sheet')), 'asking for new rules closes the room panel...');
+  await ana.waitForSelector('#rules-bar', { state: 'visible' });
+  check(await ana.locator('#rules-bar button').count() === 1, '...and Ana waits for the others (and may take it back)');
+  await luis.waitForSelector('#rules-bar', { state: 'visible' });
+  const rulesText = await luis.textContent('#rules-bar');
+  check(rulesText.includes('Ana') && rulesText.includes('10 → 5') && await luis.locator('#rules-bar li').count() === 1,
+        'Luis is asked, and sees only what would change');
+  check(await noOverflow(luis), '...in a bar that fits at 390px');
+  await luis.screenshot({ path: `${OUT}/online-rules-ask-es-390.png` });
+  await luis.locator('#rules-bar button').first().click();
+  await ana.waitForFunction(d => state.deals > d && state.round === 1 && state.roundLimit === 5, dealsBeforeRules);
+  await luis.waitForFunction(() => state.roundLimit === 5 && !online.lobby.rulesAsk);
+  check(!(await ana.isVisible('#rules-bar')) && !(await luis.isVisible('#rules-bar')),
+        'once he agrees, a new game starts with the new rules for both');
 
   // ---- Luis's time runs out (done by the server here): a bar gives him his seat back ----
   const room = [...server.rooms.values()][0];

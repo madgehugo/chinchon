@@ -183,6 +183,9 @@
   <button id="pause-no" class="secondary" data-i18n="online.pauseNo">Keep playing</button>
   <button id="pause-resume" data-i18n="online.resume">Resume</button>
 </div>
+<!-- Online: the host asked to change the rules (agree or say no). renderRulesAsk in
+     ui_online.js fills it, and the same in #online-rules-ask in the room panel. -->
+<div id="rules-bar" class="rules-ask" hidden role="status"></div>
 
 <!-- Hints: how the evaluator sees your hand (see renderAnalysis) -->
 <div id="analysis"></div>
@@ -364,6 +367,17 @@
       <button id="online-pause" class="secondary" data-i18n="online.pause">Pause the game</button>
       <h3 data-i18n="online.rulesH">This room's rules</h3>
       <dl id="online-rules"></dl>
+      <!-- A request to change the rules (the same as #rules-bar under the table) -->
+      <div id="online-rules-ask" class="rules-ask" hidden></div>
+      <!-- Only for the host: change the rules. The form has copies of the Settings dropdowns
+           (made by makeRulePicks in ui_online.js), set to the room's rules when it opens. -->
+      <button id="online-change-rules" class="secondary" data-i18n="online.changeRules">Change the rules</button>
+      <div id="online-rules-form" class="online-part" hidden>
+        <div id="room-rule-picks" class="online-part"></div>
+        <p id="online-rules-note" class="online-note"></p>
+        <button id="online-rules-send"></button>
+        <button id="online-rules-cancel" class="secondary" data-i18n="online.rulesCancel">Cancel</button>
+      </div>
       <button id="online-leave" class="secondary" data-i18n="online.leave">Leave room</button>
     </div>
     <p id="online-waking" class="online-note" data-i18n="online.waking" role="status" hidden>The game server is waking up. This can take up to a minute.</p>

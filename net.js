@@ -218,13 +218,17 @@ function askServer(message) {
   render();
 }
 
-// Room messages from ui.js: "I'm back", a reaction, pausing, and the host's tools (see server/server.js)
+// Room messages from ui.js: "I'm back", a reaction, pausing, the host's tools and the vote on
+// new rules (see server/server.js)
 const sendBack      = ()     => sendOnline({ type: "back" });
 const sendReaction  = id     => sendOnline({ type: "react", id });
 const sendPause     = ()     => sendOnline({ type: "pause" });     // ask to pause, or agree to pause
 const sendNoPause   = ()     => sendOnline({ type: "nopause" });   // say no to pausing (or take back your request)
 const sendResume    = ()     => sendOnline({ type: "resume" });
 const setRoomPlayers = n     => sendOnline({ type: "players", players: n });
+const proposeRules  = settings => sendOnline({ type: "rules", settings });   // the host's new rules
+const sendRulesYes  = ()     => sendOnline({ type: "rulesyes" });  // agree to the new rules
+const sendRulesNo   = ()     => sendOnline({ type: "rulesno" });   // say no to them (or take back your request)
 const removePlayer  = seat   => sendOnline({ type: "remove", seat });
 const makeHost      = seat   => sendOnline({ type: "host", seat });
 

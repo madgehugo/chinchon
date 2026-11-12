@@ -23,6 +23,10 @@
        resume  {}                   go on with a paused game (anyone at the table)
        again   {}                   a new game in the same room, once a game is over
        players { players }          the host changes the number of seats (between games)
+       rules   { settings }         the host changes the rules (deck, CPU level...; not the seats):
+                                    in the lobby at once, after that once everyone agrees
+       rulesyes {}                  agree to the host's new rules
+       rulesno {}                   say no to the new rules (or, the host, take the request back)
        remove  { seat }             the host removes a player from the room
        host    { seat }             the host hands the room to another player
        ping    {}                   "are you there?" (the page checks its connection when it wakes up)
@@ -32,9 +36,10 @@
        leave   {}                   leave the room for good
      server -> page
        joined  { code, token }      you are in; keep the token to rejoin
-       lobby   { code, you, host, started, gameOver, players, settings, cpuWins, paused, pauseAsk, people }
-                                    who is in the room, its rules, the games each has won, and
-                                    whether the game is paused or someone asked to pause it
+       lobby   { code, you, host, started, gameOver, players, settings, cpuWins, paused, pauseAsk, rulesAsk, people }
+                                    who is in the room, its rules, the games each has won,
+                                    whether the game is paused or someone asked to pause it, and
+                                    the host's request to change the rules
        view    { state, turnLeft }  the game as you may see it (server/view.js), and the
                                     milliseconds you have left for your turn (null: no limit running)
        react   { who, id }          somebody's reaction (who: their seat, in your numbering)
@@ -181,6 +186,9 @@ function startServer(port = PORT) {
     resume:  (room, s)    => room.resume(s),
     again:   (room, s)    => room.again(s),
     players: (room, s, m) => room.setPlayers(s, m.players),
+    rules:   (room, s, m) => room.proposeRules(s, m.settings),
+    rulesyes: (room, s)   => room.rulesYes(s),
+    rulesno: (room, s)    => room.rulesNo(s),
     remove:  (room, s, m) => room.remove(s, m.seat),
     host:    (room, s, m) => room.makeHost(s, m.seat),
   };
